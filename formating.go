@@ -22,7 +22,7 @@ func formatLineReturns(s string) string {
 	return cleaned
 }
 
-func outputRawJSON(res any) {
+func outputRawJSON(res *[]flow.ScriptResult) {
 	jsonBytes, err := json.Marshal(res)
 	if err != nil {
 		fmt.Printf("[{\"script_id\": \"system\", \"return_code\": 1, \"results_string\": \"JSON encoding error: %v\"}]\n", err)
@@ -31,10 +31,10 @@ func outputRawJSON(res any) {
 	// Pass JSON output through line return cleanup before printing to stdout
 	fmt.Println(formatLineReturns(string(jsonBytes)))
 }
-func outputJSON(res []flow.ScriptResult) {
+func outputJSON(res *[]flow.ScriptResult) {
 	var printable []PrintableResult
 
-	for _, r := range res {
+	for _, r := range *res {
 		cleanStr := formatLineReturns(r.ResultsString)
 		var val interface{} = cleanStr
 
@@ -82,15 +82,15 @@ func outputJSON(res []flow.ScriptResult) {
 	}
 }
 
-func outputText(res []flow.ScriptResult) {
-	for _, r := range res {
+func outputText(res *[]flow.ScriptResult) {
+	for _, r := range *res {
 		fmt.Printf("ScriptID: %s\nReturnCode: %d\nResultsString: %s\n\n", r.ScriptID, r.ReturnCode, r.ResultsString)
 	}
 }
-func outputMarkdownTable(res []flow.ScriptResult) {
+func outputMarkdownTable(res *[]flow.ScriptResult) {
 	fmt.Println("| Script ID | Return Code | Results |")
 	fmt.Println("| :--- | :--- | :--- |")
-	for _, r := range res {
+	for _, r := range *res {
 		// Escape newlines and pipe symbols to prevent table formatting breaks
 		cleanResults := strings.ReplaceAll(r.ResultsString, "\n", "<br>")
 		cleanResults = strings.ReplaceAll(cleanResults, "|", "\\|")

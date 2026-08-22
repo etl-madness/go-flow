@@ -28,7 +28,7 @@ func main() {
 	// 1. Optional XSD Validation Pass (runs xmllint if -xsd flag is provided)
 	if *xsdPath != "" {
 		if err := flow.ValidateXSD(*filePath, *xsdPath); err != nil {
-			outputJSON([]flow.ScriptResult{{
+			outputJSON(&[]flow.ScriptResult{{
 				ScriptID:      "system",
 				ReturnCode:    1,
 				ResultsString: err.Error(),
@@ -40,7 +40,7 @@ func main() {
 	// 2. Load and Parse XML File
 	fileBytes, err := os.ReadFile(*filePath)
 	if err != nil {
-		outputJSON([]flow.ScriptResult{{
+		outputJSON(&[]flow.ScriptResult{{
 			ScriptID:      "system",
 			ReturnCode:    1,
 			ResultsString: fmt.Sprintf("Error reading script file: %v", err),
@@ -50,7 +50,7 @@ func main() {
 	if *xsltPath != "" {
 		xsltBytes, err := os.ReadFile(*xsltPath)
 		if err != nil {
-			outputJSON([]flow.ScriptResult{{
+			outputJSON(&[]flow.ScriptResult{{
 				ScriptID:      "system",
 				ReturnCode:    1,
 				ResultsString: fmt.Sprintf("Error reading XSLT file: %v", err),
@@ -61,7 +61,7 @@ func main() {
 		// Generate diagram prior to running XSLT transformation
 		diagram, err := generateMermaid(fileBytes)
 		if err != nil {
-			outputJSON([]flow.ScriptResult{{
+			outputJSON(&[]flow.ScriptResult{{
 				ScriptID:      "system",
 				ReturnCode:    1,
 				ResultsString: fmt.Sprintf("Mermaid generation error: %v", err),
@@ -71,7 +71,7 @@ func main() {
 
 		fileBytes, err = ProcessXSLT(fileBytes, xsltBytes, diagram, filePath)
 		if err != nil {
-			outputJSON([]flow.ScriptResult{{
+			outputJSON(&[]flow.ScriptResult{{
 				ScriptID:      "system",
 				ReturnCode:    1,
 				ResultsString: fmt.Sprintf("XSLT processing error: %v", err),
@@ -86,7 +86,7 @@ func main() {
 
 	varConfigs, dbConfigs, nodes, err := flow.ParseXMLConfig(fileBytes)
 	if err != nil {
-		outputJSON([]flow.ScriptResult{{
+		outputJSON(&[]flow.ScriptResult{{
 			ScriptID:      "system",
 			ReturnCode:    1,
 			ResultsString: fmt.Sprintf("XML parsing error in script file: %v", err),
@@ -97,7 +97,7 @@ func main() {
 	if *configPath != "" {
 		configBytes, err := os.ReadFile(*configPath)
 		if err != nil {
-			outputJSON([]flow.ScriptResult{{
+			outputJSON(&[]flow.ScriptResult{{
 				ScriptID:      "system",
 				ReturnCode:    1,
 				ResultsString: fmt.Sprintf("Error reading config override file: %v", err),
@@ -107,7 +107,7 @@ func main() {
 
 		overrideVars, overrideDBs, _, err := flow.ParseXMLConfig(configBytes)
 		if err != nil {
-			outputJSON([]flow.ScriptResult{{
+			outputJSON(&[]flow.ScriptResult{{
 				ScriptID:      "system",
 				ReturnCode:    1,
 				ResultsString: fmt.Sprintf("XML parsing error in config file: %v", err),
@@ -121,7 +121,7 @@ func main() {
 
 	// 3. Semantic AST Validation Pass
 	if err := flow.ValidateAST(nodes, dbConfigs); err != nil {
-		outputJSON([]flow.ScriptResult{{
+		outputJSON(&[]flow.ScriptResult{{
 			ScriptID:      "system",
 			ReturnCode:    1,
 			ResultsString: err.Error(),
@@ -130,7 +130,7 @@ func main() {
 	}
 
 	if *validateOnly {
-		outputJSON([]flow.ScriptResult{{
+		outputJSON(&[]flow.ScriptResult{{
 			ScriptID:      "system",
 			ReturnCode:    0,
 			ResultsString: "XML pipeline schema (XSD) and AST structure are valid.",
@@ -144,7 +144,7 @@ func main() {
 	registry := flow.NewRegistry()
 
 	if err := registry.InitVariables(varConfigs); err != nil {
-		outputJSON([]flow.ScriptResult{{
+		outputJSON(&[]flow.ScriptResult{{
 			ScriptID:      "system",
 			ReturnCode:    1,
 			ResultsString: err.Error(),
@@ -155,7 +155,7 @@ func main() {
 	applyVariableOverrides(registry, *varOverrides)
 
 	if err := registry.InitDatabases(dbConfigs); err != nil {
-		outputJSON([]flow.ScriptResult{{
+		outputJSON(&[]flow.ScriptResult{{
 			ScriptID:      "system",
 			ReturnCode:    1,
 			ResultsString: err.Error(),
@@ -173,13 +173,13 @@ func main() {
 	results, execErr := executor.Execute(nodes)
 	switch strings.ToLower(*format) {
 	case "markdown", "md", "table":
-		outputMarkdownTable(results)
+		outputMarkdownTable(&results)
 	case "text":
-		outputText(results)
+		outputText(&results)
 	case "json":
-		outputRawJSON(results)
+		outputRawJSON(&results)
 	default:
-		outputJSON(results)
+		outputJSON(&results)
 	}
 	// outputJSON(results)
 	end := time.Now()

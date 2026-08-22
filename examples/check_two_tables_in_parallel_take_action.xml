@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline>
+    <!-- 1. GLOBAL VARIABLES -->
+    <variables>
+        <variable name="Database1ConnStr" type="string" value="sqlserver://T15P:1433?database=PROTO&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="Database2ConnStr" type="string" value="sqlserver://T15P:1433?database=AdventureWorks2019&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="TABLE" type="string" value="[dbo].[GcpBillingExport]" />
+    </variables>
+
+    <!-- 2. DATABASES (Using variable placeholders {{VarName}}) -->
+    <databases>
+        <database name="source_db" connection_string="{{Database1ConnStr}}" />
+        <database name="target_db" connection_string="{{Database2ConnStr}}" />
+    </databases>
+
+    <!-- 3. PIPELINE EXECUTION ENGINE -->
+    <scripts>
+
+        <parallel max_workers="2">
+            <!-- Step A: Parallel Execution Block -->
+            <script id="is_source_data_uptodate" language="sql" db="source_db" output_var="SOURCE_MAX_DATE">
+                <![CDATA[
+                SELECT ISNULL(MAX(ExportTime), '1900-01-01') AS SOURCE_MAX_DATE
+                FROM {{TABLE}};
+            ]]>
+            </script>
+            <script id="is_target_data_uptodate" language="sql" db="target_db" output_var="TARGET_MAX_DATE">
+                <![CDATA[
+                SELECT ISNULL(MAX(ExportTime), '1900-01-01') AS TARGET_MAX_DATE
+                FROM {{TABLE}};
+            ]]>
+            </script>
+
+        </parallel>
+        <script id="compare_dates" language="go" output_variable="NEEDS_ACTION">
+            <![CDATA[
+            package main
+
+            import (
+                "fmt"
+                "host/vars/vars"
+            )
+
+            func main() {
+
+                source_max_date := vars.GetString("SOURCE_MAX_DATE")
+                target_max_date := vars.GetString("TARGET_MAX_DATE")
+                if  source_max_date  != "" && target_max_date != "" && source_max_date != target_max_date {
+
+                    fmt.Println("true")
+                } else {
+                    fmt.Println("false")
+                }
+            }
+            ]]>
+        </script>
+        <!-- Step B: Conditional Execution Block -->
+        <if id="check_needs_action" var="NEEDS_ACTION" equal="true">
+            <then>
+
+                <!-- Task 1: SQL Cleanup Query -->
+                <script id="truncate_target_table" language="sql" db="target_db">
+                    <![CDATA[
+                        TRUNCATE TABLE {{TABLE}};
+                        ]]>
+                </script>
+
+
+                <!-- Task 2: SQL ETL Query -->
+                <script id="Task3_StreamETL" language="sql" db="source_db" target_db="target_db" target_table="{{TABLE}}" batch_size="5000">
+                    <![CDATA[
+                        SELECT * FROM {{TABLE}};
+                        ]]>
+                </script>
+
+            </then>
+            <else>
+                <!-- Step D: Foreach Loop executing per row returned by GetDatabasesQuery -->
+                <script id="NO_ACTION_REQUIRED" language="sql" db="target_db">
+                    <![CDATA[
+                    SELECT 'No action required. Target table is up to date.' AS alert;
+                    ]]>
+                </script>
+            </else>
+        </if>
+    </scripts>
+</pipeline>
