@@ -46,7 +46,7 @@
                             package main
                             import (
                                 "fmt"
-                                "host/vars/vars"
+                                "host/vars"
                             )
                             func main() {
                                 sourceTable := vars.GetString("source_table")

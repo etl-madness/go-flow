@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/etl-madness/flow"
@@ -164,13 +167,16 @@ func main() {
 	}
 	defer registry.CloseDatabases()
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	executor := flow.NewExecutor(registry)
 	executor.SetVerbose(*debug)
 	executor.SetGoPath(*goPath)
 	executor.SetInterpHook(func(opts *interp.Options) {
 		opts.Unrestricted = true
 	})
-	results, execErr := executor.Execute(nodes)
+	results, execErr := executor.Execute(ctx, nodes)
 	switch strings.ToLower(*format) {
 	case "markdown", "md", "table":
 		outputMarkdownTable(&results)

@@ -36,7 +36,7 @@
                     package main
                     import (
                         "fmt"
-                        "host/vars/vars"
+                        "host/vars"
                     )
                     func main() {
                         regionID := vars.GetString("database_id")

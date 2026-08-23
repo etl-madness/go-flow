@@ -1,6 +1,6 @@
 # Executing Database Operations from Go Scripts (`GO_TO_SQL.md`)
 
-The `flow` pipeline engine allows developers to write and execute embedded Go scripts that interact with databases natively [cite: 1, 3]. The host engine exposes registered database handles and optimized ETL stream utilities to Go scripts via the virtual `host/db/db` package [cite: 3].
+The `flow` pipeline engine allows developers to write and execute embedded Go scripts that interact with databases natively [cite: 1, 3]. The host engine exposes registered database handles and optimized ETL stream utilities to Go scripts via the virtual `host/db` package [cite: 3].
 
 When your pipeline needs to perform operations that are too complex for standalone SQL statements—such as executing HTTP API lookups per row, running external binary commands, building dynamic query logic, or orchestrating custom transactions—you can retrieve rows and write data directly using these methods [cite: 1, 3].
 
@@ -23,7 +23,7 @@ package main
 
 import (
     "fmt"
-    "host/db/db"
+    "host/db"
 )
 
 func main() {
@@ -104,7 +104,7 @@ package main
 
 import (
     "fmt"
-    "host/db/db"
+    "host/db"
 )
 
 func main() {
@@ -133,7 +133,7 @@ func main() {
 ```
 
 ### Example 2: Stream ETL Configured via Execution Variables
-This example demonstrates combining the `host/vars/vars` package with `db.StreamETL` to inject dynamically evaluated pipeline parameters directly into the stream config [cite: 3].
+This example demonstrates combining the `host/vars` package with `db.StreamETL` to inject dynamically evaluated pipeline parameters directly into the stream config [cite: 3].
 
 ```xml
 <pipeline>
@@ -150,8 +150,8 @@ This example demonstrates combining the `host/vars/vars` package with `db.Stream
 
         import (
             "fmt"
-            "host/db/db"
-            "host/vars/vars"
+            "host/db"
+            "host/vars"
         )
 
         func main() {
@@ -196,7 +196,7 @@ This example demonstrates combining the `host/vars/vars` package with `db.Stream
 ## Method 3: Running External Commands (`bqBilling`) & Streaming via `db.StreamETL`
 
 ### Description
-In this workflow, an embedded Go script retrieves environment/pipeline variables using `host/vars/vars` [cite: 3], sets up operating system environment variables required by an external CLI utility like `bqBilling` [cite: 23], executes `bqBilling` using `os/exec` [cite: 3, 23], parses its JSON or text output [cite: 23], and uses the parsed information (such as target billing table paths or dynamic query criteria) to trigger `db.StreamETL` [cite: 2, 3].
+In this workflow, an embedded Go script retrieves environment/pipeline variables using `host/vars` [cite: 3], sets up operating system environment variables required by an external CLI utility like `bqBilling` [cite: 23], executes `bqBilling` using `os/exec` [cite: 3, 23], parses its JSON or text output [cite: 23], and uses the parsed information (such as target billing table paths or dynamic query criteria) to trigger `db.StreamETL` [cite: 2, 3].
 
 ### `bqBilling` Binary Context
 The `bqBilling` tool requires three environment variables to execute [cite: 23]:
@@ -229,8 +229,8 @@ It queries the specified BigQuery table and outputs formatted JSON records conta
             "os"
             "os/exec"
             "strings"
-            "host/db/db"
-            "host/vars/vars"
+            "host/db"
+            "host/vars"
         )
 
         // BillingSummary represents structured output parsed from bqBilling output

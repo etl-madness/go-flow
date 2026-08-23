@@ -47,7 +47,7 @@
                     "fmt"
                     "io"
                     "net/http"
-                    "host/vars/vars"
+                    "host/vars"
                 )
 
                 func main() {

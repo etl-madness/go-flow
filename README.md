@@ -306,8 +306,8 @@ Allows scripts to query, parse, and write pipeline variables.
 ### Package `host/db`
 Allows scripts to fetch active SQL connections and perform bulk streaming operations.
 * **`db.Get(name string) (*sql.DB, error)`**: Returns the underlying native SQL Server connection pool (`*sql.DB`) for custom queries.
-* **`db.StreamETL(srcDB, query, dstDB, targetTable, batchSize, tablock, checkConstraints, fireTriggers, keepNulls) (int64, error)`**: Efficiently streams rows line-by-line from a source database query, executing chunked batch parameter queries into a target table.
- 
+* **`db.StreamETL(srcDB, query, dstDB, targetTable string, opts db.ETLOptions) (int64, error)`**: Efficiently streams rows line-by-line from a source database query, executing chunked batch parameter queries into a target table using `db.ETLOptions` batch/performance options.
+
 ---
 
 ## Configuration & Pipeline Examples
@@ -415,7 +415,7 @@ Queries databases, maps output columns directly into temporary context variables
                     package main
                     import (
                         "fmt"
-                        "host/vars/vars"
+                        "host/vars"
                     )
                     func main() {
                         regionID := vars.GetString("database_id")

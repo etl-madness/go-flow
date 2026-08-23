@@ -38,7 +38,7 @@
 
             import (
                 "fmt"
-                "host/vars/vars"
+                "host/vars"
             )
 
             func main() {

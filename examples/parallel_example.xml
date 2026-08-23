@@ -33,7 +33,7 @@
                     package main
                     import (
                         "fmt"
-                        "host/vars/vars"
+                        "host/vars"
                     )
                     func main() {
                         fmt.Printf("Connected to master DB. EnableParallelJobs flag = %v\n", vars.GetBool("EnableParallelJobs"))
@@ -92,7 +92,7 @@
                             package main
                             import (
                                 "fmt"
-                                "host/vars/vars"
+                                "host/vars"
                             )
                             func main() {
                                 dbName := vars.GetString("name")

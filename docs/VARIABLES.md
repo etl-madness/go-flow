@@ -26,7 +26,7 @@ flowchart TD
     R --> D{"Pipeline Executor"}
 
     D -->|"SQL Engine"| E["Interpolate {{VarName}} in Queries"]
-    D -->|"Go Engine (Yaegi)"| F["Access via host/vars/vars Package"]
+    D -->|"Go Engine (Yaegi)"| F["Access via host/vars Package"]
     D -->|"If / While Node"| G["evalCondition(varName, expectedVal)"]
     D -->|"ForEach Node"| H["Inject Column Vars & LOOP_INDEX"]
 
@@ -143,7 +143,7 @@ SQL scripts replace placeholders encased in double curly braces `{{VariableName}
 ```
 
 ### Passing and Using Variables in Go Scripts
-Embedded Go scripts interact with the host pipeline registry via the `host/vars/vars` virtual package.
+Embedded Go scripts interact with the host pipeline registry via the `host/vars` virtual package.
 
 ```xml
 <pipeline>
@@ -158,7 +158,7 @@ Embedded Go scripts interact with the host pipeline registry via the `host/vars/
 
             import (
                 "fmt"
-                "host/vars/vars"
+                "host/vars"
             )
 
             func main() {
@@ -231,7 +231,7 @@ When you need to output multiple distinct values from a script to be consumed as
                 "fmt"
                 "strings"
                 "strconv"
-                "host/vars/vars"
+                "host/vars"
             )
             func main() {
                 raw := vars.GetString("MultiParams")
@@ -283,7 +283,7 @@ For complex, structured data, you can output a JSON string, capture it, and pars
             import (
                 "encoding/json"
                 "fmt"
-                "host/vars/vars"
+                "host/vars"
             )
             type ConnectionDetails struct {
                 Host string `json:"host"`
@@ -327,7 +327,7 @@ You can easily pass state between dynamic Go interpreter scripts and C# process-
             package main
             import (
                 "fmt"
-                "host/vars/vars"
+                "host/vars"
             )
             func main() {
                 csVal := vars.GetString("CS_Result")

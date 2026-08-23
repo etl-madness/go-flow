@@ -37,7 +37,7 @@
                 "os"
                 "regexp"
                 "strings"
-                "host/vars/vars"
+                "host/vars"
             )
 
             func main() {
@@ -86,7 +86,7 @@
                 "os"
                 "regexp"
                 "strings"
-                "host/vars/vars"
+                "host/vars"
             )
 
             func main() {
@@ -137,7 +137,7 @@
                 "path/filepath"
                 "strings"
                 "time"
-                "host/vars/vars"
+                "host/vars"
             )
 
             type Response struct {
