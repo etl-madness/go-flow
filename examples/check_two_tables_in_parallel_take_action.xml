@@ -67,7 +67,7 @@
 
 
                 <!-- Task 2: SQL ETL Query -->
-                <script id="Task3_StreamETL" language="sql" db="source_db" target_db="target_db" target_table="{{TABLE}}" batch_size="5000">
+                <script id="StreamETL_to_target" language="sql" db="source_db" target_db="target_db" target_table="{{TABLE}}" tablock="true" batch_size="50000">
                     <![CDATA[
                         SELECT * FROM {{TABLE}};
                         ]]>
@@ -75,10 +75,18 @@
 
             </then>
             <else>
-                <!-- Step D: Foreach Loop executing per row returned by GetDatabasesQuery -->
-                <script id="NO_ACTION_REQUIRED" language="sql" db="target_db">
+
+                <script id="NO_ACTION_REQUIRED" language="go">
                     <![CDATA[
-                    SELECT 'No action required. Target table is up to date.' AS alert;
+                    package main
+
+                    import (
+                        "fmt"
+                    )
+
+                    func main() {
+                        fmt.Println("No action required. Target table is up to date.")
+                    }
                     ]]>
                 </script>
             </else>

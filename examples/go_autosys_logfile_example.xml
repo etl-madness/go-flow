@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline>
+    <!-- Pipeline Variables -->
+    <variables>
+        <variable name="JOB_NAME" type="string" value="APPTEAM_JOB_1" />
+        <variable name="BASIC_AUTH" type="string" value="Basic TOKEN" />
+        <variable name="aewsServer" type="string" value="https://autosys-web-server.example.com:9443" />
+        <variable name="Database1ConnStr" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
+    </variables>
+
+    <databases>
+        <database name="database1" connection_string="{{Database1ConnStr}}" />
+    </databases>
+
+    <scripts>
+        <!-- Step 1: Script A runs and stores its output ('true' or 'false') into 'DATA_UPTODATE' -->
+        <script id="is_data_uptodate" language="sql" db="database1" output_var="DATA_UPTODATE">
+            <![CDATA[
+            SELECT CASE 
+                WHEN EXISTS (
+                    SELECT 1 
+                    FROM [PROTO].[dbo].[GcpBillingExport]
+                    WHERE CONVERT(DATE, ExportTime) = CONVERT(DATE, GETUTCDATE())
+                ) THEN 'true' 
+                ELSE 'false' 
+            END AS [DATA_UPTODATE];
+        ]]>
+        </script>
+        <if var="DATA_UPTODATE" equals="false">
+            <then>
+                <!-- Output stored into JIL_CONTENT so parse_jil_command can read it -->
+                <script id="get_jil_command" language="go" output_variable="JIL_CONTENT">
+                    <![CDATA[
+                package main
+
+                import (
+                    "crypto/tls"
+                    "fmt"
+                    "io"
+                    "log"
+                    "net/http"
+                    "net/url"
+                    "strings"
+                    "time"
+                    "host/vars"
+                )
+
+                func FetchJobJILWithAuthHeader(serverURL, jobName, basicAuthString string) (string, error) {
+                    baseURL, err := url.Parse(fmt.Sprintf("%s/AEWS/jil/job", serverURL))
+                    if err != nil {
+                        return "", fmt.Errorf("failed to parse base URL: %w", err)
+                    }
+
+                    queryParams := baseURL.Query()
+                    queryParams.Set("name", jobName)
+                    baseURL.RawQuery = queryParams.Encode()
+
+                    req, err := http.NewRequest("GET", baseURL.String(), nil)
+                    if err != nil {
+                        return "", fmt.Errorf("failed to create HTTP request: %w", err)
+                    }
+
+                    authHeader := strings.TrimSpace(basicAuthString)
+                    if !strings.HasPrefix(strings.ToLower(authHeader), "basic ") {
+                        authHeader = "Basic " + authHeader
+                    }
+
+                    req.Header.Set("Authorization", authHeader)
+                    req.Header.Set("Accept", "text/plain")
+
+                    client := &http.Client{
+                        Timeout: 30 * time.Second,
+                        Transport: &http.Transport{
+                            TLSClientConfig: &tls.Config{
+                                InsecureSkipVerify: true,
+                            },
+                        },
+                    }
+
+                    resp, err := client.Do(req)
+                    if err != nil {
+                        return "", fmt.Errorf("request to AutoSys Web Server failed: %w", err)
+                    }
+                    defer resp.Body.Close()
+
+                    body, err := io.ReadAll(resp.Body)
+                    if err != nil {
+                        return "", fmt.Errorf("failed to read response body: %w", err)
+                    }
+
+                    if resp.StatusCode != http.StatusOK {
+                        return "", fmt.Errorf("AEWS returned status %d: %s", resp.StatusCode, string(body))
+                    }
+
+                    return string(body), nil
+                }
+
+                func main() {
+                    aewsServer := vars.GetString("aewsServer")
+                    if aewsServer == "" {
+                        log.Fatal("Error: aewsServer variable is not set.")
+                    }
+                    jobName := vars.GetString("JOB_NAME")
+                    if jobName == "" {
+                        log.Fatal("Error: JOB_NAME variable is not set.")
+                    }
+
+                    basicAuthToken := vars.GetString("BASIC_AUTH")
+                    if basicAuthToken == "" {
+                        log.Fatal("Error: BASIC_AUTH variable is not set.")
+                    }
+
+                    jilDefinition, err := FetchJobJILWithAuthHeader(aewsServer, jobName, basicAuthToken)
+                    if err != nil {
+                        log.Fatalf("Error fetching JIL: %v", err)
+                    }
+
+                    fmt.Println(jilDefinition)
+                }
+                ]]>
+                </script>
+
+                <!-- Parses JIL_CONTENT and stores extracted path into FilePath -->
+                <script id="parse_jil_command" language="go" output_variable="FilePath">
+                    <![CDATA[
+                    package main
+
+                    import (
+                        "bufio"
+                        "fmt"
+                        "regexp"
+                        "strings"
+                        "host/vars"
+                    )
+
+                    func main() {
+                        jilContent := vars.GetString("JIL_CONTENT")
+                        if jilContent == "" {
+                            fmt.Print("Error: 'JIL_CONTENT' variable is empty or not found.")
+                            return
+                        }
+
+                        re := regexp.MustCompile(`(?i)^\s*command:\s*"?([^"\r\n]+)"?\s*$`)
+                        scanner := bufio.NewScanner(strings.NewReader(jilContent))
+                        var commandPath string
+
+                        for scanner.Scan() {
+                            line := scanner.Text()
+                            matches := re.FindStringSubmatch(line)
+                            if len(matches) > 1 {
+                                commandPath = strings.Trim(strings.TrimSpace(matches[1]), `"`)
+                                break
+                            }
+                        }
+
+                        if commandPath != "" {
+                            fmt.Print(commandPath)
+                        } else {
+                            fmt.Print("Error: 'command:' definition not found in JIL content.")
+                        }
+                    }
+            ]]>
+                </script>
+
+                <!-- Step 2: Scans FilePath BAT file for SET LOG_FILE and stores path in LOGFILE_RESULTS -->
+                <script id="find_log_in_file" language="go" output_variable="LOGFILE_RESULTS">
+                    <![CDATA[
+            package main
+
+            import (
+                "bufio"
+                "fmt"
+                "os"
+                "regexp"
+                "strings"
+                "host/vars"
+            )
+
+            func main() {
+                targetPath := strings.Trim(strings.TrimSpace(vars.GetString("FilePath")), "\"'")
+                if targetPath == "" {
+                    targetPath = "setup.bat"
+                }
+
+                file, err := os.Open(targetPath)
+                if err != nil {
+                    fmt.Printf("Error: File '%s' not found.", targetPath)
+                    return
+                }
+                defer file.Close()
+
+                // Matches SET LOG_FILE=..., SET "LOG_FILE=...", SET LOGFILE=...
+                re := regexp.MustCompile(`(?i)^\s*SET\s+"?\s*(?:LOG_FILE|LOGFILE)\s*=\s*(.*?)\s*$`)
+                scanner := bufio.NewScanner(file)
+                var logFile string
+
+                for scanner.Scan() {
+                    line := scanner.Text()
+                    matches := re.FindStringSubmatch(line)
+                    if len(matches) > 1 {
+                        logFile = strings.Trim(strings.TrimSpace(matches[1]), "\"'")
+                        break
+                    }
+                }
+
+                if logFile != "" {
+                    fmt.Print(logFile)
+                } else {
+                    fmt.Printf("Error: 'SET LOG_FILE' line not found in file '%s'.", targetPath)
+                }
+            }
+            ]]>
+                </script>
+
+                <!-- Step 3: Read Log File Content and Output formatted JSON -->
+                <script id="read_log_content" language="go">
+                    <![CDATA[
+            package main
+
+            import (
+                "bytes"
+                "encoding/json"
+                "fmt"
+                "os"
+                "path/filepath"
+                "strings"
+                "time"
+                "host/vars"
+            )
+
+            type Response struct {
+                Content   string `json:"content"`
+                Timestamp string `json:"timestamp"`
+                Status    string `json:"status"`
+            }
+
+            func main() {
+                batPath := strings.Trim(strings.TrimSpace(vars.GetString("FilePath")), "\"'")
+                rawLogPath := strings.Trim(strings.TrimSpace(vars.GetString("LOGFILE_RESULTS")), "\"'")
+
+                if rawLogPath == "" || strings.HasPrefix(rawLogPath, "Error:") {
+                    fmt.Printf("Error resolving log file path: %s\n", rawLogPath)
+                    return
+                }
+
+                cleanLogPath := filepath.FromSlash(strings.ReplaceAll(rawLogPath, "\\", "/"))
+                resolvedPath := cleanLogPath
+
+                if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
+                    if batPath != "" {
+                        batDir := filepath.Dir(batPath)
+                        fallback := filepath.Join(batDir, cleanLogPath)
+                        if _, err := os.Stat(fallback); err == nil {
+                            resolvedPath = fallback
+                        }
+                    }
+                }
+
+                contentBytes, err := os.ReadFile(resolvedPath)
+                if err != nil {
+                    fmt.Printf("Error: Log file not found at '%s'\n", resolvedPath)
+                    return
+                }
+
+                cleanContent := strings.ReplaceAll(string(contentBytes), "\r\n", "\n")
+                cleanContent = strings.ReplaceAll(cleanContent, "\r", "")
+
+                res := Response{
+                    Content:   cleanContent,
+                    Timestamp: time.Now().UTC().Format(time.RFC3339),
+                    Status:    "Success",
+                }
+
+                var buf bytes.Buffer
+                enc := json.NewEncoder(&buf)
+                enc.SetEscapeHTML(false)
+                enc.SetIndent("", "  ")
+                if err := enc.Encode(res); err != nil {
+                    fmt.Printf("Error encoding JSON: %v\n", err)
+                    return
+                }
+
+                fmt.Print(strings.TrimRight(buf.String(), "\n"))
+            }
+            ]]>
+                </script>
+            </then>
+            <else>
+                <script id="data_uptodate_message" language="go">
+                    <![CDATA[
+            package main
+            import (
+                "fmt"
+            )
+            func main() {
+                fmt.Println("Data is up-to-date. No further action required.")
+            }
+            ]]>
+                </script>
+            </else>
+        </if>
+    </scripts>
+</pipeline>
