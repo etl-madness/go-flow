@@ -12,6 +12,7 @@ import (
 type PrintableResult struct {
 	ScriptID      string      `json:"script_id"`
 	ReturnCode    any         `json:"return_code"`
+	Duration      any         `json:"duration"`
 	ResultsString interface{} `json:"results_string"`
 }
 
@@ -50,6 +51,7 @@ func outputJSON(res *[]flow.ScriptResult) {
 			ScriptID:      r.ScriptID,
 			ReturnCode:    r.ReturnCode,
 			ResultsString: val,
+			Duration:      r.Duration,
 		})
 	}
 
@@ -84,16 +86,17 @@ func outputJSON(res *[]flow.ScriptResult) {
 
 func outputText(res *[]flow.ScriptResult) {
 	for _, r := range *res {
-		fmt.Printf("ScriptID: %s\nReturnCode: %d\nResultsString: %s\n\n", r.ScriptID, r.ReturnCode, r.ResultsString)
+
+		fmt.Printf("ScriptID: %s\nReturnCode: %d\nDuration: %v\nResultsString: %s\n\n", r.ScriptID, r.ReturnCode, r.Duration, r.ResultsString)
 	}
 }
 func outputMarkdownTable(res *[]flow.ScriptResult) {
-	fmt.Println("| Script ID | Return Code | Results |")
-	fmt.Println("| :--- | :--- | :--- |")
+	fmt.Println("| Script ID | Return Code | Duration | Results |")
+	fmt.Println("| :--- | :--- | :--- | :--- |")
 	for _, r := range *res {
 		// Escape newlines and pipe symbols to prevent table formatting breaks
 		cleanResults := strings.ReplaceAll(r.ResultsString, "\n", "<br>")
 		cleanResults = strings.ReplaceAll(cleanResults, "|", "\\|")
-		fmt.Printf("| %s | %d | %s |\n", r.ScriptID, r.ReturnCode, cleanResults)
+		fmt.Printf("| %s | %d | %v | %s |\n", r.ScriptID, r.ReturnCode, r.Duration, cleanResults)
 	}
 }

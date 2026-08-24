@@ -1,0 +1,61 @@
+<pipeline>
+    <scripts>
+        <!-- 1. SCRIPT TASK: Dynamically creates a value and captures stdout to 'GeneratedToken' -->
+        <script id="GenerateAuthToken" language="go" output_var="GeneratedToken">
+            package main
+
+            import "fmt"
+
+            func main() {
+                // Generate or compute a token/payload value
+                token := "Bearer secret_session_token_9982"
+                fmt.Print(token) // Printed output is saved into 'GeneratedToken'
+            }
+        </script>
+
+        <!-- 2. HTTP CLIENT: Uses {{GeneratedToken}} in headers and body text -->
+        <http_client id="HttpPostWithVar" uri="http://localhost:8080/api/log?session=9982" method="POST" content_type="application/json" headers="Authorization: {{GeneratedToken}}" output_var="PostResponseBody" status_code_var="HttpPostStatus2">
+            {
+                "auth_header": "{{GeneratedToken}}",
+                "payload": "Data sent using pipeline dynamic variable"
+            }
+        </http_client>
+
+        <!-- 3. SCRIPT TASK: Validates and logs output -->
+        <script id="LogVarPostResult" language="go">
+            package main
+
+            import (
+                "fmt"
+                "host/vars"
+            )
+
+            func main() {
+                fmt.Printf("Token Sent: %s\n", vars.GetString("GeneratedToken"))
+                fmt.Printf("HTTP Status: %d\n", vars.GetInt("HttpPostStatus2"))
+                fmt.Printf("HTTP Response: %s\n", vars.GetString("PostResponseBody"))
+            }
+        </script>
+        <!-- 4. GET Request -->
+        <http_client id="HttpGetTest" uri="http://localhost:8080/api/log" method="GET" timeout="5s" output_var="GetResponseBody" status_code_var="HttpGetStatus" />
+
+        <!-- 5. POST Request -->
+        <http_client id="HttpPostTest" uri="http://localhost:8080/api/log" method="POST" content_type="application/json" data='{"event": "test_record", "status": "active"}' output_var="PostResponseBody" status_code_var="HttpPostStatus" />
+
+        <!-- 6. PUT Request -->
+        <HTTP_CLIENT id="HttpPutTest" uri="http://localhost:8080/api/log?release=101" method="PUT" content_type="application/json" output_var="PutResponseBody" status_code_var="HttpPutStatus">
+            {
+                "id": 101,
+                "status": "updated"
+            }
+        </HTTP_CLIENT>
+
+        <!-- 7. PATCH Request -->
+        <http_client id="HttpPatchTest" uri="http://localhost:8080/api/log?release=101" method="PATCH" content_type="application/json" data='{"status": "partially_modified"}' output_var="PatchResponseBody" status_code_var="HttpPatchStatus" />
+
+        <!-- 8. DELETE Request -->
+        <http_client id="HttpDeleteTest" uri="http://localhost:8080/api/log?release=101" method="DELETE" output_var="DeleteResponseBody" status_code_var="HttpDeleteStatus" />
+
+
+    </scripts>
+</pipeline>

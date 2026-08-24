@@ -1,94 +1,62 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <pipeline>
-    <!-- 1. GLOBAL VARIABLES -->
     <variables>
         <variable name="Database1ConnStr" type="string" value="sqlserver://T15P:1433?database=PROTO&amp;integrated+security=true&amp;trustServerCertificate=true" />
-        <variable name="Database2ConnStr" type="string" value="sqlserver://T15P:1433?database=AdventureWorks2019&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable type="string" value="sqlserver://T15P:1433?database=AdventureWorks2019&amp;integrated+security=true&amp;trustServerCertificate=true" name="Database2ConnStr" />
         <variable name="TABLE" type="string" value="[dbo].[GcpBillingExport]" />
     </variables>
-
-    <!-- 2. DATABASES (Using variable placeholders {{VarName}}) -->
     <databases>
         <database name="source_db" connection_string="{{Database1ConnStr}}" />
         <database name="target_db" connection_string="{{Database2ConnStr}}" />
     </databases>
-
-    <!-- 3. PIPELINE EXECUTION ENGINE -->
     <scripts>
-
         <parallel max_workers="2">
-            <!-- Step A: Parallel Execution Block -->
-            <script id="is_source_data_uptodate" language="sql" db="source_db" output_var="SOURCE_MAX_DATE">
-                <![CDATA[
+            <script db="source_db" output_var="SOURCE_MAX_DATE" id="is_source_data_uptodate" language="sql"><![CDATA[
                 SELECT ISNULL(MAX(ExportTime), '1900-01-01') AS SOURCE_MAX_DATE
-                FROM {{TABLE}};
-            ]]>
-            </script>
-            <script id="is_target_data_uptodate" language="sql" db="target_db" output_var="TARGET_MAX_DATE">
-                <![CDATA[
+                                                                FROM {{TABLE}};
+            ]]></script>
+            <script db="target_db" output_var="TARGET_MAX_DATE" id="is_target_data_uptodate" language="sql"><![CDATA[
                 SELECT ISNULL(MAX(ExportTime), '1900-01-01') AS TARGET_MAX_DATE
-                FROM {{TABLE}};
-            ]]>
-            </script>
-
+                                                                FROM {{TABLE}};
+            ]]></script>
         </parallel>
-        <script id="compare_dates" language="go" output_variable="NEEDS_ACTION">
-            <![CDATA[
+        <script language="go" output_variable="NEEDS_ACTION" id="compare_dates"><![CDATA[
             package main
-
-            import (
-                "fmt"
-                "host/vars"
-            )
-
-            func main() {
-
-                source_max_date := vars.GetString("SOURCE_MAX_DATE")
-                target_max_date := vars.GetString("TARGET_MAX_DATE")
-                if  source_max_date  != "" && target_max_date != "" && source_max_date != target_max_date {
-
-                    fmt.Println("true")
-                } else {
-                    fmt.Println("false")
-                }
-            }
-            ]]>
-        </script>
-        <!-- Step B: Conditional Execution Block -->
+                                    
+                                                import (
+                                                    "fmt"
+                                                    "host/vars"
+                                                )
+                                    
+                                                func main() {
+                                    
+                                                    source_max_date := vars.GetString("SOURCE_MAX_DATE")
+                                                    target_max_date := vars.GetString("TARGET_MAX_DATE")
+                                                    if  source_max_date  != "" && target_max_date != "" && source_max_date != target_max_date {
+                                    
+                                                        fmt.Println("true")
+                                                    } else {
+                                                        fmt.Println("false")
+                                                    }
+                                                }
+        ]]></script>
         <if id="check_needs_action" var="NEEDS_ACTION" equal="true">
             <then>
-
-                <!-- Task 1: SQL Cleanup Query -->
-                <script id="truncate_target_table" language="sql" db="target_db">
-                    <![CDATA[
-                        TRUNCATE TABLE {{TABLE}};
-                        ]]>
-                </script>
-
-
-                <!-- Task 2: SQL ETL Query -->
-                <script id="StreamETL_to_target" language="sql" db="source_db" target_db="target_db" target_table="{{TABLE}}" tablock="true" batch_size="50000">
-                    <![CDATA[
-                        SELECT * FROM {{TABLE}};
-                        ]]>
-                </script>
-
+                <script id="truncate_target_table" language="sql" db="target_db"><![CDATA[TRUNCATE TABLE {{TABLE}};]]></script>
+                <script language="sql" db="source_db" target_db="target_db" target_table="{{TABLE}}" tablock="true" batch_size="50000" id="StreamETL_to_target"><![CDATA[SELECT * FROM {{TABLE}};]]></script>
             </then>
             <else>
-
-                <script id="NO_ACTION_REQUIRED" language="go">
-                    <![CDATA[
+                <script language="go" id="NO_ACTION_REQUIRED"><![CDATA[
                     package main
-
-                    import (
-                        "fmt"
-                    )
-
-                    func main() {
-                        fmt.Println("No action required. Target table is up to date.")
-                    }
-                    ]]>
-                </script>
+                                                            
+                                                                                import (
+                                                                                    "fmt"
+                                                                                )
+                                                            
+                                                                                func main() {
+                                                                                    fmt.Println("No action required. Target table is up to date.")
+                                                                                }
+                ]]></script>
             </else>
         </if>
     </scripts>
