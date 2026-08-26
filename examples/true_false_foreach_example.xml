@@ -16,38 +16,38 @@
 
     <scripts>
         <!-- 1. Script checks DB_NAME() and saves 'true' or 'false' into 'IsMasterDB' -->
-        <script id="CheckIfMaster" language="sql" db="primary_db" output_var="IsMasterDB">
+        <sql id="CheckIfMaster" db="primary_db" output_var="IsMasterDB" description="Check if the currently connected database is the master database">
             <![CDATA[
             SELECT CASE WHEN DB_NAME() = 'master' THEN 'true' ELSE 'false' END AS is_master;
             ]]>
-        </script>
+        </sql>
 
         <!-- 2. Conditional check using the dynamically populated 'IsMasterDB' variable -->
         <if var="IsMasterDB" equals="true">
             <then>
-                <script id="LogMasterNotice" language="sql" db="primary_db">
+                <sql id="LogMasterNotice" db="primary_db" description="Log confirmation message that connected to master database">
                     <![CDATA[
                     SELECT 'Connected to master database. Running master-level tasks...' AS notice;
                     ]]>
-                </script>
+                </sql>
 
                 <foreach id="RegionLoop" language="sql" db="primary_db" var="GetActiveRegionsQuery">
                     <group id="ProcessRegionGroup">
-                        <script id="LogRegionSQL" language="sql" db="primary_db">
+                        <sql id="LogRegionSQL" db="primary_db" description="Log current loop region's database ID and name to status output">
                             <![CDATA[
                             SELECT 'Processing database ID: {{database_id}}, Name: {{name}}' AS current_status;
                             ]]>
-                        </script>
+                        </sql>
                     </group>
                 </foreach>
             </then>
 
             <else>
-                <script id="LogNonMasterNotice" language="sql" db="primary_db">
+                <sql id="LogNonMasterNotice" db="primary_db" description="Log warning message when connection is not on master database">
                     <![CDATA[
                     SELECT 'Not connected to master. Skipping sys.databases loop.' AS notice;
                     ]]>
-                </script>
+                </sql>
             </else>
         </if>
     </scripts>

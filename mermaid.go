@@ -110,7 +110,17 @@ func (g *MermaidGenerator) ProcessNode(node DiagramNode) (string, string) {
 
 		g.builder.WriteString(fmt.Sprintf("    %s[\"%s\"]\n", id, label))
 		return id, id
-
+	case "sql", "sql_bulk", "sql-bulk":
+		id := node.ID
+		if id == "" {
+			id = g.nextID(nodeName)
+		}
+		label := fmt.Sprintf("%s<br/>(%s)", id, strings.ToUpper(nodeName))
+		if node.TargetDB != "" {
+			label += fmt.Sprintf("<br/>➔ Stream to %s", node.TargetDB)
+		}
+		g.builder.WriteString(fmt.Sprintf("    %s[\"%s\"]\n", id, label))
+		return id, id
 	case "group":
 		if len(node.Children) > 0 {
 			firstEntry, lastExit := g.getSequenceBounds(node.Children)

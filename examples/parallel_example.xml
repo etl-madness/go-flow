@@ -18,11 +18,11 @@
     <!-- 3. PIPELINE EXECUTION ENGINE -->
     <scripts>
         <!-- Step A: SQL Script checks condition and captures result in 'IsMasterDB' output variable -->
-        <script id="CheckIfMaster" language="sql" db="primary_db" output_var="IsMasterDB">
+        <sql id="CheckIfMaster" db="primary_db" output_var="IsMasterDB" description="Check if the currently connected database is the master database">
             <![CDATA[
             SELECT CASE WHEN DB_NAME() = 'master' THEN 'true' ELSE 'false' END AS is_master;
             ]]>
-        </script>
+        </sql>
 
         <!-- Step B: Conditional Execution Block -->
         <if var="IsMasterDB" equals="true">
@@ -45,11 +45,11 @@
                 <parallel max_threads="2">
 
                     <!-- Parallel Task 1: SQL Cleanup Query -->
-                    <script id="Task1_SqlCleanup" language="sql" db="analytics_db">
+                    <sql id="Task1_SqlCleanup" db="analytics_db" description="Execute parallel clean-up operations on the analytics database">
                         <![CDATA[
                         SELECT 'Running log cleanup in parallel branch 1...' AS status;
                         ]]>
-                    </script>
+                    </sql>
 
                     <!-- Parallel Task 2: Embedded Go Async Task -->
                     <script id="Task2_GoWorker" language="go">
@@ -67,11 +67,11 @@
                     </script>
 
                     <!-- Parallel Task 3: Streaming ETL directly from primary_db to analytics_db -->
-                    <script id="Task3_StreamETL" language="sql" db="primary_db" target_db="analytics_db" target_table="Person.test_demo" batch_size="500">
+                    <sql-bulk id="Task3_StreamETL" db="primary_db" target_db="analytics_db" target_table="Person.test_demo" batch_size="500" description="Stream databases mapping data in bulk to test_demo staging table">
                         <![CDATA[
                         SELECT database_id, name FROM sys.databases;
                         ]]>
-                    </script>
+                    </sql-bulk>
 
                 </parallel>
 
@@ -80,11 +80,11 @@
                     <group id="DatabaseProcessGroup">
 
                         <!-- SQL Script accessing loop variable via {{column_name}} -->
-                        <script id="ProcessDB_SQL" language="sql" db="primary_db">
+                        <sql id="ProcessDB_SQL" db="primary_db" description="Log processing of currently selected database ID and name to status output">
                             <![CDATA[
                             SELECT 'Processing DB ID {{database_id}} - Name: {{name}}' AS current_db;
                             ]]>
-                        </script>
+                        </sql>
 
                         <!-- Go Script accessing loop variable via host/vars export -->
                         <script id="ProcessDB_Go" language="go">
@@ -108,11 +108,11 @@
 
             <else>
                 <!-- Executed only if 'IsMasterDB' evaluated to false -->
-                <script id="NotMasterAlert" language="sql" db="primary_db">
+                <sql id="NotMasterAlert" db="primary_db" description="Log warning message when database is not master">
                     <![CDATA[
                     SELECT 'Skipping processing because database is not master.' AS alert;
                     ]]>
-                </script>
+                </sql>
             </else>
         </if>
     </scripts>

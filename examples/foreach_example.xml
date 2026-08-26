@@ -24,11 +24,11 @@
             <group id="ProcessRegionGroup">
 
                 <!-- SQL script referencing loop variables via {{col_name}} -->
-                <script id="LogRegionSQL" language="sql" db="primary_db">
+                <sql id="LogRegionSQL" db="primary_db" description="Log current region information to standard status output">
                     <![CDATA[
                     SELECT 'Processing database ID: {{database_id}}, Name: {{name}}' AS current_status;
                 ]]>
-                </script>
+                </sql>
 
                 <!-- Go script referencing loop variables via host/vars export -->
                 <script id="LogRegionGo" language="go">

@@ -18,12 +18,12 @@ Transactions are declared at the `<group>` node level using two attributes:
     </databases>
     <scripts>
         <group id="update_sales_txn" transaction="true" db="sales_db">
-            <script id="deduct_inventory" language="sql" db="sales_db">
+            <sql id="deduct_inventory" db="sales_db" description="Deduct stock by 1 for the given item ID">
                 UPDATE inventory SET stock = stock - 1 WHERE item_id = 42;
-            </script>
-            <script id="record_sale" language="sql" db="sales_db">
+            </sql>
+            <sql id="record_sale" db="sales_db" description="Insert record of sale into sales table">
                 INSERT INTO sales (item_id, qty) VALUES (42, 1);
-            </script>
+            </sql>
         </group>
     </scripts>
 </pipeline>
@@ -44,12 +44,12 @@ If a group with `transaction="true"` is placed inside a `<foreach>` loop, Flow b
             
             <!-- A transaction is started and finished for each promotion processed -->
             <group id="apply_promo_txn" transaction="true" db="sales_db">
-                <script id="update_price" language="sql" db="sales_db">
+                <sql id="update_price" db="sales_db" description="Update product price to promotion price">
                     UPDATE products SET price = {{price}} WHERE id = {{item_id}};
-                </script>
-                <script id="log_history" language="sql" db="sales_db">
+                </sql>
+                <sql id="log_history" db="sales_db" description="Log product price update to pricing log table">
                     INSERT INTO pricing_log (product_id, new_price) VALUES ({{item_id}}, {{price}});
-                </script>
+                </sql>
             </group>
         </foreach>
     </scripts>
@@ -71,14 +71,14 @@ When running concurrent tasks in a `<parallel>` block:
         <parallel max_threads="2">
             <!-- Branch 1: isolated txn on sales_db -->
             <group transaction="true" db="sales_db">
-                <script language="sql" db="sales_db">INSERT INTO logs VALUES ('Thread A started');</script>
-                <script language="sql" db="sales_db">UPDATE stats SET count = count + 1;</script>
+                <sql db="sales_db" description="Log that thread A has started execution">INSERT INTO logs VALUES ('Thread A started');</sql>
+                <sql db="sales_db" description="Increment counter in stats table for thread A">UPDATE stats SET count = count + 1;</sql>
             </group>
 
             <!-- Branch 2: isolated txn on sales_db -->
             <group transaction="true" db="sales_db">
-                <script language="sql" db="sales_db">INSERT INTO logs VALUES ('Thread B started');</script>
-                <script language="sql" db="sales_db">UPDATE stats SET count = count + 1;</script>
+                <sql db="sales_db" description="Log that thread B has started execution">INSERT INTO logs VALUES ('Thread B started');</sql>
+                <sql db="sales_db" description="Increment counter in stats table for thread B">UPDATE stats SET count = count + 1;</sql>
             </group>
         </parallel>
     </scripts>

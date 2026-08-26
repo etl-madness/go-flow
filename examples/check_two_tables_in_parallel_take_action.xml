@@ -11,14 +11,14 @@
     </databases>
     <scripts>
         <parallel max_workers="2">
-            <script db="source_db" output_var="SOURCE_MAX_DATE" id="is_source_data_uptodate" language="sql"><![CDATA[
+            <sql db="source_db" output_var="SOURCE_MAX_DATE" id="is_source_data_uptodate" description="Fetch max export time from the source database"><![CDATA[
                 SELECT ISNULL(MAX(ExportTime), '1900-01-01') AS SOURCE_MAX_DATE
                                                                 FROM {{TABLE}};
-            ]]></script>
-            <script db="target_db" output_var="TARGET_MAX_DATE" id="is_target_data_uptodate" language="sql"><![CDATA[
+            ]]></sql>
+            <sql db="target_db" output_var="TARGET_MAX_DATE" id="is_target_data_uptodate" description="Fetch max export time from the target database"><![CDATA[
                 SELECT ISNULL(MAX(ExportTime), '1900-01-01') AS TARGET_MAX_DATE
                                                                 FROM {{TABLE}};
-            ]]></script>
+            ]]></sql>
         </parallel>
         <script language="go" output_variable="NEEDS_ACTION" id="compare_dates"><![CDATA[
             package main
@@ -39,11 +39,11 @@
                                                         fmt.Println("false")
                                                     }
                                                 }
-        ]]></script>
+         ]]></script>
         <if id="check_needs_action" var="NEEDS_ACTION" equal="true">
             <then>
-                <script id="truncate_target_table" language="sql" db="target_db"><![CDATA[TRUNCATE TABLE {{TABLE}};]]></script>
-                <script language="sql" db="source_db" target_db="target_db" target_table="{{TABLE}}" tablock="true" batch_size="50000" id="StreamETL_to_target"><![CDATA[SELECT * FROM {{TABLE}};]]></script>
+                <sql id="truncate_target_table" db="target_db" description="Truncate the target table before starting the copy"><![CDATA[TRUNCATE TABLE {{TABLE}};]]></sql>
+                <sql-bulk db="source_db" target_db="target_db" target_table="{{TABLE}}" tablock="true" batch_size="50000" id="StreamETL_to_target" description="Bulk copy data from source to target database"><![CDATA[SELECT * FROM {{TABLE}};]]></sql-bulk>
             </then>
             <else>
                 <script language="go" id="NO_ACTION_REQUIRED"><![CDATA[

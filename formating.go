@@ -32,6 +32,7 @@ func outputRawJSON(res *[]flow.ScriptResult) {
 	// Pass JSON output through line return cleanup before printing to stdout
 	fmt.Println(formatLineReturns(string(jsonBytes)))
 }
+
 func outputJSON(res *[]flow.ScriptResult) {
 	var printable []PrintableResult
 
@@ -86,10 +87,11 @@ func outputJSON(res *[]flow.ScriptResult) {
 
 func outputText(res *[]flow.ScriptResult) {
 	for _, r := range *res {
-
-		fmt.Printf("ScriptID: %s\nReturnCode: %d\nDuration: %v\nResultsString: %s\n\n", r.ScriptID, r.ReturnCode, r.Duration, r.ResultsString)
+		fmt.Printf("ScriptID: %s\nReturnCode: %d\nDuration: %v\nResultsString: %s\n\n",
+			r.ScriptID, r.ReturnCode, r.Duration, r.ResultsString)
 	}
 }
+
 func outputMarkdownTable(res *[]flow.ScriptResult) {
 	fmt.Println("| Script ID | Return Code | Duration | Results |")
 	fmt.Println("| :--- | :--- | :--- | :--- |")

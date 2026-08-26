@@ -26,11 +26,11 @@
             </script>
 
             <!-- Step 2: Query DB and update output_var (JobStatus) -->
-            <script id="check_job_status" language="sql" db="postgres_db" output_var="JobStatus">
+            <sql id="check_job_status" db="postgres_db" output_var="JobStatus" description="Query PostgreSQL database to fetch the current status of the target job">
                 SELECT status 
                 FROM async_tasks 
                 WHERE task_id = '{{TargetJobId}}';
-            </script>
+            </sql>
 
             <!-- Step 3: Optional logging using built-in WHILE_INDEX variable -->
             <script id="log_poll_attempt" language="go">

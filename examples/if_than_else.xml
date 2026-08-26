@@ -13,19 +13,19 @@
 
     <scripts>
         <!-- Step 1: Script A runs and stores its output ('true' or 'false') into 'ScriptAResult' -->
-        <script id="ScriptA" language="sql" db="primary_db" output_var="ScriptAResult">
+        <sql id="ScriptA" db="primary_db" output_var="ScriptAResult" description="Query system databases to check if count is greater than zero">
             <![CDATA[
             SELECT CASE WHEN COUNT(*) > 0 THEN 'true' ELSE 'false' END FROM sys.databases;
         ]]>
-        </script>
+        </sql>
 
         <!-- Option 1: Explicit <if> / <then> / <else> branching -->
         <if var="ScriptAResult" equals="true">
             <then>
                 <group id="GroupA">
-                    <script id="GroupA_Step1" language="sql" db="primary_db">
+                    <sql id="GroupA_Step1" db="primary_db" description="Execute Group A step 1 status query">
                         <![CDATA[ SELECT 'Executing Group A - Step 1' AS status; ]]>
-                    </script>
+                    </sql>
                     <script id="GroupA_Step2" language="go">
                         <![CDATA[
                         package main
@@ -37,18 +37,18 @@
             </then>
             <else>
                 <group id="GroupB">
-                    <script id="GroupB_Step1" language="sql" db="primary_db">
+                    <sql id="GroupB_Step1" db="primary_db" description="Execute Group B step 1 status query">
                         <![CDATA[ SELECT 'Executing Group B - Step 1' AS status; ]]>
-                    </script>
+                    </sql>
                 </group>
             </else>
         </if>
 
         <!-- Option 2: Conditional attributes directly on <group> -->
         <group id="GroupA_Alternative" if_var="ScriptAResult" if_equals="true">
-            <script id="GroupA_Alt_Step1" language="sql" db="primary_db">
+            <sql id="GroupA_Alt_Step1" db="primary_db" description="Execute direct Group A alternative step status query">
                 <![CDATA[ SELECT 'Direct Group A Executed' AS status; ]]>
-            </script>
+            </sql>
         </group>
     </scripts>
 </pipeline>

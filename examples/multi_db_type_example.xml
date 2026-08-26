@@ -23,31 +23,31 @@
 
     <scripts>
         <!-- 1. Query PostgreSQL -->
-        <script id="query_pg" language="sql" db="postgres_db">
+        <sql id="query_pg" db="postgres_db" description="Query PostgreSQL for the first 10 users">
             <![CDATA[
                 SELECT id, username FROM users LIMIT 10;
             ]]>
-        </script>
+        </sql>
 
         <!-- 2. Direct Cross-Database Stream ETL from PostgreSQL to SQLite -->
-        <script id="stream_pg_to_sqlite" language="sql" db="postgres_db" target_db="sqlite_db" target_table="cached_users" batch_size="100">
+        <sql-bulk id="stream_pg_to_sqlite" db="postgres_db" target_db="sqlite_db" target_table="cached_users" batch_size="100" description="Stream users from PostgreSQL to SQLite cache table">
             <![CDATA[
                 SELECT id, username FROM users;
             ]]>
-        </script>
+        </sql-bulk>
 
         <!-- 3. Query MySQL -->
-        <script id="query_mysql" language="sql" db="mysql_db">
+        <sql id="query_mysql" db="mysql_db" description="Query MySQL for pending orders">
             <![CDATA[
                 SELECT id, status FROM orders WHERE status = 'PENDING';
             ]]>
-        </script>
+        </sql>
 
         <!-- 4. Query Oracle -->
-        <script id="query_oracle" language="sql" db="oracle_db">
+        <sql id="query_oracle" db="oracle_db" description="Query Oracle system date from dual">
             <![CDATA[
                 SELECT sysdate FROM dual;
             ]]>
-        </script>
+        </sql>
     </scripts>
 </pipeline>

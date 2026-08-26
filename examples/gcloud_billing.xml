@@ -26,7 +26,7 @@
         # required schema and structure of the BigQuery billing export table can be found there as well.
         ./bqBilling.exe -GCP_PROJECT_ID="{{GCP_PROJECT_ID}}" -BQ_BILLING_TABLE="{{BQ_BILLING_TABLE}}" -GOOGLE_APPLICATION_CREDENTIALS="{{GOOGLE_APPLICATION_CREDENTIALS}}"
         </script>
-        <script id="LoadData" language="sql" db="database1">
+        <sql id="LoadData" db="database1" description="Load Google Cloud billing JSON data into SQL Server table using OPENJSON">
             <![CDATA[
 DECLARE @J NVARCHAR(MAX) = '{{GCLOUD_BILLING_JSON}}'
  
@@ -138,7 +138,7 @@ WITH (
     tags                          NVARCHAR(MAX)         '$.tags'           AS JSON
 );
 ]]>
-        </script>
+        </sql>
 
     </scripts>
 </pipeline>

@@ -15,7 +15,7 @@
 
     <scripts>
         <!-- Step 1: Ensure Target Table Exists in MSSQL -->
-        <script id="CREATE_GITHUB_COPILOT_BILLING_TABLE" language="sql" db="database1">
+        <sql id="CREATE_GITHUB_COPILOT_BILLING_TABLE" db="database1" description="Ensure GitHub Copilot billing usage table exists in SQL Server">
             <![CDATA[
                 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[github_copilot_billing_usage]') AND type in (N'U'))
                 BEGIN
@@ -39,7 +39,7 @@
                     );
                 END
             ]]>
-        </script>
+        </sql>
 
         <!-- Step 2: Fetch GitHub Billing JSON via Go Script and output JSON payload -->
         <script id="GET_GITHUB_BILLING" language="go" output_var="GITHUB_BILLING_JSON">
@@ -92,7 +92,7 @@
         </script>
 
         <!-- Step 3: Insert URL JSON Results into dbo.github_copilot_billing_usage using OPENJSON -->
-        <script id="LOAD_GITHUB_COPILOT_BILLING_TO_SQL" language="sql" db="database1">
+        <sql id="LOAD_GITHUB_COPILOT_BILLING_TO_SQL" db="database1" description="Insert URL JSON results into SQL Server table using OPENJSON">
             <![CDATA[
                 INSERT INTO dbo.github_copilot_billing_usage (
                     period_year,
@@ -147,6 +147,6 @@
                     [netAmount] DECIMAL(18, 4) '$.netAmount'
                 ) AS items;
             ]]>
-        </script>
+        </sql>
     </scripts>
 </pipeline>

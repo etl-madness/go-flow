@@ -13,7 +13,7 @@
 
     <scripts>
         <!-- Step 1: Script A runs and stores its output ('true' or 'false') into 'ScriptAResult' -->
-        <script id="is_data_uptodate" language="sql" db="database1" output_var="DATA_UPTODATE">
+        <sql id="is_data_uptodate" db="database1" output_var="DATA_UPTODATE" description="Check if GCP billing data is up to date for the current UTC date">
             <![CDATA[
             SELECT CASE 
                 WHEN EXISTS (
@@ -24,7 +24,7 @@
                 ELSE 'false' 
             END AS [DATA_UPTODATE];
         ]]>
-        </script>
+        </sql>
         <if var="DATA_UPTODATE" equals="false">
             <then>
                 <script id="parse_jil_command" language="go" output_variable="FilePath">

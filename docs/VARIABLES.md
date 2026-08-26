@@ -50,7 +50,7 @@ Variables can be written to using `output_var` or read dynamically using the `va
     </variables>
     <scripts>
         <!-- Reads code directly from the variable 'DynamicQuery' -->
-        <script id="RunDynamicQuery" language="sql" db="my_db" var="DynamicQuery" output_var="QueryResult" />
+        <sql id="RunDynamicQuery" db="my_db" var="DynamicQuery" output_var="QueryResult" description="Execute the dynamic SQL query stored inside the DynamicQuery variable" />
     </scripts>
 </pipeline>
 ```
@@ -70,9 +70,9 @@ During execution, the driver SQL query retrieves a set of columns (e.g., `depart
 #### Comprehensive Example
 ```xml
 <!-- Step 1: Capture a value into a variable from a script -->
-<script id="GetActiveStatus" language="sql" db="main_db" output_var="ActiveFlag">
+<sql id="GetActiveStatus" db="main_db" output_var="ActiveFlag" description="Retrieve status flag from database to check if active">
     SELECT 1; -- Assuming this returns '1'
-</script>
+</sql>
 
 <!-- Step 2: Use the variable to filter the loop's driver query -->
 <!-- Note: var="DynamicDriver" would override the SELECT entirely if defined, but here we assume it's empty -->
@@ -80,11 +80,11 @@ During execution, the driver SQL query retrieves a set of columns (e.g., `depart
     SELECT department_id, department_name FROM departments WHERE active = {{ActiveFlag}};
 
     <!-- Step 3: Access automatically mapped row column variables {{department_id}} and {{LOOP_INDEX}} -->
-    <script id="ProcessDept" language="sql" db="main_db">
+    <sql id="ProcessDept" db="main_db" description="Update department stats with the current loop index iteration number">
         UPDATE department_stats 
         SET process_order = {{LOOP_INDEX}} 
         WHERE id = {{department_id}};
-    </script>
+    </sql>
 </foreach>
 ```
 
@@ -94,14 +94,14 @@ Evaluates conditions using variable states. The condition supports implicit trut
 ```xml
 <if var="ENVIRONMENT" equals="PRODUCTION">
     <then>
-        <script id="ProdTask" language="sql" db="prod_db">
+        <sql id="ProdTask" db="prod_db" description="Disable maintenance mode on production environment settings">
             UPDATE settings SET maintenance_mode = 0;
-        </script>
+        </sql>
     </then>
     <else>
-        <script id="DevTask" language="sql" db="dev_db">
+        <sql id="DevTask" db="dev_db" description="Enable debug mode on development environment settings">
             UPDATE settings SET debug_mode = 1;
-        </script>
+        </sql>
     </else>
 </if>
 ```
@@ -110,12 +110,12 @@ Evaluates conditions using variable states. The condition supports implicit trut
 SQL statements accept variable values directly inside query filters or streaming targets using `{{VariableName}}` syntax.
 
 ```xml
-<script id="FilterOrders" language="sql" db="sales_db">
+<sql id="FilterOrders" db="sales_db" description="Filter orders matching order status and minimum date range criteria">
     SELECT order_id, total_amount 
     FROM orders 
     WHERE status = '{{OrderStatus}}' 
       AND created_at >= '{{MinDate}}';
-</script>
+</sql>
 ```
 
 ---
@@ -132,12 +132,12 @@ SQL scripts replace placeholders encased in double curly braces `{{VariableName}
         <variable name="MinAmount" type="int" value="250" />
     </variables>
     <scripts>
-        <script id="ExtractQualifiedOrders" language="sql" db="orders_db">
+        <sql id="ExtractQualifiedOrders" db="orders_db" description="Extract completed sales orders with total amount exceeding the minimum threshold">
             SELECT order_id, customer_id, total 
             FROM sales_orders 
             WHERE status = '{{TargetStatus}}' 
               AND total > {{MinAmount}};
-        </script>
+        </sql>
     </scripts>
 </pipeline>
 ```

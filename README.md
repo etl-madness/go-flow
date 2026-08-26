@@ -341,26 +341,26 @@ Demonstrates how to configure and query multiple database servers of different t
 
     <scripts>
         <!-- 1. Query PostgreSQL -->
-        <script id="query_pg" language="sql" db="postgres_db">
+        <sql id="query_pg" db="postgres_db" description="Query PostgreSQL for the first 10 users">
             <![CDATA[
                 SELECT id, username FROM users LIMIT 10;
             ]]>
-        </script>
+        </sql>
 
         <!-- 2. Direct Cross-Database Stream ETL from PostgreSQL to SQLite -->
         <!-- The engine handles the parameter syntax transformation (PostgreSQL's $N vs SQLite's ?) seamlessly -->
-        <script id="stream_pg_to_sqlite" language="sql" db="postgres_db" target_db="sqlite_db" target_table="cached_users" batch_size="100">
+        <sql-bulk id="stream_pg_to_sqlite" db="postgres_db" target_db="sqlite_db" target_table="cached_users" batch_size="100" description="Stream users from PostgreSQL to SQLite cache table">
             <![CDATA[
                 SELECT id, username FROM users;
             ]]>
-        </script>
+        </sql-bulk>
 
         <!-- 3. Query MySQL -->
-        <script id="query_mysql" language="sql" db="mysql_db">
+        <sql id="query_mysql" db="mysql_db" description="Query MySQL for pending orders">
             <![CDATA[
                 SELECT id, status FROM orders WHERE status = 'PENDING';
             ]]>
-        </script>
+        </sql>
     </scripts>
 </pipeline>
 ```
@@ -403,11 +403,11 @@ Queries databases, maps output columns directly into temporary context variables
         <foreach id="RegionLoop" language="sql" db="primary_db" var="GetActiveRegionsQuery">
             <group id="ProcessRegionGroup">
                 <!-- Access loop columns via curly braces -->
-                <script id="LogRegionSQL" language="sql" db="primary_db">
+                <sql id="LogRegionSQL" db="primary_db" description="Log region database status message using loop variables">
                     <![CDATA[
                     SELECT 'Processing database ID: {{database_id}}, Name: {{name}}' AS current_status;
                     ]]>
-                </script>
+                </sql>
 
                 <!-- Access loop columns inside Go code via host APIs -->
                 <script id="LogRegionGo" language="go">
@@ -438,11 +438,11 @@ Implements concurrent task processing with thread-pool size constraints.
 ```xml
 <parallel max_threads="2">
     <!-- Parallel Branch 1 -->
-    <script id="Task1_SqlCleanup" language="sql" db="analytics_db">
+    <sql id="Task1_SqlCleanup" db="analytics_db" description="Perform database log cleanup operations in parallel branch 1">
         <![CDATA[
         SELECT 'Running log cleanup in parallel branch 1...' AS status;
         ]]>
-    </script>
+    </sql>
 
     <!-- Parallel Branch 2 -->
     <script id="Task2_GoWorker" language="go">
@@ -494,16 +494,16 @@ The example script below run via `go-flow` executed in 821.5704ms. Your mileage 
             ]]>
         </script>
 
-        <script id="MSSQL_TRUNCATE_xfr_cross_db_objects" language="sql" db="database2">
+        <sql id="MSSQL_TRUNCATE_xfr_cross_db_objects" db="database2" description="Truncate cross-database objects staging table in destination database">
             <![CDATA[
                     TRUNCATE TABLE [dbo].[xfr_cross_db_objects];
                     ]]>
-        </script>
-        <script id="MSSQL_BLK_STREAM_to_xfr_cross_db_objects" language="sql" db="database1" target_db="database2" target_table="[dbo].[xfr_cross_db_objects]" batch_size="25000" tablock="true" check_constraints="true" fire_triggers="false" keep_nulls="true">
+        </sql>
+        <sql-bulk id="MSSQL_BLK_STREAM_to_xfr_cross_db_objects" db="database1" target_db="database2" target_table="[dbo].[xfr_cross_db_objects]" batch_size="25000" tablock="true" check_constraints="true" fire_triggers="false" keep_nulls="true" description="Stream data in bulk from cross_db_objects in database1 to staging table in database2">
             <![CDATA[
                     SELECT [object_servername],[object_servicename],[object_database],[object_id],[object_schema],[object_name],[object_type],[object_desc],[LoadDate] FROM [dbo].[cross_db_objects] (NOLOCK);
                  ]]>
-        </script>
+        </sql-bulk>
     </scripts>
 </pipeline>
 ```

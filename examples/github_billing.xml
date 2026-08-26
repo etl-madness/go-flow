@@ -15,7 +15,7 @@
 
     <scripts>
         <!-- Step 1: Ensure Target Table Exists in MSSQL -->
-        <script id="CREATE_GITHUB_BILLING_TABLE" language="sql" db="database1">
+        <sql id="CREATE_GITHUB_BILLING_TABLE" db="database1" description="Ensure GitHub billing usage table exists in SQL Server">
             <![CDATA[
                 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[github_billing_usage]') AND type in (N'U'))
                 BEGIN
@@ -36,7 +36,7 @@
                     );
                 END
             ]]>
-        </script>
+        </sql>
 
         <!-- Step 2: Fetch GitHub Billing JSON via Go Script and output JSON payload -->
         <script id="GET_GITHUB_BILLING" language="go" output_var="GITHUB_BILLING_JSON">
@@ -89,7 +89,7 @@
         </script>
 
         <!-- Step 3: Insert URL JSON Results into dbo.github_billing_usage using OPENJSON -->
-        <script id="LOAD_GITHUB_BILLING_TO_SQL" language="sql" db="database1">
+        <sql id="LOAD_GITHUB_BILLING_TO_SQL" db="database1" description="Insert URL JSON results into SQL Server table using OPENJSON">
             <![CDATA[
                 INSERT INTO dbo.github_billing_usage (
                     user_account,
@@ -130,6 +130,6 @@
                     [repositoryName] NVARCHAR(255) '$.repositoryName'
                 );
             ]]>
-        </script>
+        </sql>
     </scripts>
 </pipeline>

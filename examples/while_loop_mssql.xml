@@ -29,11 +29,11 @@
             </script>
 
             <!-- Step 2: Query MSSQL using T-SQL syntax and capture single value into JobStatus -->
-            <script id="check_job_status" language="sql" db="primary_db" output_var="JobStatus">
+            <sql id="check_job_status" db="primary_db" output_var="JobStatus" description="Query SQL Server to fetch the current status of the target job">
                 SELECT TOP 1 [status]
                 FROM dbo.async_tasks WITH (NOLOCK)
                 WHERE task_id = '{{TargetJobId}}';
-            </script>
+            </sql>
 
             <!-- Step 3: Print poll count & current status -->
             <script id="log_poll_attempt" language="go">
