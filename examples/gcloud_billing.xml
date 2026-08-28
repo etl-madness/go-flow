@@ -16,7 +16,7 @@
 
     </databases>
 
-    <scripts>
+    <flow>
 
 
         <!-- Driver Loop using CDATA block for the SQL query -->
@@ -140,5 +140,5 @@ WITH (
 ]]>
         </sql>
 
-    </scripts>
+    </flow>
 </pipeline>

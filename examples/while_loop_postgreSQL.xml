@@ -9,7 +9,7 @@
         <database name="postgres_db" driver="postgres" connection_string="host=localhost user=postgres password=secret dbname=jobs sslmode=disable" />
     </databases>
 
-    <scripts>
+    <flow>
         <!-- 
             Loop continues while JobStatus == "RUNNING".
             Limits execution to a maximum of 20 passes to prevent infinite deadlocks.
@@ -65,5 +65,5 @@
                 </script>
             </else>
         </if>
-    </scripts>
+    </flow>
 </pipeline>

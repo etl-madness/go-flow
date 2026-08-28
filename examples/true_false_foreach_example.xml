@@ -14,7 +14,7 @@
         <database name="analytics_db" connection_string="{{AnalyticsDBConnStr}}" />
     </databases>
 
-    <scripts>
+    <flow>
         <!-- 1. Script checks DB_NAME() and saves 'true' or 'false' into 'IsMasterDB' -->
         <sql id="CheckIfMaster" db="primary_db" output_var="IsMasterDB" description="Check if the currently connected database is the master database">
             <![CDATA[
@@ -50,5 +50,5 @@
                 </sql>
             </else>
         </if>
-    </scripts>
+    </flow>
 </pipeline>

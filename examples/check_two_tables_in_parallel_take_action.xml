@@ -9,7 +9,7 @@
         <database name="source_db" connection_string="{{Database1ConnStr}}" />
         <database name="target_db" connection_string="{{Database2ConnStr}}" />
     </databases>
-    <scripts>
+    <flow>
         <parallel max_workers="2">
             <sql db="source_db" output_var="SOURCE_MAX_DATE" id="is_source_data_uptodate" description="Fetch max export time from the source database"><![CDATA[
                 SELECT ISNULL(MAX(ExportTime), '1900-01-01') AS SOURCE_MAX_DATE
@@ -59,5 +59,5 @@
                 ]]></script>
             </else>
         </if>
-    </scripts>
+    </flow>
 </pipeline>

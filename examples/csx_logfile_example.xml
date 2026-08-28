@@ -10,7 +10,7 @@
         <database name="database1" connection_string="{{Database1ConnStr}}" />
     </databases>
 
-    <scripts>
+    <flow>
         <!-- Step 1: Query if data is up to date -->
         <sql id="is_data_uptodate" db="database1" output_var="DATA_UPTODATE" description="Check if GCP billing data is up to date for the current UTC date">
             <![CDATA[
@@ -175,5 +175,5 @@
                 </script>
             </else>
         </if>
-    </scripts>
+    </flow>
 </pipeline>

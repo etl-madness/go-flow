@@ -21,7 +21,7 @@
         <database name="oracle_db" driver="oracle" connection_string="oracle://user:password@localhost:1521/XEPDB1" />
     </databases>
 
-    <scripts>
+    <flow>
         <!-- 1. Query PostgreSQL -->
         <sql id="query_pg" db="postgres_db" description="Query PostgreSQL for the first 10 users">
             <![CDATA[
@@ -49,5 +49,5 @@
                 SELECT sysdate FROM dual;
             ]]>
         </sql>
-    </scripts>
+    </flow>
 </pipeline>

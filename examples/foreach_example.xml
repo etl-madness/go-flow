@@ -16,7 +16,7 @@
     </databases>
 
 
-    <scripts>
+    <flow>
         <!-- 2. Foreach loop uses 'var' attribute to execute code stored in 'GetActiveRegionsQuery' -->
         <foreach id="RegionLoop" language="sql" db="primary_db" var="GetActiveRegionsQuery">
 
@@ -49,5 +49,5 @@
             </group>
 
         </foreach>
-    </scripts>
+    </flow>
 </pipeline>

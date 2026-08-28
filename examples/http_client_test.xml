@@ -1,5 +1,5 @@
 <pipeline>
-    <scripts>
+    <flow>
         <!-- 1. SCRIPT TASK: Dynamically creates a value and captures stdout to 'GeneratedToken' -->
         <script id="GenerateAuthToken" language="go" output_var="GeneratedToken">
             package main
@@ -57,5 +57,5 @@
         <http_client id="HttpDeleteTest" uri="http://localhost:8080/api/log?release=101" method="DELETE" output_var="DeleteResponseBody" status_code_var="HttpDeleteStatus" />
 
 
-    </scripts>
+    </flow>
 </pipeline>

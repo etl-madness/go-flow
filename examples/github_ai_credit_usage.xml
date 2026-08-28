@@ -13,7 +13,7 @@
         <database name="database1" connection_string="{{Database1ConnStr}}" />
     </databases>
 
-    <scripts>
+    <flow>
         <!-- Step 1: Ensure Target Table Exists in MSSQL -->
         <sql id="CREATE_GITHUB_COPILOT_BILLING_TABLE" db="database1" description="Ensure GitHub Copilot billing usage table exists in SQL Server">
             <![CDATA[
@@ -148,5 +148,5 @@
                 ) AS items;
             ]]>
         </sql>
-    </scripts>
+    </flow>
 </pipeline>

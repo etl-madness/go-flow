@@ -13,7 +13,7 @@
         <database name="database1" connection_string="{{Database1ConnStr}}" />
     </databases>
 
-    <scripts>
+    <flow>
         <!-- Step 1: Ensure Target Table Exists in MSSQL -->
         <sql id="CREATE_GITHUB_BILLING_TABLE" db="database1" description="Ensure GitHub billing usage table exists in SQL Server">
             <![CDATA[
@@ -131,5 +131,5 @@
                 );
             ]]>
         </sql>
-    </scripts>
+    </flow>
 </pipeline>

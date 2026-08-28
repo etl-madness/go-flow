@@ -11,7 +11,7 @@
         <database name="analytics_db" connection_string="{{AnalyticsDBConnStr}}" />
     </databases>
 
-    <scripts>
+    <flow>
         <!-- Step 1: Script A runs and stores its output ('true' or 'false') into 'ScriptAResult' -->
         <sql id="ScriptA" db="primary_db" output_var="ScriptAResult" description="Query system databases to check if count is greater than zero">
             <![CDATA[
@@ -50,5 +50,5 @@
                 <![CDATA[ SELECT 'Direct Group A Executed' AS status; ]]>
             </sql>
         </group>
-    </scripts>
+    </flow>
 </pipeline>

@@ -19,7 +19,7 @@
         <database name="database2" connection_string="{{Database2ConnStr}}" />
     </databases>
 
-    <scripts>
+    <flow>
         <!-- 1. Fetch ProcessDate (today's date in format YYYY-MM-DD) and set to ProcessDate variable -->
 
         <script id="GetProcessDate" language="go" output_var="ProcessDate">
@@ -73,5 +73,5 @@
 
             </group>
         </foreach>
-    </scripts>
+    </flow>
 </pipeline>

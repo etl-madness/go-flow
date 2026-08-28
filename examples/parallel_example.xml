@@ -115,5 +115,5 @@
                 </sql>
             </else>
         </if>
-    </scripts>
+    </flow>
 </pipeline>

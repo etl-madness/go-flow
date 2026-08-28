@@ -15,7 +15,7 @@
         <database name="primary_db" connection_string="{{PrimaryDBConnStr}}" />
     </databases>
 
-    <scripts>
+    <flow>
         <!-- Loop continues while JobStatus == "RUNNING" up to 20 times -->
         <while id="poll_mssql_job" var="JobStatus" equals="RUNNING" max_iterations="20">
 
@@ -68,5 +68,5 @@
                 </script>
             </else>
         </if>
-    </scripts>
+    </flow>
 </pipeline>
