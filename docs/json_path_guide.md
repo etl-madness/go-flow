@@ -47,6 +47,7 @@ Extracts simple scalar values from an external file and joins the matched result
   <variables>
     <variable name="src_file" type="string" value="books.json" />
   </variables>
+
   <flow>
     <!-- Query all titles in default text-join mode -->
     <json_path id="get_titles" file="{{src_file}}" jsonpath="$.store.books[*].title" output_var="book_titles" />
@@ -93,12 +94,12 @@ Extracts a specific nested object node and serializes it directly to a clean JSO
 ```xml
 <pipeline>
   <flow>
-  <!-- Extract only the first book object -->
-  <json_path id="get_first_book" 
-             file="books.json" 
-             jsonpath="$.store.books[0]" 
-             mode="json" 
-             output_var="first_book" />
+    <!-- Extract only the first book object -->
+    <json_path id="get_first_book" 
+              file="books.json" 
+              jsonpath="$.store.books[0]" 
+              mode="json" 
+              output_var="first_book" />
   </flow>
 </pipeline>
 ```
@@ -156,7 +157,7 @@ For complex JSONPath syntax that contains many special characters, specify the q
   <variables>
     <variable name="raw_payload" type="string" value='{"employees": [{"name": "Alice", "role": "developer"}, {"name": "Bob", "role": "manager"}]}' />
   </variables>
-    <flow>
+  <flow>
     <!-- Uses chardata body text as the JSONPath expression and stores output variables -->
     <json_path id="get_developers" var="raw_payload" output_var="dev_names">
       $.employees[?(@.role == "developer")].name

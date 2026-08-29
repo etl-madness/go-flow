@@ -144,7 +144,7 @@ This example demonstrates combining the `host/vars` package with `db.StreamETL` 
         <variable name="TargetBatchSize" type="int" value="25000" />
         <variable name="MinDateFilter" value="2023-01-01" />
     </variables>
-    <scripts>
+    <flow>
         <script id="DynamicStreamETL" language="go">
         package main
 
@@ -187,7 +187,7 @@ This example demonstrates combining the `host/vars` package with `db.StreamETL` 
             fmt.Printf("Dynamically streamed %d rows from %s to %s.%s\n", rowsCopied, srcDB, dstDB, targetTable)
         }
         </script>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -219,7 +219,7 @@ It queries the specified BigQuery table and outputs formatted JSON records conta
         <variable name="TargetTable" value="gcp_billing_records" />
         <variable name="BatchSize" type="int" value="5000" />
     </variables>
-    <scripts>
+    <flow>
         <script id="RunBQBillingAndStream" language="go">
         package main
 
@@ -301,6 +301,6 @@ It queries the specified BigQuery table and outputs formatted JSON records conta
                 rowsInserted, dstDB, targetTable)
         }
         </script>
-    </scripts>
+    </flow>
 </pipeline>
 ```

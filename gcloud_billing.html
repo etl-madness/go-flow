@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta charset="utf-8" />
+    <title>ETL Pipeline Documentation &amp; Flowchart  .\.private\gcloud_billing.xml</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@9/dist/mermaid.min.js"></script>
+    <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 30px; background-color: #f8f9fa; color: #333; }
+                    h1, h2 { color: #1a252f; border-bottom: 2px solid #e9ecef; padding-bottom: 8px; }
+                    .diagram-card { background: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; text-align: center; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 25px; background: #fff; }
+                    th, td { text-align: left; padding: 10px 14px; border: 1px solid #dee2e6; }
+                    th { background-color: #e9ecef; color: #495057; }
+                    tr:nth-child(even) { background-color: #f8f9fa; }
+                    code { background-color: #f1f3f5; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+                </style>
+  </head>
+  <body>
+    <h1>Pipeline Specification &amp; Flowchart .\.private\gcloud_billing.xml</h1>
+    <h2>Execution Flow Diagram</h2>
+    <div class="diagram-card">
+      <div class="mermaid">flowchart TD
+    Start([Start Pipeline])
+    Start --&gt; End_1([End Pipeline])
+</div>
+      <script>
+                        mermaid.initialize({ startOnLoad: true });
+                    </script>
+    </div>
+    <h2>Configured Variables</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Default Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <strong>full_table_path</strong>
+          </td>
+          <td>
+            <code>string</code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>database1_connection_string</strong>
+          </td>
+          <td>
+            <code>string</code>
+          </td>
+          <td>
+            <code>sqlserver://T15P:1433?database=PROTO&amp;integrated+security=true&amp;trustServerCertificate=true</code>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>GCP_PROJECT_ID</strong>
+          </td>
+          <td>
+            <code>string</code>
+          </td>
+          <td>
+            <code>osdiscovery-antigravity</code>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>BQ_BILLING_TABLE</strong>
+          </td>
+          <td>
+            <code>string</code>
+          </td>
+          <td>
+            <code>osdiscovery-antigravity.dsetbilling_exports.gcp_billing_export_resource_v1_01612D_F4426C_7251BC</code>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>GOOGLE_APPLICATION_CREDENTIALS</strong>
+          </td>
+          <td>
+            <code>string</code>
+          </td>
+          <td>
+            <code>C:/Users/U00001/keys/gcp-key.json</code>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <h2>Configured Databases</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Alias Name</th>
+          <th>Connection String / Variable Reference</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <strong>database1</strong>
+          </td>
+          <td>
+            <code>{{database1_connection_string}}</code>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <h2>EXECUTIONS</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Language</th>
+          <th>ID/Name</th>
+          <th>XPath Location</th>
+          <th>Description</th>
+          <th>Source Database</th>
+          <th>Target Database</th>
+          <th>Target Table</th>
+          <th>Batch Size</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <strong>script</strong>
+          </td>
+          <td>
+            <strong>bash</strong>
+          </td>
+          <td>
+            <strong>extract_billing_data_gcloud</strong>
+          </td>
+          <td>
+            <code>/Q{}pipeline[1]/Q{}flow[1]/Q{}script[1]</code>
+          </td>
+          <td>
+            <code>Extract GCP billing data using bqBilling.exe</code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>  
+        ./bqBilling.exe -GCP_PROJECT_ID="{{GCP_PROJECT_ID}}" -BQ_BILLING_TABLE="{{BQ_BILLING_TABLE}}" -GOOGLE_APPLICATION_CREDENTIALS="{{GOOGLE_APPLICATION_CREDENTIALS}}"
+        </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>sql</strong>
+          </td>
+          <td>
+            <strong></strong>
+          </td>
+          <td>
+            <strong>load_billing_data_gcloud</strong>
+          </td>
+          <td>
+            <code>/Q{}pipeline[1]/Q{}flow[1]/Q{}sql[1]</code>
+          </td>
+          <td>
+            <code>Load GCP billing data into SQL Server</code>
+          </td>
+          <td>
+            <code>database1</code>
+          </td>
+          <td>
+            <code>database1</code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            
+DECLARE @J NVARCHAR(MAX) = '{{GCLOUD_BILLING_JSON}}'
+ 
+INSERT INTO dbo.GcpBillingExport
+SELECT 
+    -- Root Identifiers
+    BillingAccountID          = billing_account_id,
+    
+    -- Service Info
+    ServiceID                 = service_id,
+    ServiceDescription       = service_description,
+    
+    -- SKU Info
+    SkuID                     = sku_id,
+    SkuDescription           = sku_description,
+    
+    -- Timestamps
+    UsageStartTime            = usage_start_time,
+    UsageEndTime              = usage_end_time,
+    ExportTime                = export_time,
+    
+    -- Project Info
+    ProjectID                 = project_id,
+    ProjectName               = project_name,
+    ProjectNumber             = project_number,
+    ProjectAncestryNumbers   = project_ancestry_numbers,
+    ProjectLabels             = project_labels,
+    
+    -- Location Info
+    Location                  = location_location,
+    LocationCountry           = location_country,
+    LocationRegion            = location_region,
+    LocationZone              = location_zone,
+    
+    -- Financials
+    Cost                      = cost,
+    CostAtList                = cost_at_list,
+    CostType                  = cost_type,
+    Currency                  = currency,
+    CurrencyConversionRate    = currency_conversion_rate,
+    
+    -- Usage Data
+    UsageAmount               = usage_amount,
+    UsageUnit                 = usage_unit,
+    UsageAmountInPricingUnits = usage_amount_in_pricing_units,
+    UsagePricingUnit          = usage_pricing_unit,
+    
+    -- Invoice
+    InvoiceMonth              = invoice_month,
+    
+    -- Resource Info
+    ResourceName              = resource_name,
+    ResourceGlobalName        = resource_global_name,
+    
+    -- Adjustment Info
+    AdjustmentID              = adjustment_id,
+    AdjustmentDescription     = adjustment_description,
+    AdjustmentMode            = adjustment_mode,
+    AdjustmentType            = adjustment_type,
+    
+    -- Nested Array Fields (Preserved as Raw JSON Strings)
+    Labels                    = labels,
+    SystemLabels              = system_labels,
+    Credits                   = credits,
+    Tags                      = tags
+FROM OPENJSON(@J)
+WITH (
+  
+    billing_account_id            VARCHAR(32)           '$.billing_account_id',
+    usage_start_time              DATETIMEOFFSET        '$.usage_start_time',
+    usage_end_time                DATETIMEOFFSET        '$.usage_end_time',
+    export_time                   DATETIMEOFFSET        '$.export_time',
+    cost                          DECIMAL(18,6)         '$.cost',
+    currency                      VARCHAR(10)           '$.currency',
+    currency_conversion_rate      DECIMAL(18,6)         '$.currency_conversion_rate',
+    cost_type                     VARCHAR(50)           '$.cost_type',
+    cost_at_list                  DECIMAL(18,6)         '$.cost_at_list',
+
+    -- Nested Object Paths
+    service_id                    VARCHAR(64)           '$.service.id',
+    service_description           NVARCHAR(255)         '$.service.description',
+    sku_id                        VARCHAR(64)           '$.sku.id',
+    sku_description               NVARCHAR(255)         '$.sku.description',
+    project_id                    NVARCHAR(100)         '$.project.id',
+    project_name                  NVARCHAR(100)         '$.project.name',
+    project_number                VARCHAR(32)           '$.project.number',
+    project_ancestry_numbers      NVARCHAR(255)         '$.project.ancestry_numbers',
+    location_location             NVARCHAR(100)         '$.location.location',
+    location_country              NVARCHAR(100)         '$.location.country',
+    location_region               NVARCHAR(100)         '$.location.region',
+    location_zone                 NVARCHAR(100)         '$.location.zone',
+    usage_amount                  FLOAT                 '$.usage.amount',
+    usage_unit                    NVARCHAR(50)          '$.usage.unit',
+    usage_amount_in_pricing_units FLOAT                 '$.usage.amount_in_pricing_units',
+    usage_pricing_unit            NVARCHAR(50)          '$.usage.pricing_unit',
+    invoice_month                 VARCHAR(6)            '$.invoice.month',
+    resource_name                 NVARCHAR(255)         '$.resource.name',
+    resource_global_name          NVARCHAR(1000)        '$.resource.global_name',
+    adjustment_id                 NVARCHAR(100)         '$.adjustment_info.id',
+    adjustment_description        NVARCHAR(255)         '$.adjustment_info.description',
+    adjustment_mode               NVARCHAR(50)          '$.adjustment_info.mode',
+    adjustment_type               NVARCHAR(50)          '$.adjustment_info.type',
+
+    -- Array Paths (AS JSON preserves array structures)
+    project_labels                NVARCHAR(MAX)         '$.project.labels' AS JSON,
+    labels                        NVARCHAR(MAX)         '$.labels'         AS JSON,
+    system_labels                 NVARCHAR(MAX)         '$.system_labels'  AS JSON,
+    credits                       NVARCHAR(MAX)         '$.credits'        AS JSON,
+    tags                          NVARCHAR(MAX)         '$.tags'           AS JSON
+);
+
+        </td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>

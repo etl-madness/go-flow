@@ -16,16 +16,16 @@ Transactions are declared at the `<group>` node level using two attributes:
     <databases>
         <database name="sales_db" driver="postgres" connection_string="postgresql://..." />
     </databases>
-    <scripts>
+    <flow>
         <group id="update_sales_txn" transaction="true" db="sales_db">
-            <sql id="deduct_inventory" db="sales_db" description="Deduct stock by 1 for the given item ID">
+            <script id="deduct_inventory" language="sql" db="sales_db">
                 UPDATE inventory SET stock = stock - 1 WHERE item_id = 42;
-            </sql>
-            <sql id="record_sale" db="sales_db" description="Insert record of sale into sales table">
+            </script>
+            <script id="record_sale" language="sql" db="sales_db">
                 INSERT INTO sales (item_id, qty) VALUES (42, 1);
-            </sql>
+            </script>
         </group>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -37,22 +37,22 @@ If a group with `transaction="true"` is placed inside a `<foreach>` loop, Flow b
 
 ```xml
 <pipeline>
-    <scripts>
+    <flow>
         <!-- Loop driver gets item IDs -->
         <foreach id="process_items" language="sql" db="sales_db">
             SELECT item_id, price FROM active_promotions;
             
             <!-- A transaction is started and finished for each promotion processed -->
             <group id="apply_promo_txn" transaction="true" db="sales_db">
-                <sql id="update_price" db="sales_db" description="Update product price to promotion price">
+                <script id="update_price" language="sql" db="sales_db">
                     UPDATE products SET price = {{price}} WHERE id = {{item_id}};
-                </sql>
-                <sql id="log_history" db="sales_db" description="Log product price update to pricing log table">
+                </script>
+                <script id="log_history" language="sql" db="sales_db">
                     INSERT INTO pricing_log (product_id, new_price) VALUES ({{item_id}}, {{price}});
-                </sql>
+                </script>
             </group>
         </foreach>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -67,23 +67,32 @@ When running concurrent tasks in a `<parallel>` block:
 
 ```xml
 <pipeline>
-    <scripts>
+    <flow>
         <parallel max_threads="2">
             <!-- Branch 1: isolated txn on sales_db -->
             <group transaction="true" db="sales_db">
-                <sql db="sales_db" description="Log that thread A has started execution">INSERT INTO logs VALUES ('Thread A started');</sql>
-                <sql db="sales_db" description="Increment counter in stats table for thread A">UPDATE stats SET count = count + 1;</sql>
+                <script language="sql" db="sales_db">INSERT INTO logs VALUES ('Thread A started');</script>
+                <script language="sql" db="sales_db">UPDATE stats SET count = count + 1;</script>
             </group>
 
             <!-- Branch 2: isolated txn on sales_db -->
             <group transaction="true" db="sales_db">
-                <sql db="sales_db" description="Log that thread B has started execution">INSERT INTO logs VALUES ('Thread B started');</sql>
-                <sql db="sales_db" description="Increment counter in stats table for thread B">UPDATE stats SET count = count + 1;</sql>
+                <script language="sql" db="sales_db">INSERT INTO logs VALUES ('Thread B started');</script>
+                <script language="sql" db="sales_db">UPDATE stats SET count = count + 1;</script>
             </group>
         </parallel>
-    </scripts>
+    </flow>
 </pipeline>
 ```
+
+---
+
+## 3.5 Context Propagation & Automatic Rollback
+
+All transactions in Flow are fully contextualized using Go's `context.Context` API:
+*   Transactions are initiated with `BeginTx(ctx, nil)`.
+*   If the pipeline's active context is cancelled or times out, the active transactions are automatically aborted and safely rolled back.
+*   This prevents database locks, stale transactions, and uncommitted orphaned states across timeouts and unexpected cancellations.
 
 ---
 

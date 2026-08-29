@@ -24,7 +24,7 @@ Load a configuration file into memory and POST it to a remote endpoint.
 
 ```xml
 <pipeline>
-    <scripts>
+    <flow>
         <file_read file="./data/payload.json" output_var="JSON_DATA" />
         
         <http-client 
@@ -32,7 +32,7 @@ Load a configuration file into memory and POST it to a remote endpoint.
             uri="https://api.example.com/sync" 
             content_type="application/json" 
             data="{{JSON_DATA}}" />
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -45,11 +45,11 @@ Write inline text with variable interpolation directly to a log file, appending 
         <variable name="USER" type="string" value="Alice" />
         <variable name="LOG_DIR" type="string" value="/var/log/flow" />
     </variables>
-    <scripts>
+    <flow>
         <file_save file="{{LOG_DIR}}/audit.log" append="true">
             [{{USER}}] Pipeline step completed at 2026-08-25T18:24:51Z
         </file_save>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -61,7 +61,7 @@ Generate a dynamic HTML report using the `<template>` node and save the resultin
     <variables>
         <variable name="REPORT_DATE" type="string" value="2026-08-25" />
     </variables>
-    <scripts>
+    <flow>
         <!-- Generate HTML content into REPORT_HTML -->
         <template id="gen_report" output_var="REPORT_HTML">
             <html>
@@ -74,7 +74,7 @@ Generate a dynamic HTML report using the `<template>` node and save the resultin
         
         <!-- Save the HTML to an output directory -->
         <file_save file="./output/reports/daily_{{REPORT_DATE}}.html" var="REPORT_HTML" />
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -86,13 +86,13 @@ Keep your SQL scripts organized in files, load them dynamically, and execute the
     <databases>
         <database name="primary_db" connection_string="sqlserver://user:pass@localhost:1433" />
     </databases>
-    <scripts>
+    <flow>
         <!-- Read SQL text into variable QUERY_TEXT -->
         <file_read file="./queries/nightly_cleanup.sql" output_var="QUERY_TEXT" />
         
         <!-- Execute the SQL query -->
         <script lang="sql" db="primary_db" var="QUERY_TEXT" />
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -101,7 +101,7 @@ Read an existing file, process or modify it using a script (like Go, Bash, or Po
 
 ```xml
 <pipeline>
-    <scripts>
+    <flow>
         <!-- 1. Read input CSV -->
         <file_read file="./data/raw_users.csv" output_var="RAW_CSV" />
         
@@ -113,6 +113,6 @@ Read an existing file, process or modify it using a script (like Go, Bash, or Po
         
         <!-- 3. Save processed results to a new file -->
         <file_save file="./data/clean_users.csv" var="CLEAN_CSV" />
-    </scripts>
+    </flow>
 </pipeline>
 ```

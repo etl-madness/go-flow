@@ -28,14 +28,14 @@ Extract a report directly from a SQL database and save it as a native `.xlsx` fi
     <databases>
         <database name="erp_db" connection_string="sqlserver://user:pass@localhost:1433" />
     </databases>
-    <scripts>
+    <flow>
         <excel_write file="./exports/customer_list.xlsx" sheet="Customers" db="erp_db">
             SELECT id, first_name, last_name, email, created_at 
             FROM dbo.customers 
             WHERE active = 1
             ORDER BY created_at DESC;
         </excel_write>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -47,7 +47,7 @@ Extract configuration or bulk upload data from an Excel sheet and send it to an 
     <variables>
         <variable name="FILE_PATH" type="string" value="./uploads/new_users.xlsx" />
     </variables>
-    <scripts>
+    <flow>
         <!-- Reads the "Users" sheet into JSON (using row 1 as keys) -->
         <excel_read file="{{FILE_PATH}}" sheet="Users" output_var="USER_JSON_DATA" />
         
@@ -56,7 +56,7 @@ Extract configuration or bulk upload data from an Excel sheet and send it to an 
             uri="https://api.example.com/v1/users/bulk" 
             content_type="application/json" 
             data="{{USER_JSON_DATA}}" />
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -69,7 +69,7 @@ Use pipeline variables to dynamically name the output file and filter the SQL qu
         <variable name="REPORT_MONTH" type="string" value="August_2026" />
         <variable name="DEPT_ID" type="int" value="42" />
     </variables>
-    <scripts>
+    <flow>
         <!-- The file path and query both use template variables -->
         <excel_write file="./reports/finance/Expenses_{{REPORT_MONTH}}.xlsx" sheet="Expenses" db="finance_db">
             SELECT expense_id, amount, category, date_filed 
@@ -77,7 +77,7 @@ Use pipeline variables to dynamically name the output file and filter the SQL qu
             WHERE department_id = {{DEPT_ID}} 
               AND FORMAT(date_filed, 'MMMM_yyyy') = '{{REPORT_MONTH}}'
         </excel_write>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -86,7 +86,7 @@ Sometimes data files don't have headers. You can set `header="false"` to process
 
 ```xml
 <pipeline>
-    <scripts>
+    <flow>
         <excel_read file="./raw_data/metrics.xlsx" sheet="RawMetrics" header="false" output_var="RAW_DATA" />
         
         <!-- Process the array of arrays in a Go script -->
@@ -103,7 +103,7 @@ Sometimes data files don't have headers. You can set `header="false"` to process
                 // Add custom JSON unmarshaling and validation here
             }
         </script>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -112,7 +112,7 @@ Extract multiple datasets simultaneously from the database into different Excel 
 
 ```xml
 <pipeline>
-    <scripts>
+    <flow>
         <parallel max_threads="3">
             <excel_write file="./exports/dashboard/Sales.xlsx" sheet="Sales_Data" db="warehouse">
                 SELECT * FROM mart.fct_sales WHERE year = 2026;
@@ -126,6 +126,66 @@ Extract multiple datasets simultaneously from the database into different Excel 
                 SELECT emp_id, department, status FROM mart.dim_employees;
             </excel_write>
         </parallel>
-    </scripts>
+    </flow>
+</pipeline>
+```
+### 6. Adding different tabs to the same Excel file
+You can create multiple sheets within a single Excel file by specifying different `sheet` attributes in multiple `<excel_write>` nodes pointing to the same file.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline description="Monthly Sales and Inventory Report Pipeline">
+    <databases>
+        <database name="sales_db" 
+                  driver="postgres" 
+                  connection_string="host=localhost port=5432 user=postgres password=secret dbname=sales sslmode=disable" 
+                  description="Primary Analytics Database" />
+    </databases>
+
+    <flow>
+        <!-- Tab 1: Executive Summary -->
+        <excel_write id="export_summary" 
+                     file="reports/Monthly_Executive_Report.xlsx" 
+                     sheet="Summary KPI" 
+                     db="sales_db"
+                     description="Writes top-level monthly KPIs to the first tab">
+            SELECT 
+                DATE_TRUNC('month', order_date) AS month,
+                COUNT(order_id) AS total_orders,
+                SUM(total_amount) AS total_revenue
+            FROM orders
+            GROUP BY 1
+            ORDER BY 1 DESC;
+        </excel_write>
+
+        <!-- Tab 2: Customer Breakdown -->
+        <excel_write id="export_customers" 
+                     file="reports/Monthly_Executive_Report.xlsx" 
+                     sheet="Customer Details" 
+                     db="sales_db"
+                     description="Appends customer breakdown to a second tab">
+            SELECT 
+                customer_id,
+                company_name,
+                country,
+                total_spent
+            FROM customer_summary
+            WHERE total_spent > 10000;
+        </excel_write>
+
+        <!-- Tab 3: Regional Inventory -->
+        <excel-write id="export_inventory" 
+                     file="reports/Monthly_Executive_Report.xlsx" 
+                     sheet="Inventory Status" 
+                     db="sales_db"
+                     description="Appends inventory levels to a third tab">
+            SELECT 
+                warehouse_id,
+                product_sku,
+                stock_on_hand,
+                reorder_level
+            FROM warehouse_inventory;
+        </excel-write>
+    </flow>
 </pipeline>
 ```

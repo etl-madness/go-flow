@@ -73,28 +73,33 @@
                         </tbody>
                     </table>
                 </xsl:if>
-                <h2>SCRIPTS</h2>
+                <h2>EXECUTIONS</h2>
                 <table>
                     <thead>
                         <tr>
+                            <th>Type</th>
                             <th>Language</th>
                             <th>ID/Name</th>
                             <th>XPath Location</th>
+                            <th>Description</th>
                             <th>Source Database</th>
                             <th>Target Database</th>
                             <th>Target Table</th>
                             <th>Batch Size</th>
+
                             <th>Value</th>
                         </tr>
                     </thead>
                     <tbody>
                         <!-- Target matching nodes (e.g., all <script> nodes) -->
-                        <xsl:for-each select="//script">
+                        <xsl:for-each select="//script | //http-client | //assert | //sql | //sql-bulk">
                             <tr>
          
+                                <td><strong><xsl:value-of select="name()"/></strong></td>
                                 <td><strong><xsl:value-of select="@language"/></strong></td>
                                 <td><strong><xsl:value-of select="@id"/></strong></td>
                                 <td><code><xsl:value-of select="path()"/></code></td>
+                                <td><code><xsl:value-of select="@description"/></code></td>
                                 <td><code><xsl:value-of select="@db"/></code></td>
                                 <td>
                                     <code>
@@ -114,6 +119,7 @@
                                 <td><xsl:value-of select="."/></td>
                             </tr>
                         </xsl:for-each>
+                        
                     </tbody>
                 </table>
 
@@ -142,7 +148,18 @@
             <xsl:otherwise><xsl:text>grp_</xsl:text><xsl:value-of select="if (@id) then @id else generate-id()"/></xsl:otherwise>
         </xsl:choose>
     </xsl:template>
-
+    <xsl:template match="sql-bulk" mode="get-exit-id">
+        <xsl:text>sql-bulk_</xsl:text><xsl:value-of select="if (@id) then @id else generate-id()"/>
+    </xsl:template>
+    <xsl:template match="assert" mode="get-exit-id">
+        <xsl:text>assert_</xsl:text><xsl:value-of select="if (@id) then @id else generate-id()"/>
+    </xsl:template>
+    <xsl:template match="sql" mode="get-exit-id">
+        <xsl:text>sql_</xsl:text><xsl:value-of select="if (@id) then @id else generate-id()"/>
+    </xsl:template>
+    <xsl:template match="http-client" mode="get-exit-id">
+        <xsl:text>http_client_</xsl:text><xsl:value-of select="if (@id) then @id else generate-id()"/>
+    </xsl:template>
     <xsl:template match="script" mode="get-exit-id">
         <xsl:text>script_</xsl:text><xsl:value-of select="if (@id) then @id else generate-id()"/>
     </xsl:template>

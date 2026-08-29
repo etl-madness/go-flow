@@ -72,24 +72,29 @@ When preparing an outgoing payload (e.g., `POST`, `PUT`, `PATCH`), the engine ap
 Inside a `<foreach>` block, every returned database row populates registry variables with column values (bound in exact, lowercase, and uppercase forms) alongside `LOOP_INDEX`[cite: 5, 10]. `<http_client>` consumes these variables per iteration[cite: 5, 6, 10]:
 
 ```xml
-<foreach id="IterateUsers" db="app_db">
-    SELECT user_id, email, account_tier FROM users WHERE sync_pending = 1;
+<pipeline>
+    <flow>
+        <foreach id="IterateUsers" db="app_db">
+            SELECT user_id, email, account_tier FROM users WHERE sync_pending = 1;
 
-    <http_client 
-        id="PostUserToApi"
-        uri="[https://api.example.com/v1/sync](https://api.example.com/v1/sync)"
-        method="POST"
-        content_type="application/json"
-        data='{"id": {{user_id}}, "email": "{{email}}", "tier": "{{account_tier}}"}'
-        output_var="ApiResponseBody"
-        status_code_var="ApiResponseCode" />
+                <http_client 
+                    id="PostUserToApi"
+                    uri="[https://api.example.com/v1/sync](https://api.example.com/v1/sync)"
+                    method="POST"
+                    content_type="application/json"
+                    data='{"id": {{user_id}}, "email": "{{email}}", "tier": "{{account_tier}}"}'
+                    output_var="ApiResponseBody"
+                    status_code_var="ApiResponseCode" />
 
-    <sql id="LogSync" db="app_db" description="Update user sync status and response code in the app database">
-        UPDATE users 
-        SET synced = 1, sync_code = {{ApiResponseCode}} 
-        WHERE user_id = {{user_id}};
-    </sql>
-</foreach>
+                <script id="LogSync" language="sql" db="app_db">
+                    UPDATE users 
+                    SET synced = 1, sync_code = {{ApiResponseCode}} 
+                    WHERE user_id = {{user_id}};
+                </script>
+            </foreach>
+  </flow>
+</pipeline>
+ 
 ```
 ### 4.2 Polling Loops (`<while>`)
 Inside a `<while>` loop, `<http_client>` can poll remote job status endpoints until a termination condition is met:
@@ -100,7 +105,7 @@ Inside a `<while>` loop, `<http_client>` can poll remote job status endpoints un
         <variable name="JobID" type="string" value="JOB-99201" />
     </variables>
 
-    <scripts>
+    <flow>
         <while id="PollStatus" var="JobState" equals="RUNNING" max_iterations="20">
             <http_client 
                 id="CheckStatus"
@@ -114,7 +119,7 @@ Inside a `<while>` loop, `<http_client>` can poll remote job status endpoints un
                 func main() { time.Sleep(2 * time.Second) }
             </script>
         </while>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -122,17 +127,21 @@ Inside a `<while>` loop, `<http_client>` can poll remote job status endpoints un
 Inside `<parallel>` blocks, each child branch runs in an isolated worker thread with a cloned registry snapshot. Output variables updated by `<http_client>` in thread branches are automatically merged or namespaced (`WORKER_<ID>_<VAR>`) back to the main registry upon completion.
 
 ```xml
-<parallel max_threads="2">
-    <http_client 
-        id="FetchServiceA"
-        uri="[https://service-a.internal/health](https://service-a.internal/health)"
-        output_var="HealthA" />
+<pipeline>
+  <flow>
+    <parallel max_threads="2">
+        <http_client 
+            id="FetchServiceA"
+            uri="[https://service-a.internal/health](https://service-a.internal/health)"
+            output_var="HealthA" />
 
-    <http_client 
-        id="FetchServiceB"
-        uri="[https://service-b.internal/health](https://service-b.internal/health)"
-        output_var="HealthB" />
-</parallel>
+        <http_client 
+            id="FetchServiceB"
+            uri="[https://service-b.internal/health](https://service-b.internal/health)"
+            output_var="HealthB" />
+    </parallel>
+  </flow>
+</pipeline>
 ```
 
 ### 5. Comprehensive Pipeline Examples
@@ -140,14 +149,14 @@ Inside `<parallel>` blocks, each child branch runs in an isolated worker thread 
 #### Example A: SQL -> HTTP POST -> Go Response Parser
 ```xml
 <pipeline>
-    <scripts>
+    <flow>
         <!-- 1. Extract JSON payload from database -->
-        <sql id="GetPayload" db="analytics_db" output_var="JsonPayload" description="Retrieve next unprocessed telemetry reading formatted as a JSON object">
+        <script id="GetPayload" language="sql" db="analytics_db" output_var="JsonPayload">
             SELECT JSON_OBJECT('sensor_id': id, 'reading': value) 
             FROM telemetry 
             WHERE processed = 0 
             LIMIT 1;
-        </sql>
+        </script>
 
         <!-- 2. Post JSON payload to cloud endpoint -->
         <http_client 
@@ -173,14 +182,14 @@ Inside `<parallel>` blocks, each child branch runs in an isolated worker thread 
                 fmt.Printf("Uploaded with status %d: %s\n", status, resp)
             }
         </script>
-    </scripts>
+    </flow>
 </pipeline>
 
 ```
 #### Example B: Secure Enterprise Connection (TLS & Proxy Setup)
 ```xml
 <pipeline>
-    <scripts>
+    <flow>
         <http_client 
             id="SecureEnterprisePost"
             uri="[https://secure.partner.com/api/v2/ingest](https://secure.partner.com/api/v2/ingest)"
@@ -200,7 +209,7 @@ Inside `<parallel>` blocks, each child branch runs in an isolated worker thread 
                 "environment": "production"
             }
         </http_client>
-    </scripts>
+    </flow>
 </pipeline>
 
 ```

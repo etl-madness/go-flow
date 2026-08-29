@@ -1,217 +1,158 @@
-# Flow Variable System (`README_VARIABLES.md`)
+# Flow Variable Management & Usage Guide
 
-The `flow` pipeline engine uses a thread-safe registry (`Registry`) to manage environment variables, system runtime variables, and script state. Variables are evaluated dynamically at runtime and can be interpolated into SQL queries, evaluated in conditional control structures, or accessed programmatically in Go scripts.
+Flow supports dynamic environment variables stored in a thread-safe registry (`*flow.Registry`). These variables enable you to parameterize your SQL queries, loop drivers, streaming configurations, and dynamic Go scripts.
 
-## Variable Hierarchy and Precedence
+---
 
-Variables are resolved in a specific hierarchy. When variables share the same key name, higher precedence sources override lower precedence values.
+## 1. Variable Hierarchy & Scope
 
-| Precedence | Source | Description |
+Variables are kept in a single unified registry, but their behavior and scope change depending on the pipeline execution tree block:
+
+| Scope | Context | Behavior |
 | :--- | :--- | :--- |
-| **1 (Highest)** | **Runtime System Variables** | Set dynamically during loop iterations (`LOOP_INDEX`, `WHILE_INDEX`, column outputs) or script execution (`LAST_OUTPUT`, `output_var`). |
-| **2** | **CLI Flag Overrides** | Key-value pairs supplied via the `-vars` command-line flag (`-vars "Threshold=500,TargetTable=logs"`). |
-| **3** | **Config Override File** | Variable declarations loaded from an external config file via the `-config` flag. |
-| **4 (Lowest)** | **Base XML `<variables>`** | Default variable declarations defined inside the primary pipeline XML configuration. |
+| **Global / Registry** | Sequential execution | Read and write actions are immediate and shared. Scripts executing in a sequence (inside a standard group or root block) can read variables written by preceding scripts. |
+| **Thread-Isolated** | `<parallel>` blocks | When running concurrent branches, Flow **snapshots (clones)** the registry's variables for each worker thread, injecting a unique thread-specific `_THREAD_ID` variable (starting from `0`). Only variables mutated by a worker (`dirty` variables) are merged back to the parent. If multiple parallel workers mutate the same key, a conflict-resolution routine namespaces them into `WORKER_<id>_<key>` to prevent race conditions or overwriting concurrent edits with stale values. |
 
 ---
 
-## Variable Flow Architecture
+## 2. Using Variables
 
-```mermaid
-flowchart TD
-    A["1. Primary XML <variables>"] --> R["Thread-Safe Registry (Registry)"]
-    B["2. Override XML (-config)"] --> R
-    C["3. CLI Overrides (-vars)"] --> R
-
-    R --> D{"Pipeline Executor"}
-
-    D -->|"SQL Engine"| E["Interpolate {{VarName}} in Queries"]
-    D -->|"Go Engine (Yaegi)"| F["Access via host/vars Package"]
-    D -->|"If / While Node"| G["evalCondition(varName, expectedVal)"]
-    D -->|"ForEach Node"| H["Inject Column Vars & LOOP_INDEX"]
-
-    E --> I["Store Results in output_var / LAST_OUTPUT"]
-    F --> I
-    H --> R
-    I --> R
-```
-
----
-
-## Usage in Control Structures
-
-### 1. Script Node (`<script>`)
-Variables can be written to using `output_var` or read dynamically using the `var` attribute to fetch script code stored within a variable.
+### SQL Scripts (Variable Interpolation)
+For SQL scripts, variables are dynamically interpolated before execution using double curly brace placeholders: `{{VarName}}`.
 
 ```xml
-<pipeline>
-    <variables>
-        <variable name="DynamicQuery" value="SELECT name, email FROM users WHERE active = 1;" />
-    </variables>
-    <scripts>
-        <!-- Reads code directly from the variable 'DynamicQuery' -->
-        <sql id="RunDynamicQuery" db="my_db" var="DynamicQuery" output_var="QueryResult" description="Execute the dynamic SQL query stored inside the DynamicQuery variable" />
-    </scripts>
-</pipeline>
+<script id="QueryWithLimit" language="sql" db="app_db">
+    SELECT * FROM orders WHERE status = 'PENDING' LIMIT {{MaxLimit}};
+</script>
 ```
 
-### 2. ForEach Loop (`<foreach>`)
-The `<foreach>` block is a powerful structure that bridges SQL query results with iterative execution logic. When building loops, variables can be used in three distinct ways: dynamically overriding the query, filtering the query, and passing active row data to child scripts.
+### Go Scripts (Yaegi `vars` Exports)
+Inside dynamic Go scripts, variables are retrieved using the built-in host package `"host/vars"`. The package exposes typed getters:
 
-#### A. Overriding the Driver Query (`var` Attribute)
-The `var="dept_id"` attribute does **not** map returned column names. Instead, it instructs the executor to check the registry for a variable named `dept_id`. If `dept_id` exists and contains dynamic SQL code, the executor uses that string as the driver query. If it is undefined or empty, it falls back to the inline query block.
+*   `vars.Get(name string) interface{}`
+*   `vars.GetString(name string) string`
+*   `vars.GetInt(name string) int`
+*   `vars.GetBool(name string) bool`
+*   `vars.GetFloat(name string) float64`
 
-#### B. Passing Variables into the Driver Query
-You can filter or configure the driver query by interpolating variables previously populated by a `<script>` or defined globally using standard `{{VariableName}}` placeholders.
+```go
+package main
 
-#### C. Automatic Column Mapping (`{{column_name}}`)
-During execution, the driver SQL query retrieves a set of columns (e.g., `department_id`, `department_name`). On each row iteration, the executor scans the returned row and automatically registers each column's value into the registry under exact, lowercase, and uppercase names. Inside child scripts, these columns are accessible via `{{department_id}}` alongside the zero-based `{{LOOP_INDEX}}`.
+import (
+    "fmt"
+    "host/vars"
+)
 
-#### Comprehensive Example
-```xml
-<!-- Step 1: Capture a value into a variable from a script -->
-<sql id="GetActiveStatus" db="main_db" output_var="ActiveFlag" description="Retrieve status flag from database to check if active">
-    SELECT 1; -- Assuming this returns '1'
-</sql>
-
-<!-- Step 2: Use the variable to filter the loop's driver query -->
-<!-- Note: var="DynamicDriver" would override the SELECT entirely if defined, but here we assume it's empty -->
-<foreach id="IterateDepartments" db="main_db" var="DynamicDriver">
-    SELECT department_id, department_name FROM departments WHERE active = {{ActiveFlag}};
-
-    <!-- Step 3: Access automatically mapped row column variables {{department_id}} and {{LOOP_INDEX}} -->
-    <sql id="ProcessDept" db="main_db" description="Update department stats with the current loop index iteration number">
-        UPDATE department_stats 
-        SET process_order = {{LOOP_INDEX}} 
-        WHERE id = {{department_id}};
-    </sql>
-</foreach>
+func main() {
+    threshold := vars.GetInt("Threshold")
+    table := vars.GetString("TargetTable")
+    fmt.Printf("Processing %s with threshold: %d\n", table, threshold)
+}
 ```
 
-### 3. Conditional Branching (`<if>`, `<then>`, `<else>`)
-Evaluates conditions using variable states. The condition supports implicit truthiness checks, equality (`equals`), or explicit operators (`==`, `!=`).
+### C# Scripts (`dotnet-script` / `csx` Environment Variables)
+Inside dynamic C# scripts, all registry variables are loaded directly into the OS process environment. You can retrieve them using:
 
-```xml
-<if var="ENVIRONMENT" equals="PRODUCTION">
-    <then>
-        <sql id="ProdTask" db="prod_db" description="Disable maintenance mode on production environment settings">
-            UPDATE settings SET maintenance_mode = 0;
-        </sql>
-    </then>
-    <else>
-        <sql id="DevTask" db="dev_db" description="Enable debug mode on development environment settings">
-            UPDATE settings SET debug_mode = 1;
-        </sql>
-    </else>
-</if>
-```
+*   `Environment.GetEnvironmentVariable("VariableName")`
 
-### 4. Query Filtering (`WHERE` Clause)
-SQL statements accept variable values directly inside query filters or streaming targets using `{{VariableName}}` syntax.
-
-```xml
-<sql id="FilterOrders" db="sales_db" description="Filter orders matching order status and minimum date range criteria">
-    SELECT order_id, total_amount 
-    FROM orders 
-    WHERE status = '{{OrderStatus}}' 
-      AND created_at >= '{{MinDate}}';
-</sql>
+```csharp
+using System;
+string targetTable = Environment.GetEnvironmentVariable("TargetTable");
+Console.WriteLine($"Writing to {targetTable}");
 ```
 
 ---
 
-## Script Language Examples
+## 3. Setting Variables in Scripts
 
-### Passing Variables in SQL Scripts
-SQL scripts replace placeholders encased in double curly braces `{{VariableName}}` prior to statement execution.
-
-```xml
-<pipeline>
-    <variables>
-        <variable name="TargetStatus" value="COMPLETED" />
-        <variable name="MinAmount" type="int" value="250" />
-    </variables>
-    <scripts>
-        <sql id="ExtractQualifiedOrders" db="orders_db" description="Extract completed sales orders with total amount exceeding the minimum threshold">
-            SELECT order_id, customer_id, total 
-            FROM sales_orders 
-            WHERE status = '{{TargetStatus}}' 
-              AND total > {{MinAmount}};
-        </sql>
-    </scripts>
-</pipeline>
-```
-
-### Passing and Using Variables in Go Scripts
-Embedded Go scripts interact with the host pipeline registry via the `host/vars` virtual package.
+### SQL Scripts (`output_var`)
+To capture a value returned from a SQL query, use the `output_var` attribute.
+*   If the SQL query returns a single row with a single column, `output_var` stores that value.
+*   Otherwise, it captures the entire tab-separated results block.
 
 ```xml
 <pipeline>
-    <variables>
-        <variable name="BatchLimit" type="int" value="500" />
-        <variable name="EnableLogging" type="bool" value="true" />
-        <variable name="ProcessPrefix" value="BATCH_JOB" />
-    </variables>
-    <scripts>
-        <script id="ProcessInGo" language="go">
-            package main
-
-            import (
-                "fmt"
-                "host/vars"
-            )
-
-            func main() {
-                // Read typed pipeline variables
-                limit := vars.GetInt("BatchLimit")
-                loggingEnabled := vars.GetBool("EnableLogging")
-                prefix := vars.GetString("ProcessPrefix")
-
-                if loggingEnabled {
-                    fmt.Printf("Running %s with limit %d\n", prefix, limit)
-                }
-            }
+    <flow>
+        <script id="GetMaxID" language="sql" db="app_db" output_var="LastProcessedID">
+            SELECT COALESCE(MAX(id), 0) FROM logs;
         </script>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
-### Setting Variables in Scripts
-
-#### Go Scripts (`output_var` / Stdout Capture)
+### Go Scripts (`output_var` / Stdout Capture)
 Because the Yaegi host bindings do not expose a variable mutation method, you write values to variables by printing them to **stdout**. The `output_var` attribute will capture the printed console output and store it as a string variable.
 
 ```xml
-<script id="CalculateStats" language="go" output_var="ResultScore">
-    package main
-    import "fmt"
-    func main() {
-        score := 98.4
-        // Captured directly by "ResultScore"
-        fmt.Printf("%.1f", score)
-    }
-</script>
+<pipeline>
+    <flow>
+        <script id="CalculateStats" language="go" output_var="ResultScore">
+            package main
+            import "fmt"
+            func main() {
+                score := 98.4
+                // Captured directly by "ResultScore"
+                fmt.Printf("%.1f", score)
+            }
+        </script>
+    </flow>
+</pipeline>
 ```
 
-#### C# Scripts (`output_var` / Stdout Capture)
+### C# Scripts (`output_var` / Stdout Capture)
 Similar to Go and shell scripts, `dotnet-script` outputs to **stdout** are captured by the `output_var` attribute and stored back into the pipeline variable registry.
 
 ```xml
-<script id="CsharpCalc" language="dotnet-script" output_var="ResultSum">
-    using System;
-    int a = 10;
-    int b = 20;
-    Console.Write(a + b); // Captured directly by "ResultSum"
-</script>
+<pipeline>
+    <flow>
+        <script id="CsharpCalc" language="dotnet-script" output_var="ResultSum">
+            using System;
+            int a = 10;
+            int b = 20;
+            Console.Write(a + b); // Captured directly by "ResultSum"
+        </script>
+    </flow>
+</pipeline>
 ```
+
 ---
 
-#### Example A: Exporting Multiple Parameters (Comma-Separated Output)
+## 4. Loops (`<foreach>`)
+
+When iterating over records using a `<foreach>` block, the loop driver query binds the following variables automatically for each iteration:
+
+*   `LOOP_INDEX`: The current 0-indexed loop iteration index (integer).
+*   **Columns**: The values of the current row are bound to variables matching the column names. To prevent casing issues, the engine binds them in three casings:
+    1.  **Exact Case** (e.g. `UserId`)
+    2.  **Lowercase** (e.g. `userid`)
+    3.  **Uppercase** (e.g. `USERID`)
+
+```xml
+<pipeline>
+    <flow>
+        <foreach id="IterateUsers" db="app_db" var="UserId">
+            SELECT id, username, email FROM users WHERE active = 1;
+            
+            <!-- Each iteration binds "id", "username", "email", and "LOOP_INDEX" -->
+            <script id="ProcessUser" language="sql" db="app_db">
+                INSERT INTO user_audit (user_id, action) 
+                VALUES ({{id}}, 'Processed iteration {{LOOP_INDEX}}');
+            </script>
+        </foreach>
+    </flow>
+</pipeline>
+```
+
+---
+
+## 5. Advanced Examples
+
+### Example A: Exporting Multiple Parameters (Comma-Separated Output)
 When you need to output multiple distinct values from a script to be consumed as separate parameters in a subsequent step, you can format the output as a delimited string and parse it inside the next Go script.
 
 ```xml
 <pipeline>
-    <scripts>
+    <flow>
         <!-- Step 1: Export a delimited config from Go -->
         <script id="GenerateParams" language="go" output_var="MultiParams">
             package main
@@ -244,16 +185,16 @@ When you need to output multiple distinct values from a script to be consumed as
                 }
             }
         </script>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
-#### Example B: Passing JSON Output Between Scripts
+### Example B: Passing JSON Output Between Scripts
 For complex, structured data, you can output a JSON string, capture it, and parse it back into typed structs in subsequent dynamic Go scripts.
 
 ```xml
 <pipeline>
-    <scripts>
+    <flow>
         <!-- Step 1: Query database config details, formatting output as JSON -->
         <script id="FetchServiceConfig" language="go" output_var="ServiceJSON">
             package main
@@ -300,11 +241,11 @@ For complex, structured data, you can output a JSON string, capture it, and pars
                 fmt.Printf("Successfully established connection to %s:%d (SSL: %t)\n", cfg.Host, cfg.Port, cfg.SSL)
             }
         </script>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
-#### Example C: Inter-operating Go and C# Scripts
+### Example C: Inter-operating Go and C# Scripts
 You can easily pass state between dynamic Go interpreter scripts and C# process-executed scripts using variables.
 
 ```xml
@@ -312,7 +253,7 @@ You can easily pass state between dynamic Go interpreter scripts and C# process-
     <variables>
         <variable name="Threshold" type="int" value="42" />
     </variables>
-    <scripts>
+    <flow>
         <!-- Step 1: Read Threshold variable in C#, run calculations, and store output -->
         <script id="CsharpStep" language="dotnet-script" output_var="CS_Result">
             using System;
@@ -334,7 +275,7 @@ You can easily pass state between dynamic Go interpreter scripts and C# process-
                 fmt.Printf("Go received from C#: %s\n", csVal)
             }
         </script>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 

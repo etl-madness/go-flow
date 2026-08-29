@@ -137,30 +137,40 @@ go build
 
 Run the engine using command line flags to specify your scripts file, schema files, and execution modes:
 
+### Build the CLI
+
+Before running any commands, ensure that you have built the CLI executable:
+
+```bash
+go build -o flow main.go
+```
+
+You can then replace `go run main.go` with `./flow` in the examples below.
+
 ```bash
 # Basic Execution
-go run main.go --file pipeline.xml
+./flow --file pipeline.xml
 
 # Execution with Variable Overrides via Config File
-go run main.go --file pipeline.xml --config production_config.xml
+./flow --file pipeline.xml --config production_config.xml
 
 # Full Execution with Variable Overrides via Command Line
-go run main.go --file pipeline.xml --vars "BulkSize=1000"
+./flow --file pipeline.xml --vars "BulkSize=1000"
 
 # Pipeline Validation Only (Does not execute scripts)
-go run main.go --file pipeline.xml --validate
+./flow --file pipeline.xml --validate
 
 # Console Logging (Additional verbose output to stdout)
-go run main.go --file pipeline.xml --debug
+./flow --file pipeline.xml --debug
 
 # Full Schema Validation and Execution
-go run main.go --file pipeline.xml --xsd schema.xsd --config CONFIG.xml
+./flow --file pipeline.xml --xsd schema.xsd --config CONFIG.xml
 
 # Generate Interactive HTML Documentation with Flowchart
-go run main.go --file pipeline.xml --xslt autodoc.xslt --out pipeline.html
+./flow --file pipeline.xml --xslt autodoc.xslt --out pipeline.html
 
 # Generate GitHub-Native Markdown Documentation with Flowchart
-go run main.go --file pipeline.xml --xslt autodoc_md.xslt --out pipeline.md
+./flow --file pipeline.xml --xslt autodoc_md.xslt --out pipeline.md
 ```
 
 ### CLI Flag Reference
@@ -193,7 +203,8 @@ Generates a styled, single-file HTML document featuring:
 * Formatted source code blocks displaying SQL/Go step values.
 
 ```bash
-go run main.go --file pipeline.xml --xslt autodoc.xslt --out pipeline.html
+go build -o flow main.go
+./flow --file pipeline.xml --xslt autodoc.xslt --out pipeline.html
 ```
 
 #### 2. GitHub-Native Markdown Output (`autodoc_md.xslt`)
@@ -203,14 +214,14 @@ Generates a plain Markdown (`.md`) file optimized for version control, GitHub/Gi
 * Escaped multiline script content wrapped inside HTML `<code>` blocks to preserve line formatting without breaking table alignment.
 
 ```bash
-go run main.go --file pipeline.xml --xslt autodoc_md.xslt --out pipeline.md
+./flow --file pipeline.xml --xslt autodoc_md.xslt --out pipeline.md
 ```
 
 ---
 
 ## Configuration Reference & Cheat Sheet
 
-The configuration is structured into three main blocks inside the root `<pipeline>` element: `<variables>`, `<databases>`, and `<scripts>`.
+The configuration is structured into three main blocks inside the root `<pipeline>` element: `<variables>`, `<databases>`, and `<flow>`.
 
 ```mermaid
 classDiagram
@@ -339,7 +350,7 @@ Demonstrates how to configure and query multiple database servers of different t
         <database name="oracle_db" driver="oracle" connection_string="oracle://user:password@localhost:1521/XEPDB1" />
     </databases>
 
-    <scripts>
+    <flow>
         <!-- 1. Query PostgreSQL -->
         <sql id="query_pg" db="postgres_db" description="Query PostgreSQL for the first 10 users">
             <![CDATA[
@@ -361,7 +372,7 @@ Demonstrates how to configure and query multiple database servers of different t
                 SELECT id, status FROM orders WHERE status = 'PENDING';
             ]]>
         </sql>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -399,7 +410,7 @@ Queries databases, maps output columns directly into temporary context variables
         <database name="primary_db" connection_string="{{PrimaryDBConnStr}}" />
     </databases>
 
-    <scripts>
+    <flow>
         <foreach id="RegionLoop" language="sql" db="primary_db" var="GetActiveRegionsQuery">
             <group id="ProcessRegionGroup">
                 <!-- Access loop columns via curly braces -->
@@ -428,7 +439,7 @@ Queries databases, maps output columns directly into temporary context variables
                 </script>
             </group>
         </foreach>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -479,7 +490,7 @@ The example script below run via `go-flow` executed in 821.5704ms. Your mileage 
         <database name="database2" connection_string="{{Database2ConnStr}}" />
     </databases>
 
-    <scripts>
+    <flow>
         <script id="GO_GET_ProcessDate" language="go">
             <![CDATA[
             package main
@@ -504,7 +515,7 @@ The example script below run via `go-flow` executed in 821.5704ms. Your mileage 
                     SELECT [object_servername],[object_servicename],[object_database],[object_id],[object_schema],[object_name],[object_type],[object_desc],[LoadDate] FROM [dbo].[cross_db_objects] (NOLOCK);
                  ]]>
         </sql-bulk>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
@@ -519,7 +530,7 @@ The example script below run via `go-flow` executed in 821.5704ms. Your mileage 
     <variables>
         <variable name="export_dir" value="C:\exports" />
     </variables>
-    <scripts>
+    <flow>
         <!-- Run external executable and store output in variable -->
         <script id="ExtractData" language="shell" output_var="GCLOUD_BILLING_JSON">
             ..qBilling.exe
@@ -534,7 +545,7 @@ The example script below run via `go-flow` executed in 821.5704ms. Your mileage 
         <script id="ArchiveLogs" language="bash" output_var="ARCHIVE_LOG">
             tar -czvf {{export_dir}}/archive.tar.gz {{export_dir}}/*.csv
         </script>
-    </scripts>
+    </flow>
 </pipeline>
 ```
 
