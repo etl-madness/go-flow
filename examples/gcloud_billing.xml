@@ -2,18 +2,18 @@
 <pipeline description="ETL pipeline for extracting GCP billing data from BigQuery and loading it into SQL Server">
     <!-- Pipeline Variables -->
     <variables>
-        <variable name="full_table_path" type="string" value="" />
-        <variable name="database1_connection_string" type="string" value="sqlserver://server.example.com:1433?database=YOURDB&amp;integrated+security=true&amp;trustServerCertificate=true" />
-        <variable name="GCP_PROJECT_ID" type="string" value="YOUR_PROJECT_ID" />
-        <variable name="BQ_BILLING_TABLE" type="string" value="YOUR_BQ_BILLING_TABLE" />
-        <variable name="GOOGLE_APPLICATION_CREDENTIALS" type="string" value="YOUR_GOOGLE_APPLICATION_CREDENTIALS_PATH" />
+        <variable name="full_table_path" description="Full table path for the BigQuery billing table" type="string" value="" />
+        <variable name="database1_connection_string" description="Connection string for the primary database" type="string" value="sqlserver://server.example.com:1433?database=YOURDB&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="GCP_PROJECT_ID" description="GCP project ID" type="string" value="YOUR_PROJECT_ID" />
+        <variable name="BQ_BILLING_TABLE" description="BigQuery billing table name" type="string" value="YOUR_BQ_BILLING_TABLE" />
+        <variable name="GOOGLE_APPLICATION_CREDENTIALS" description="Path to the Google application credentials JSON file" type="string" value="YOUR_GOOGLE_APPLICATION_CREDENTIALS_PATH" />
     </variables>
     <databases>
-        <database name="database1" connection_string="{{database1_connection_string}}" />
+        <database name="database1" description="Primary SQL Server database" connection_string="{{database1_connection_string}}" />
     </databases>
 
     <preflight>
-        <sql id="preflight_check" db="database1" description="Preflight check for GCP billing data" output_var="PRELIGHT_CHECK_1_RESULT">
+        <sql id="preflight_check" db="database1"  description="Preflight check for GCP billing data" output_var="PRELIGHT_CHECK_1_RESULT">
             <![CDATA[
                 SELECT 1
             ]]>

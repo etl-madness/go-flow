@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline>
+<pipeline description="ETL pipeline for fetching AutoSys job JIL and loading it into SQL Server">
     <!-- Pipeline Variables -->
     <variables>
-        <variable name="JOB_NAME" type="string" value="APPTEAM_JOB_1" />
-        <variable name="BASIC_AUTH" type="string" value="Basic TOKEN" />
-        <variable name="aewsServer" type="string" value="https://autosys-web-server.example.com:9443" />
-        <variable name="Database1ConnStr" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
+        <variable name="JOB_NAME" description="Name of the AutoSys job to fetch JIL for" type="string" value="APPTEAM_JOB_1" />
+        <variable name="BASIC_AUTH" description="Basic authentication token for AutoSys Web Server" type="string" value="Basic TOKEN" />
+        <variable name="aewsServer" description="URL of the AutoSys Web Server" type="string" value="https://autosys-web-server.example.com:9443" />
+        <variable name="Database1ConnStr" description="Connection string for the primary database" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
     </variables>
 
     <databases>
-        <database name="database1" connection_string="{{Database1ConnStr}}" />
+        <database name="database1" description="Primary SQL Server database" connection_string="{{Database1ConnStr}}" />
     </databases>
 
     <flow>
@@ -29,7 +29,7 @@
         <if var="DATA_UPTODATE" equals="false">
             <then>
                 <!-- Output stored into JIL_CONTENT so parse_jil_command can read it -->
-                <script id="get_jil_command" language="go" output_variable="JIL_CONTENT">
+                <script id="get_jil_command" language="go" description="Fetch AutoSys job JIL via Go script" output_variable="JIL_CONTENT">
                     <![CDATA[
                 package main
 
@@ -121,7 +121,7 @@
                 </script>
 
                 <!-- Parses JIL_CONTENT and stores extracted path into FilePath -->
-                <script id="parse_jil_command" language="go" output_variable="FilePath">
+                <script id="parse_jil_command" language="go" description="Parse JIL content and extract the command path" output_variable="FilePath">
                     <![CDATA[
                     package main
 
@@ -163,7 +163,7 @@
                 </script>
 
                 <!-- Step 2: Scans FilePath BAT file for SET LOG_FILE and stores path in LOGFILE_RESULTS -->
-                <script id="find_log_in_file" language="go" output_variable="LOGFILE_RESULTS">
+                <script id="find_log_in_file" language="go" description="Scan the command file for SET LOG_FILE and extract the log file path" output_variable="LOGFILE_RESULTS">
                     <![CDATA[
             package main
 
@@ -213,7 +213,7 @@
                 </script>
 
                 <!-- Step 3: Read Log File Content and Output formatted JSON -->
-                <script id="read_log_content" language="go">
+                <script id="read_log_content" language="go" description="Read the log file content and output it as formatted JSON">
                     <![CDATA[
             package main
 
@@ -286,7 +286,7 @@
                 </script>
             </then>
             <else>
-                <script id="data_uptodate_message" language="go">
+                <script id="data_uptodate_message"  description="Display a message indicating that the data is up-to-date" language="go">
                     <![CDATA[
             package main
             import (

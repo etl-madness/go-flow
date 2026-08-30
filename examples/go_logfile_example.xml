@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline>
+<pipeline description="Pipeline to process log files based on JIL and BAT file configurations">
     <!-- Pipeline Variables -->
     <variables>
-        <variable name="JilPath" type="string" value="./examples/JIL/csx_logfile_example.jil" />
-        <variable name="Database1ConnStr" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
+        <variable name="JilPath" description="Path to the JIL file" type="string" value="./examples/JIL/csx_logfile_example.jil" />
+        <variable name="Database1ConnStr" description="Connection string for the primary database" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
 
     </variables>
 
     <databases>
-        <database name="database1" connection_string="{{Database1ConnStr}}" />
+        <database name="database1" description="Primary SQL Server database" connection_string="{{Database1ConnStr}}" />
     </databases>
 
     <flow>
@@ -27,7 +27,7 @@
         </sql>
         <if var="DATA_UPTODATE" equals="false">
             <then>
-                <script id="parse_jil_command" language="go" output_variable="FilePath">
+                <script id="parse_jil_command" language="go" description="Parse JIL content and extract the command path" output_variable="FilePath">
                     <![CDATA[
             package main
 
@@ -76,7 +76,7 @@
                 </script>
 
                 <!-- Step 2: Extract LOG_FILE line from BAT file -->
-                <script id="find_log_in_file" language="go" output_variable="LOGFILE_RESULTS">
+                <script id="find_log_in_file" language="go" description="Scan the command file for SET LOG_FILE and extract the log file path" output_variable="LOGFILE_RESULTS">
                     <![CDATA[
             package main
 
@@ -125,7 +125,7 @@
                 </script>
 
                 <!-- Step 3: Read Log File Content and Output formatted JSON -->
-                <script id="read_log_content" language="go">
+                <script id="read_log_content" language="go" description="Read the log file content and output it as formatted JSON">
                     <![CDATA[
            package main
 
@@ -200,7 +200,7 @@
                 </script>
             </then>
             <else>
-                <script id="data_uptodate_message" language="go">
+                <script id="data_uptodate_message" description="Display a message indicating that the data is up-to-date" language="go">
                     <![CDATA[
             package main
             import (

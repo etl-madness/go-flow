@@ -1,7 +1,7 @@
-<pipeline>
+<pipeline description="Pipeline to test various HTTP client requests with dynamic token generation">
     <flow>
         <!-- 1. SCRIPT TASK: Dynamically creates a value and captures stdout to 'GeneratedToken' -->
-        <script id="GenerateAuthToken" language="go" output_var="GeneratedToken">
+        <script id="GenerateAuthToken" language="go" description="Dynamically generates an authentication token" output_var="GeneratedToken">
             package main
 
             import "fmt"
@@ -14,7 +14,7 @@
         </script>
 
         <!-- 2. HTTP CLIENT: Uses {{GeneratedToken}} in headers and body text -->
-        <http_client id="HttpPostWithVar" uri="http://localhost:8080/api/log?session=9982" method="POST" content_type="application/json" headers="Authorization: {{GeneratedToken}}" output_var="PostResponseBody" status_code_var="HttpPostStatus2">
+        <http_client id="HttpPostWithVar" description="Performs an HTTP POST request using the dynamically generated token" uri="http://localhost:8080/api/log?session=9982" method="POST" content_type="application/json" headers="Authorization: {{GeneratedToken}}" output_var="PostResponseBody" status_code_var="HttpPostStatus2">
             {
                 "auth_header": "{{GeneratedToken}}",
                 "payload": "Data sent using pipeline dynamic variable"
@@ -37,13 +37,13 @@
             }
         </script>
         <!-- 4. GET Request -->
-        <http_client id="HttpGetTest" uri="http://localhost:8080/api/log" method="GET" timeout="5s" output_var="GetResponseBody" status_code_var="HttpGetStatus" />
+        <http_client id="HttpGetTest" description="Performs an HTTP GET request to retrieve log data" uri="http://localhost:8080/api/log" method="GET" timeout="5s" output_var="GetResponseBody" status_code_var="HttpGetStatus" />
 
         <!-- 5. POST Request -->
-        <http_client id="HttpPostTest" uri="http://localhost:8080/api/log" method="POST" content_type="application/json" data='{"event": "test_record", "status": "active"}' output_var="PostResponseBody" status_code_var="HttpPostStatus" />
+        <http_client id="HttpPostTest" description="Performs a standard HTTP POST request with test data" uri="http://localhost:8080/api/log" method="POST" content_type="application/json" data='{"event": "test_record", "status": "active"}' output_var="PostResponseBody" status_code_var="HttpPostStatus" />
 
         <!-- 6. PUT Request -->
-        <HTTP_CLIENT id="HttpPutTest" uri="http://localhost:8080/api/log?release=101" method="PUT" content_type="application/json" output_var="PutResponseBody" status_code_var="HttpPutStatus">
+        <HTTP_CLIENT id="HttpPutTest" description="Performs an HTTP PUT request to update log data for a specific release" uri="http://localhost:8080/api/log?release=101" method="PUT" content_type="application/json" output_var="PutResponseBody" status_code_var="HttpPutStatus">
             {
                 "id": 101,
                 "status": "updated"
@@ -51,10 +51,10 @@
         </HTTP_CLIENT>
 
         <!-- 7. PATCH Request -->
-        <http_client id="HttpPatchTest" uri="http://localhost:8080/api/log?release=101" method="PATCH" content_type="application/json" data='{"status": "partially_modified"}' output_var="PatchResponseBody" status_code_var="HttpPatchStatus" />
+        <http_client id="HttpPatchTest" description="Performs an HTTP PATCH request to partially modify log data for a specific release" uri="http://localhost:8080/api/log?release=101" method="PATCH" content_type="application/json" data='{"status": "partially_modified"}' output_var="PatchResponseBody" status_code_var="HttpPatchStatus" />
 
         <!-- 8. DELETE Request -->
-        <http_client id="HttpDeleteTest" uri="http://localhost:8080/api/log?release=101" method="DELETE" output_var="DeleteResponseBody" status_code_var="HttpDeleteStatus" />
+        <http_client id="HttpDeleteTest" description="Performs an HTTP DELETE request to remove log data for a specific release" uri="http://localhost:8080/api/log?release=101" method="DELETE" output_var="DeleteResponseBody" status_code_var="HttpDeleteStatus" />
 
 
     </flow>

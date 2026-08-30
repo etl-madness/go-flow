@@ -61,8 +61,8 @@ github.com/envoyproxy/go-control-plane/envoy v1.37.0 h1:u3riX6BoYRfF4Dr7dwSOroNf
 github.com/envoyproxy/go-control-plane/envoy v1.37.0/go.mod h1:DReE9MMrmecPy+YvQOAOHNYMALuowAnbjjEMkkWOi6A=
 github.com/envoyproxy/protoc-gen-validate v1.3.3 h1:MVQghNeW+LZcmXe7SY1V36Z+WFMDjpqGAGacLe2T0ds=
 github.com/envoyproxy/protoc-gen-validate v1.3.3/go.mod h1:TsndJ/ngyIdQRhMcVVGDDHINPLWB7C82oDArY51KfB0=
-github.com/etl-madness/flow v1.2.16 h1:rMHvEd4kgcu3H9zQrHt9y3HWo5jeGpLjLODvED3brA4=
-github.com/etl-madness/flow v1.2.16/go.mod h1:VoRer8Xp5ar7QS1XTcIxYwH+1RY1I5bhRRO0O78hvpE=
+github.com/etl-madness/flow v1.2.18 h1:PSSbq2VNAgfXZIPh07r2PvcnNaAr2lC4d8crkMHnnXE=
+github.com/etl-madness/flow v1.2.18/go.mod h1:VoRer8Xp5ar7QS1XTcIxYwH+1RY1I5bhRRO0O78hvpE=
 github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/go-jose/go-jose/v4 v4.1.4 h1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz3kA=

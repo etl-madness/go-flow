@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline>
+<pipeline description="Example pipeline demonstrating if-then-else branching and conditional group execution">
     <variables>
-        <variable name="PrimaryDBConnStr" type="string" value="sqlserver://PROD_SERVER:1433?database=PROTO_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
-        <variable name="AnalyticsDBConnStr" type="string" value="sqlserver://PROD_SERVER:1433?database=AdventureWorks_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="PrimaryDBConnStr" description="Connection string for the primary database" type="string" value="sqlserver://PROD_SERVER:1433?database=PROTO_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="AnalyticsDBConnStr" description="Connection string for the analytics database" type="string" value="sqlserver://PROD_SERVER:1433?database=AdventureWorks_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
     </variables>
 
     <!-- Databases referencing variable placeholders -->
     <databases>
-        <database name="primary_db" connection_string="{{PrimaryDBConnStr}}" />
-        <database name="analytics_db" connection_string="{{AnalyticsDBConnStr}}" />
+        <database name="primary_db"  description="Primary database connection" connection_string="{{PrimaryDBConnStr}}" />
+        <database name="analytics_db" description="Analytics database connection" connection_string="{{AnalyticsDBConnStr}}" />
     </databases>
 
     <flow>

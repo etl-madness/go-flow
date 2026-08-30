@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline>
+<pipeline description="Example pipeline demonstrating multiple database types">
     <variables>
-        <variable name="BatchSize" type="int" value="500" />
+        <variable name="BatchSize"  description="Batch size for bulk operations" type="int" value="500" />
     </variables>
 
     <databases>
         <!-- MSSQL (Default driver when omitted) -->
-        <database name="mssql_db" driver="sqlserver" connection_string="sqlserver://sa:Password123!@localhost:1433?database=master&amp;trustServerCertificate=true" />
+        <database name="mssql_db" driver="sqlserver"  description="MSSQL database connection" connection_string="sqlserver://sa:Password123!@localhost:1433?database=master&amp;trustServerCertificate=true" />
 
         <!-- PostgreSQL -->
-        <database name="postgres_db" driver="postgres" connection_string="postgres://user:password@localhost:5432/mydb?sslmode=disable" />
+        <database name="postgres_db" driver="postgres" description="PostgreSQL database connection" connection_string="postgres://user:password@localhost:5432/mydb?sslmode=disable" />
 
         <!-- MySQL -->
-        <database name="mysql_db" driver="mysql" connection_string="user:password@tcp(127.0.0.1:3306)/mydb" />
+        <database name="mysql_db" driver="mysql" description="MySQL database connection" connection_string="user:password@tcp(127.0.0.1:3306)/mydb" />
 
         <!-- SQLite3 -->
-        <database name="sqlite_db" driver="sqlite3" connection_string="./pipeline_cache.db" />
+        <database name="sqlite_db" driver="sqlite3" description="SQLite3 database connection" connection_string="./pipeline_cache.db" />
 
         <!-- Oracle -->
-        <database name="oracle_db" driver="oracle" connection_string="oracle://user:password@localhost:1521/XEPDB1" />
+        <database name="oracle_db" driver="oracle" description="Oracle database connection" connection_string="oracle://user:password@localhost:1521/XEPDB1" />
     </databases>
 
     <flow>

@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline>
+<pipeline  description="PostgreSQL example pipeline with preflight checks">
     <!-- Pipeline Variables -->
     <variables>
         <!-- Connection strings & GitHub API Configuration -->
-        <variable name="postgres_conn_str" type="string" value="postgres://user:password@localhost:5432/database?sslmode=disable" />
+        <variable name="postgres_conn_str"  description="PostgreSQL connection string" type="string" value="postgres://user:password@localhost:5432/database?sslmode=disable" />
 
     </variables>
 
     <databases>
-        <database name="database1" driver="postgres" connection_string="{{postgres_conn_str}}" />
+        <database name="database1"  description="Primary PostgreSQL database connection" driver="postgres" connection_string="{{postgres_conn_str}}" />
     </databases>
     <preflight>
         <sql id="preflight_check_access" language="sql" description="Preflight check" db="database1">

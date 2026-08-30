@@ -26,7 +26,7 @@ func formatLineReturns(s string) string {
 func outputRawJSON(res *[]flow.ScriptResult) {
 	jsonBytes, err := json.Marshal(res)
 	if err != nil {
-		fmt.Printf("[{\"script_id\": \"system\", \"return_code\": 1, \"results_string\": \"JSON encoding error: %v\"}]\n", err)
+		fmt.Printf("[{\"script_id\": \"system\", \"return_code\": 1, \"results_string\": \"JSON encoding error: %v\"}]", err)
 		return
 	}
 	// Pass JSON output through line return cleanup before printing to stdout
@@ -61,7 +61,7 @@ func outputJSON(res *[]flow.ScriptResult) {
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(printable); err != nil {
-		fmt.Printf("[{\"script_id\": \"system\", \"return_code\": 1, \"results_string\": \"JSON encoding error: %v\"}]\n", err)
+		fmt.Printf("[{\"script_id\": \"system\", \"return_code\": 1, \"results_string\": \"JSON encoding error: %v\"}]", err)
 		return
 	}
 
@@ -70,8 +70,8 @@ func outputJSON(res *[]flow.ScriptResult) {
 	outputStr := buf.String()
 	const backslashPlaceholder = "___DOUBLE_BACKSLASH___"
 	outputStr = strings.ReplaceAll(outputStr, `\\`, backslashPlaceholder)
-	outputStr = strings.ReplaceAll(outputStr, `\r\n`, "\n")
-	outputStr = strings.ReplaceAll(outputStr, `\n`, "\n")
+	outputStr = strings.ReplaceAll(outputStr, `\r\n`, "")
+	outputStr = strings.ReplaceAll(outputStr, `\n`, "")
 	outputStr = strings.ReplaceAll(outputStr, `\r`, "")
 	outputStr = strings.ReplaceAll(outputStr, backslashPlaceholder, `\\`)
 

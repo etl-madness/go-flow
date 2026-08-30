@@ -1,22 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline>
+<pipeline description="Pipeline to truncate and bulk copy data between SQL Server tables">
     <variables>
         <!-- Connection strings (Replace with actual SQL Server connection details if needed) -->
-        <variable name="Database1ConnStr" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
-        <variable name="Database2ConnStr" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database2&amp;trustServerCertificate=true" />
+        <variable name="Database1ConnStr" description="Connection string for database1" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
+        <variable name="Database2ConnStr" description="Connection string for database2" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database2&amp;trustServerCertificate=true" />
 
         <!-- Initial value for ProcessDate -->
+        <variable name="ProcessDate" description="Process date in format YYYY-MM-DD" type="string" value="" />
     </variables>
 
     <databases>
-        <database name="database1" connection_string="{{Database1ConnStr}}" />
-        <database name="database2" connection_string="{{Database2ConnStr}}" />
+        <database name="database1"  description="Database 1 connection" connection_string="{{Database1ConnStr}}" />
+        <database name="database2" description="Database 2 connection" connection_string="{{Database2ConnStr}}" />
     </databases>
 
     <flow>
         <!-- 1. Fetch ProcessDate (today's date in format YYYY-MM-DD) and set to ProcessDate variable -->
 
-        <script id="GO_GET_ProcessDate" language="go">
+        <script id="GO_GET_ProcessDate" description="Fetch today's date and set it to ProcessDate variable" language="go">
             <![CDATA[
             package main
                 import (
@@ -30,12 +31,12 @@
             ]]>
         </script>
 
-        <sql id="MSSQL_TRUNCATE_xfr_cross_db_objects" db="database2" description="Truncate cross-database objects staging table in destination database">
+        <sql id="MSSQL_TRUNCATE_xfr_cross_db_objects"  db="database2" description="Truncate cross-database objects staging table in destination database">
             <![CDATA[
                     TRUNCATE TABLE [dbo].[xfr_cross_db_objects];
                     ]]>
         </sql>
-        <sql-bulk id="MSSQL_BLK_STREAM_to_xfr_cross_db_objects" db="database1" target_db="database2" target_table="[dbo].[xfr_cross_db_objects]" batch_size="25000" tablock="true" check_constraints="true" fire_triggers="false" keep_nulls="true" description="Stream data in bulk from cross_db_objects in database1 to staging table in database2">
+        <sql-bulk id="MSSQL_BLK_STREAM_to_xfr_cross_db_objects" description="Stream data in bulk from cross_db_objects in database1 to staging table in database2" db="database1" target_db="database2" target_table="[dbo].[xfr_cross_db_objects]" batch_size="25000" tablock="true" check_constraints="true" fire_triggers="false" keep_nulls="true">
             <![CDATA[
                     SELECT [object_servername],[object_servicename],[object_database],[object_id],[object_schema],[object_name],[object_type],[object_desc],[LoadDate] FROM [dbo].[cross_db_objects] (NOLOCK);
                  ]]>

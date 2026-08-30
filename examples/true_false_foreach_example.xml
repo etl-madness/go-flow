@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline>
+<pipeline  description="Example pipeline demonstrating true/false conditional logic with a foreach loop">
     <variables>
-        <variable name="PrimaryDBConnStr" type="string" value="sqlserver://PROD_SERVER:1433?database=master&amp;integrated+security=true&amp;trustServerCertificate=true" />
-        <variable name="AnalyticsDBConnStr" type="string" value="sqlserver://PROD_SERVER:1433?database=AdventureWorks_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
-        <variable name="GetActiveRegionsQuery" value="SELECT database_id, name FROM sys.databases" />
+        <variable name="PrimaryDBConnStr"  description="Connection string for the primary SQL Server database" type="string" value="sqlserver://PROD_SERVER:1433?database=master&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="AnalyticsDBConnStr"  description="Connection string for the analytics SQL Server database" type="string" value="sqlserver://PROD_SERVER:1433?database=AdventureWorks_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="GetActiveRegionsQuery"  description="Query to retrieve active regions from sys.databases" value="SELECT database_id, name FROM sys.databases" />
 
         <!-- Variable to hold the check result (defaults to false) -->
-        <variable name="IsMasterDB" type="bool" value="false" />
+        <variable name="IsMasterDB"  description="Flag indicating if the current database is the master database" type="bool" value="false" />
     </variables>
 
     <databases>
-        <database name="primary_db" connection_string="{{PrimaryDBConnStr}}" />
-        <database name="analytics_db" connection_string="{{AnalyticsDBConnStr}}" />
+        <database name="primary_db"  description="Primary SQL Server database connection" connection_string="{{PrimaryDBConnStr}}" />
+        <database name="analytics_db"  description="Analytics SQL Server database connection" connection_string="{{AnalyticsDBConnStr}}" />
     </databases>
 
     <flow>
@@ -23,7 +23,7 @@
         </sql>
 
         <!-- 2. Conditional check using the dynamically populated 'IsMasterDB' variable -->
-        <if var="IsMasterDB" equals="true">
+        <if var="IsMasterDB" equals="true" description="Check if the current database is the master database">
             <then>
                 <sql id="LogMasterNotice" db="primary_db" description="Log confirmation message that connected to master database">
                     <![CDATA[
@@ -31,8 +31,8 @@
                     ]]>
                 </sql>
 
-                <foreach id="RegionLoop" language="sql" db="primary_db" var="GetActiveRegionsQuery">
-                    <group id="ProcessRegionGroup">
+                <foreach id="RegionLoop" language="sql" db="primary_db" var="GetActiveRegionsQuery" description="Iterate over each active region returned by GetActiveRegionsQuery">
+                    <group id="ProcessRegionGroup" description="Group of tasks processing each active region in the iteration">
                         <sql id="LogRegionSQL" db="primary_db" description="Log current loop region's database ID and name to status output">
                             <![CDATA[
                             SELECT 'Processing database ID: {{database_id}}, Name: {{name}}' AS current_status;

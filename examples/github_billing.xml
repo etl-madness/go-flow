@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline>
+<pipeline description="ETL pipeline for extracting GitHub billing usage and loading it into SQL Server">
     <!-- Pipeline Variables -->
     <variables>
         <!-- Connection strings & GitHub API Configuration -->
-        <variable name="Database1ConnStr" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
-        <variable name="GITHUB_TOKEN" type="string" value="" />
-        <variable name="GITHUB_API_URL" type="string" value="https://api.github.com/users" />
-        <variable name="GITHUB_USER" type="string" value="" />
+        <variable name="Database1ConnStr" description="Connection string for the primary database" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
+        <variable name="GITHUB_TOKEN" description="GitHub personal access token" type="string" value="" />
+        <variable name="GITHUB_API_URL" description="Base URL for the GitHub API" type="string" value="https://api.github.com/users" />
+        <variable name="GITHUB_USER" description="GitHub username for which to fetch billing usage" type="string" value="" />
     </variables>
 
     <databases>
-        <database name="database1" connection_string="{{Database1ConnStr}}" />
+        <database name="database1" description="Primary SQL Server database" connection_string="{{Database1ConnStr}}" />
     </databases>
 
     <flow>
@@ -39,7 +39,7 @@
         </sql>
 
         <!-- Step 2: Fetch GitHub Billing JSON via Go Script and output JSON payload -->
-        <script id="GET_GITHUB_BILLING" language="go" output_var="GITHUB_BILLING_JSON">
+        <script id="GET_GITHUB_BILLING" language="go" description="Fetch GitHub billing usage via Go script" output_var="GITHUB_BILLING_JSON">
             <![CDATA[
                 package main
 
