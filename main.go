@@ -21,6 +21,7 @@ func main() {
 	xsdPath := flag.String("xsd", "", "Path to XSD file for schema validation (optional)")
 	configPath := flag.String("config", "", "Optional path to CONFIG.xml file containing variable overrides")
 	validateOnly := flag.Bool("validate", false, "Validate XML schema and structure without executing pipeline")
+	preflight := flag.Bool("preflight", false, "Execute preflight validation nodes only without running main pipeline flow")
 	varOverrides := flag.String("vars", "", "Comma-separated key=value overrides (e.g. -vars \"TargetTable=override_table,Threshold=500\")")
 	debug := flag.Bool("debug", false, "Enable console logging")
 	goPath := flag.String("gopath", os.Getenv("GOPATH"), "GOPATH directory for interpreter package imports")
@@ -87,7 +88,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	varConfigs, dbConfigs, nodes, err := flow.ParseXMLConfig(fileBytes)
+	cfg, err := flow.ParseXMLConfig(fileBytes)
 	if err != nil {
 		outputJSON(&[]flow.ScriptResult{{
 			ScriptID:      "system",
@@ -96,6 +97,11 @@ func main() {
 		}})
 		os.Exit(1)
 	}
+
+	varConfigs := cfg.Variables
+	dbConfigs := cfg.Databases
+	preflightNodes := cfg.PreflightNodes
+	flowNodes := cfg.FlowNodes
 
 	if *configPath != "" {
 		configBytes, err := os.ReadFile(*configPath)
@@ -108,7 +114,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		overrideVars, overrideDBs, _, err := flow.ParseXMLConfig(configBytes)
+		overrideCfg, err := flow.ParseXMLConfig(configBytes)
 		if err != nil {
 			outputJSON(&[]flow.ScriptResult{{
 				ScriptID:      "system",
@@ -118,12 +124,14 @@ func main() {
 			os.Exit(1)
 		}
 
-		varConfigs = append(varConfigs, overrideVars...)
-		dbConfigs = append(dbConfigs, overrideDBs...)
+		varConfigs = append(varConfigs, overrideCfg.Variables...)
+		dbConfigs = append(dbConfigs, overrideCfg.Databases...)
+		preflightNodes = append(preflightNodes, overrideCfg.PreflightNodes...)
+		flowNodes = append(flowNodes, overrideCfg.FlowNodes...)
 	}
 
 	// 3. Semantic AST Validation Pass
-	if err := flow.ValidateAST(nodes, dbConfigs); err != nil {
+	if err := flow.ValidateAST(preflightNodes, flowNodes, dbConfigs); err != nil {
 		outputJSON(&[]flow.ScriptResult{{
 			ScriptID:      "system",
 			ReturnCode:    1,
@@ -139,6 +147,12 @@ func main() {
 			ResultsString: "XML pipeline schema (XSD) and AST structure are valid.",
 		}})
 		os.Exit(0)
+	}
+
+	// Select execution target node slice
+	nodes := flowNodes
+	if *preflight {
+		nodes = preflightNodes
 	}
 
 	// 4. Initialize State and Execute Pipeline
@@ -187,7 +201,7 @@ func main() {
 	default:
 		outputJSON(&results)
 	}
-	// outputJSON(results)
+
 	end := time.Now()
 	duration := end.Sub(start)
 

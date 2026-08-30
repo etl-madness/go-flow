@@ -19,7 +19,7 @@
         <xsl:text>## Execution Flow Diagram</xsl:text><xsl:value-of select="$nl" />
         <xsl:value-of select="$nl" />
         <xsl:text>```mermaid</xsl:text><xsl:value-of select="$nl" />
-        <xsl:value-of select="$diagram" />
+        <xsl:value-of select="$diagram"  disable-output-escaping="yes"/>
         <xsl:if test="not(ends-with($diagram,$nl))">
             <xsl:value-of select="$nl" />
         </xsl:if>
@@ -58,7 +58,7 @@
         <xsl:value-of select="$nl" />
         <xsl:text>| Language | ID/Name | XPath Location | Source Database | Target Database | Target Table | Batch Size | Value |</xsl:text><xsl:value-of select="$nl" />
         <xsl:text>|---|---|---|---|---|---|---|---|</xsl:text><xsl:value-of select="$nl" />
-        <xsl:for-each select="//script">
+         <xsl:for-each select="//script | //http-client | //assert | //sql | //sql-bulk">
             <xsl:variable name="targetDb">
                 <xsl:choose>
                     <xsl:when test="@target_db and normalize-space(@target_db) != ''">

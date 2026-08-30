@@ -31,7 +31,7 @@
                 <h2>Execution Flow Diagram</h2>
                 <div class="diagram-card">
                     <div class="mermaid">
-                        <xsl:value-of select="$diagram" />
+                        <xsl:value-of select="$diagram" disable-output-escaping="yes" />
                     </div>
                     <script>
                         mermaid.initialize({ startOnLoad: true });

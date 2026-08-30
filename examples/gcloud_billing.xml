@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline>
+<pipeline description="ETL pipeline for extracting GCP billing data from BigQuery and loading it into SQL Server">
     <!-- Pipeline Variables -->
     <variables>
         <variable name="full_table_path" type="string" value="" />
@@ -11,17 +11,28 @@
     <databases>
         <database name="database1" connection_string="{{database1_connection_string}}" />
     </databases>
-    <!-- Database Connection Pools -->
-    <databases>
 
-    </databases>
+    <preflight>
+        <sql id="preflight_check" db="database1" description="Preflight check for GCP billing data" output_var="PRELIGHT_CHECK_1_RESULT">
+            <![CDATA[
+                SELECT 1
+            ]]>
+        </sql>
+        <sql id="preflight_check_2" db="database1" description="Another preflight check for GCP billing data" output_var="PRELIGHT_CHECK_2_RESULT">
+            <![CDATA[
+                SELECT CURRENT_USER;
+            ]]>
+        </sql>
+        <assert id="database_check" var="PRELIGHT_CHECK_1_RESULT" equals="1" description="Check database connectivity" message="Pipeline must be able to connect to database!" on_failure="halt" />
+        <assert id="user_check" var="PRELIGHT_CHECK_2_RESULT" equals="dbo" description="Check connected user is dbo" message="Pipeline must be connected as dbo!" on_failure="halt" />
+    </preflight>
 
     <flow>
 
 
         <!-- Driver Loop using CDATA block for the SQL query -->
 
-        <script id="ExtractData" language="bash" output_var="GCLOUD_BILLING_JSON">  
+        <script id="ExtractData" language="bash" description="Extract GCP billing data from BigQuery" output_var="GCLOUD_BILLING_JSON">  
         # see examples/bqBilling for the Go program that fetches the billing data from BigQuery and outputs it as JSON  
         # required schema and structure of the BigQuery billing export table can be found there as well.
         ./bqBilling.exe -GCP_PROJECT_ID="{{GCP_PROJECT_ID}}" -BQ_BILLING_TABLE="{{BQ_BILLING_TABLE}}" -GOOGLE_APPLICATION_CREDENTIALS="{{GOOGLE_APPLICATION_CREDENTIALS}}"

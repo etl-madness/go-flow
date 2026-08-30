@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta charset="utf-8" />
-    <title>ETL Pipeline Documentation &amp; Flowchart  .\.private\gcloud_billing.xml</title>
+    <title>ETL Pipeline Documentation &amp; Flowchart  .\examples\gcloud_billing.xml</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@9/dist/mermaid.min.js"></script>
     <style>
@@ -18,12 +19,35 @@
                 </style>
   </head>
   <body>
-    <h1>Pipeline Specification &amp; Flowchart .\.private\gcloud_billing.xml</h1>
+    <h1>Pipeline Specification &amp; Flowchart .\examples\gcloud_billing.xml</h1>
     <h2>Execution Flow Diagram</h2>
     <div class="diagram-card">
       <div class="mermaid">flowchart TD
-    Start([Start Pipeline])
-    Start --&gt; End_1([End Pipeline])
+    subgraph VarsBox ["📋 Pipeline Variables"]
+        vars_node["• <b>full_table_path</b> <i>(string)</i>: <code></code><br />• <b>database1_connection_string</b> <i>(string)</i>: <code>sqlserver://server.example.com:1...</code><br />• <b>GCP_PROJECT_ID</b> <i>(string)</i>: <code>YOUR_PROJECT_ID</code><br />• <b>BQ_BILLING_TABLE</b> <i>(string)</i>: <code>YOUR_BQ_BILLING_TABLE</code><br />• <b>GOOGLE_APPLICATION_CREDENTIALS</b> <i>(string)</i>: <code>YOUR_GOOGLE_APPLICATION_CREDENTI...</code>"]
+    end
+
+    subgraph DBBox ["🗄️ Configured Databases"]
+        db_database1[("Database: database1")]
+    end
+
+    subgraph PreflightBox ["✈️ Preflight Flow"]
+        PreflightStart([Start Preflight])
+    preflight_check["preflight_check<br />(SQL)"]
+    PreflightStart --> preflight_check
+    preflight_check_2["preflight_check_2<br />(SQL)"]
+    preflight_check --> preflight_check_2
+        preflight_check_2 --> PreflightEnd([End Preflight])
+    end
+
+    subgraph FlowBox ["⚡ Main Execution Flow"]
+        Start([Start Pipeline])
+    ExtractData["ExtractData<br />(BASH)"]
+    Start --> ExtractData
+    LoadData["LoadData<br />(SQL)"]
+    ExtractData --> LoadData
+        LoadData --> End_1([End Pipeline])
+    end
 </div>
       <script>
                         mermaid.initialize({ startOnLoad: true });
@@ -58,7 +82,7 @@
             <code>string</code>
           </td>
           <td>
-            <code>sqlserver://T15P:1433?database=PROTO&amp;integrated+security=true&amp;trustServerCertificate=true</code>
+            <code>sqlserver://server.example.com:1433?database=YOURDB&amp;integrated+security=true&amp;trustServerCertificate=true</code>
           </td>
         </tr>
         <tr>
@@ -69,7 +93,7 @@
             <code>string</code>
           </td>
           <td>
-            <code>osdiscovery-antigravity</code>
+            <code>YOUR_PROJECT_ID</code>
           </td>
         </tr>
         <tr>
@@ -80,7 +104,7 @@
             <code>string</code>
           </td>
           <td>
-            <code>osdiscovery-antigravity.dsetbilling_exports.gcp_billing_export_resource_v1_01612D_F4426C_7251BC</code>
+            <code>YOUR_BQ_BILLING_TABLE</code>
           </td>
         </tr>
         <tr>
@@ -91,7 +115,7 @@
             <code>string</code>
           </td>
           <td>
-            <code>C:/Users/U00001/keys/gcp-key.json</code>
+            <code>YOUR_GOOGLE_APPLICATION_CREDENTIALS_PATH</code>
           </td>
         </tr>
       </tbody>
@@ -134,19 +158,147 @@
       <tbody>
         <tr>
           <td>
+            <strong>sql</strong>
+          </td>
+          <td>
+            <strong></strong>
+          </td>
+          <td>
+            <strong>preflight_check</strong>
+          </td>
+          <td>
+            <code>/Q{}pipeline[1]/Q{}preflight[1]/Q{}sql[1]</code>
+          </td>
+          <td>
+            <code>Preflight check for GCP billing data</code>
+          </td>
+          <td>
+            <code>database1</code>
+          </td>
+          <td>
+            <code>database1</code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            
+                SELECT 1
+            
+        </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>sql</strong>
+          </td>
+          <td>
+            <strong></strong>
+          </td>
+          <td>
+            <strong>preflight_check_2</strong>
+          </td>
+          <td>
+            <code>/Q{}pipeline[1]/Q{}preflight[1]/Q{}sql[2]</code>
+          </td>
+          <td>
+            <code>Another preflight check for GCP billing data</code>
+          </td>
+          <td>
+            <code>database1</code>
+          </td>
+          <td>
+            <code>database1</code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            
+                SELECT CURRENT_USER;
+            
+        </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>assert</strong>
+          </td>
+          <td>
+            <strong></strong>
+          </td>
+          <td>
+            <strong>database_check</strong>
+          </td>
+          <td>
+            <code>/Q{}pipeline[1]/Q{}preflight[1]/Q{}assert[1]</code>
+          </td>
+          <td>
+            <code>Check database connectivity</code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>
+            <strong>assert</strong>
+          </td>
+          <td>
+            <strong></strong>
+          </td>
+          <td>
+            <strong>user_check</strong>
+          </td>
+          <td>
+            <code>/Q{}pipeline[1]/Q{}preflight[1]/Q{}assert[2]</code>
+          </td>
+          <td>
+            <code>Check connected user is dbo</code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td>
+            <code></code>
+          </td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>
             <strong>script</strong>
           </td>
           <td>
             <strong>bash</strong>
           </td>
           <td>
-            <strong>extract_billing_data_gcloud</strong>
+            <strong>ExtractData</strong>
           </td>
           <td>
             <code>/Q{}pipeline[1]/Q{}flow[1]/Q{}script[1]</code>
           </td>
           <td>
-            <code>Extract GCP billing data using bqBilling.exe</code>
+            <code>Extract GCP billing data from BigQuery</code>
           </td>
           <td>
             <code></code>
@@ -161,6 +313,8 @@
             <code></code>
           </td>
           <td>  
+        # see examples/bqBilling for the Go program that fetches the billing data from BigQuery and outputs it as JSON  
+        # required schema and structure of the BigQuery billing export table can be found there as well.
         ./bqBilling.exe -GCP_PROJECT_ID="{{GCP_PROJECT_ID}}" -BQ_BILLING_TABLE="{{BQ_BILLING_TABLE}}" -GOOGLE_APPLICATION_CREDENTIALS="{{GOOGLE_APPLICATION_CREDENTIALS}}"
         </td>
         </tr>
@@ -172,13 +326,13 @@
             <strong></strong>
           </td>
           <td>
-            <strong>load_billing_data_gcloud</strong>
+            <strong>LoadData</strong>
           </td>
           <td>
             <code>/Q{}pipeline[1]/Q{}flow[1]/Q{}sql[1]</code>
           </td>
           <td>
-            <code>Load GCP billing data into SQL Server</code>
+            <code>Load Google Cloud billing JSON data into SQL Server table using OPENJSON</code>
           </td>
           <td>
             <code>database1</code>

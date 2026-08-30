@@ -35,7 +35,13 @@ graph TD
     Config --> Parse[XML Parser]
     Parse --> XSD{"XSD Validation <br/> via xmllint"}
     XSD -->|Pass| AST{"Semantic AST <br/> Quality Gate"}
-    AST -->|Pass| Exec[Pipeline Executor]
+    AST -->|Pass| Target{Execution Target?}
+    
+    Target -->|--preflight flag| RunPreflight[Execute Preflight Nodes Only]
+    Target -->|Default| RunFlow[Execute Main Flow Nodes]
+    
+    RunPreflight --> Exec[Pipeline Executor]
+    RunFlow --> Exec[Pipeline Executor]
     
     subgraph Engines ["Execution Engines"]
         Exec --> SQL[Multi-Engine SQL Query Executor]
@@ -160,6 +166,9 @@ You can then replace `go run main.go` with `./flow` in the examples below.
 # Pipeline Validation Only (Does not execute scripts)
 ./flow --file pipeline.xml --validate
 
+# Execute Preflight Validation Nodes Only (does not run main flow)
+./flow --file pipeline.xml --preflight
+
 # Console Logging (Additional verbose output to stdout)
 ./flow --file pipeline.xml --debug
 
@@ -181,6 +190,7 @@ You can then replace `go run main.go` with `./flow` in the examples below.
 | `--config` | `""` | Optional path to an XML file containing environment variable overrides. |
 | `--xsd` | `""` | Optional path to an XSD schema file to run an XML validity check via `xmllint`. |
 | `--validate`| `false` | When true, validates XML schema and semantic structure, then exits with code 0 without executing. |
+| `--preflight`| `false` | Execute preflight validation nodes only without running main pipeline flow. |
 | `--vars` | `""` | Comma-separated key=value pairs to override variables (e.g., `-vars "BatchSize=1000,TargetTable=prod_table"`). |
 | `--debug` | `false` | Enables verbose console logging for debugging purposes. |
 | `--xslt` | `""` | Optional path to an XSLT transformation file (`autodoc.xslt` for HTML or `autodoc_md.xslt` for Markdown). |
@@ -221,14 +231,15 @@ Generates a plain Markdown (`.md`) file optimized for version control, GitHub/Gi
 
 ## Configuration Reference & Cheat Sheet
 
-The configuration is structured into three main blocks inside the root `<pipeline>` element: `<variables>`, `<databases>`, and `<flow>`.
+The configuration is structured into four main blocks inside the root `<pipeline>` element: `<variables>`, `<databases>`, `<preflight>`, and `<flow>`.
 
 ```mermaid
 classDiagram
     class Pipeline {
         Variables variables
         Databases databases
-        Scripts scripts
+        PipelineNodes preflight
+        PipelineNodes flow
     }
     class Variables {
         Variable[] variable
@@ -236,19 +247,38 @@ classDiagram
     class Databases {
         Database[] database
     }
-    class Scripts {
+    class PipelineNodes {
         Script[] script
         Group[] group
         Parallel[] parallel
         If[] if
         ForEach[] foreach
+        While[] while
+        HttpClient[] http_client
+        Template[] template
+        FileSave[] file_save
+        FileRead[] file_read
+        ExcelRead[] excel_read
+        ExcelWrite[] excel_write
+        XmlXPath[] xml_xpath
+        JsonPath[] json_path
+        YamlPath[] yaml_path
     }
     Pipeline --> Variables
     Pipeline --> Databases
-    Pipeline --> Scripts
+    Pipeline --> PipelineNodes : preflight
+    Pipeline --> PipelineNodes : flow
 ```
 
 ### XML Elements & Attributes
+
+#### `<preflight>`
+Defines preflight/validation pipeline nodes. This block executes assertion and checking steps prior to the main flow execution. Typically used with the `--preflight` CLI flag to perform target environment and configuration checking without executing the actual data pipeline.
+* Supports all pipeline nodes (e.g. `<script>`, `<group>`, `<parallel>`, `<if>`, `<foreach>`).
+
+#### `<flow>`
+Defines the main execution pipeline nodes.
+* Supports all pipeline nodes (e.g. `<script>`, `<group>`, `<parallel>`, `<if>`, `<foreach>`).
 
 #### `<variable>`
 Defines typed global variables. Can be placed under `<pipeline>` in both the main file and override configuration.

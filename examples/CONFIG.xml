@@ -21,4 +21,34 @@
         <variable name="GITHUB_USER" type="string" value="" />
 
     </variables>
+    <preflight>
+        <sql id="preflight_check" db="database1" description="Preflight check for GCP billing data" output_var="PRELIGHT_CHECK_1_RESULT">
+            <![CDATA[
+                SELECT 1
+            ]]>
+        </sql>
+        <sql id="preflight_check_2" db="database1" description="Another preflight check for GCP billing data" output_var="PRELIGHT_CHECK_2_RESULT">
+            <![CDATA[
+                SELECT CURRENT_USER;
+            ]]>
+        </sql>
+        <assert id="database_check" var="PRELIGHT_CHECK_1_RESULT" equals="1" message="Pipeline must be able to connect to database!" on_failure="halt" />
+        <assert id="user_check" var="PRELIGHT_CHECK_2_RESULT" equals="dbomoo" message="Pipeline must be connected as dbo!">
+            <on_failure>
+                 <script id="log_user_connected_as" language="go">
+                    <![CDATA[
+                    package main
+                    import (
+                        "fmt"
+                        "host/vars"
+                    )
+                    func main() {
+                        fmt.Printf("Connected to database as user = %s\n", vars.GetString("PRELIGHT_CHECK_2_RESULT"))
+                    }
+                    ]]>
+                </script>
+     
+            </on_failure>
+        </assert>
+    </preflight>
 </pipeline>

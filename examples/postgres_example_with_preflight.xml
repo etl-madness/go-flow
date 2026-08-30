@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline>
+    <!-- Pipeline Variables -->
+    <variables>
+        <!-- Connection strings & GitHub API Configuration -->
+        <variable name="postgres_conn_str" type="string" value="postgres://user:password@localhost:5432/database?sslmode=disable" />
+
+    </variables>
+
+    <databases>
+        <database name="database1" driver="postgres" connection_string="{{postgres_conn_str}}" />
+    </databases>
+    <preflight>
+        <sql id="preflight_check_access" language="sql" description="Preflight check" db="database1">
+            <![CDATA[
+            SELECT 1;
+        ]]>
+        </sql>
+        <sql id="preflight_check_user" language="sql" description="Preflight check 2" db="database1">
+            <![CDATA[
+            SELECT current_user;
+        ]]>
+        </sql>
+        <sql id="preflight_check_database" language="sql" description="Preflight check 3" db="database1">
+            <![CDATA[
+            SELECT current_database();
+        ]]>
+        </sql>
+    </preflight>
+    <flow>
+        <!-- Step 1: Ensure Target Table Exists in PostgreSQL -->
+        <sql id="rag_document_backup" description="Ensure document_backup table exists" db="database1">
+            <![CDATA[
+                CREATE TABLE IF NOT EXISTS rag_document_backup (
+                    id   TEXT PRIMARY KEY,
+                    content  TEXT NOT NULL,
+                    metadata  JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    embedding  vector(768) NOT NULL,
+                    created_at   TIMESTAMPTZ NOT NULL DEFAULT now())
+            ]]>
+        </sql>
+
+    </flow>
+</pipeline>
