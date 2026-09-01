@@ -1,4 +1,4 @@
-# Template entity
+# `<template>`
 
 The `<template>` element renders Go text templates using the current pipeline variables. It can read the template from an external file or from inline XML content, and it can optionally store the rendered output in a variable.
 
@@ -18,7 +18,7 @@ Notes:
 - The template is rendered with the current registry variables available in the pipeline.
 - If both `output_var` and `var` are empty, the rendered text is still generated but not stored into a named variable. 
 
-# SQL entity
+# `<sql>`
 
 The `<sql>` element executes a SQL statement against a configured database connection. The statement can be supplied inline or read from a pipeline variable.
 
@@ -38,7 +38,7 @@ Notes:
 - SQL output is always stored in `LAST_OUTPUT`; specify an output attribute to also store it under a named variable.
 - Use either `db` or `database`, and use either inline `content` or a non-empty `var` / `variable` SQL source.
 
-# SQL bulk entity
+# `<sql_bulk>`
 
 The `<sql_bulk>` element streams the rows returned by a source SQL query into a destination table.
 
@@ -65,7 +65,7 @@ Notes:
 - `target_table` is required because bulk SQL streams query results rather than returning them as a result set.
 - The number of copied rows is always stored in `LAST_OUTPUT`; specify an output attribute to also store it under a named variable.
 
-# Assert entity
+# `<assert>` 
 
 The `<assert>` element checks whether a pipeline variable meets an expected condition and can halt the pipeline, continue with a warning, set a failure variable, or run fallback nodes when the check fails.
 
@@ -86,7 +86,7 @@ Notes:
 - `var` is mandatory; use `equals` or `value` to define an equality expectation.
 - Failure child nodes execute before the `on_failure` action determines whether the pipeline stops or continues.
 
-# File read entity
+# `<file_read>`
 
 The `<file_read>` element loads a local file's contents into a pipeline variable.
 
@@ -106,7 +106,7 @@ Notes:
 - Provide exactly one path attribute (`file`, `path`, or `filename`) and one output attribute (`var`, `variable`, `output_var`, `output_variable`, or `out_var`).
 - The file contents are stored in the selected output variable and in `LAST_OUTPUT`.
 
-# File write entity
+# `<file_write>`
 
 Flow implements file writing with the `<file_save>` element. It writes content from a pipeline variable or from its inline body to a local file.
 
@@ -125,7 +125,7 @@ Notes:
 - Provide one path attribute (`file`, `path`, or `filename`) and either a variable source or inline content.
 - Parent directories are created automatically before the file is written.
 
-# Excel save entity
+# `<excel_write>`
 
 Flow implements Excel saving with the `<excel_write>` element. It creates or updates an `.xlsx` workbook and can populate a worksheet with the rows returned by an inline SQL query.
 
@@ -142,7 +142,7 @@ Notes:
 - When both `db` and inline query content are provided, query columns become the first worksheet row and returned rows are written beneath them.
 - Parent directories are created automatically before the workbook is saved.
 
-# Excel read entity
+# `<excel_read>`
 
 The `<excel_read>` element reads an `.xlsx` worksheet and serializes its rows as a JSON array of objects.
 
@@ -159,7 +159,7 @@ Notes:
 - Provide `output_var` or `var` to retain the JSON under a named pipeline variable; the value is also stored in `LAST_OUTPUT`.
 - With `header="false"`, the current runtime produces an empty JSON array because it serializes rows only when a header row is enabled.
 
-# JSON path entity
+# `<json_path>`
 
 The `<json_path>` element extracts values or nodes from JSON supplied by a file or pipeline variable.
 
@@ -179,7 +179,7 @@ Notes:
 - Supply one JSON source (`file` or `var`), one JSONPath expression, and one output attribute (`output_var` or `out_var`).
 - Extracted output is stored in the selected output variable and in `LAST_OUTPUT`.
 
-# YAML path entity
+# `<yaml_path>`
 
 The `<yaml_path>` element extracts values or nodes from YAML supplied by a file or pipeline variable.
 
@@ -199,7 +199,7 @@ Notes:
 - Supply one YAML source (`file` or `var`), one path expression, and one output attribute (`output_var` or `out_var`).
 - Extracted output is stored in the selected output variable and in `LAST_OUTPUT`.
 
-# XML path entity
+# `<xml_xpath>`
 
 Flow implements XML-path extraction with the `<xml_xpath>` element. It evaluates an XPath expression against XML supplied by a file or pipeline variable.
 
@@ -217,7 +217,7 @@ Notes:
 - Supply one XML source (`file` or `var`), one XPath expression, and `output_var`.
 - Extracted output is stored in `output_var` and in `LAST_OUTPUT`.
 
-# HTTP client entity
+# `<http_client>`
 
 The `<http_client>` element sends an HTTP request and can store its response body and status code in pipeline variables.
 
@@ -260,7 +260,7 @@ Notes:
 - Endpoint, header, content type, and payload values support pipeline variable interpolation.
 - The response body is always stored in `LAST_OUTPUT`; provide a response output alias to store it under a named variable.
 
-# Foreach entity
+# `<foreach>`
 
 The `<foreach>` element runs its nested pipeline nodes once for every row returned by its SQL driver query.
 
@@ -280,7 +280,7 @@ Notes:
 - Each iteration sets `LOOP_INDEX` to the zero-based row index before executing child nodes.
 - The foreach result reports the number of driver rows and completed iterations.
 
-# Group entity
+# `<group>`
 
 The `<group>` element organizes nested pipeline nodes into a sequential block. It can execute conditionally and can optionally wrap its child nodes in a database transaction.
 
@@ -304,7 +304,7 @@ Notes:
 - If a transaction child step fails, Flow rolls back the transaction; otherwise it commits after all child steps complete.
 - When a condition is present but does not pass, the group and its child nodes are skipped.
 
-# While entity
+# `<while>`
 
 The `<while>` element repeatedly executes its nested pipeline nodes while its condition evaluates to true.
 
@@ -328,7 +328,7 @@ Notes:
 - Each iteration sets `WHILE_INDEX` to its zero-based index before executing child nodes.
 - Execution stops when the condition is false, the maximum iteration limit is reached, a child step fails, or the pipeline context is cancelled.
 
-# Flow entity
+# `<flow>`
 
 The `<flow>` element is the pipeline's main execution container. Its child nodes are parsed and executed in document order.
 
@@ -341,7 +341,7 @@ Notes:
 - `<flow>` is optional in the pipeline schema, but it is normally used to contain the pipeline's executable work.
 - Child nodes execute sequentially unless a control-flow element such as `<parallel>`, `<foreach>`, or `<while>` changes that behavior.
 
-# Preflight entity
+# `<preflight>`
 
 The `<preflight>` element contains setup and validation nodes that can be run before the main `<flow>` pipeline.
 
@@ -354,7 +354,7 @@ Notes:
 - `<preflight>` is optional and may occur once, before `<flow>`, within a `<pipeline>`.
 - Preflight and flow nodes are parsed into separate collections. The caller chooses whether to execute preflight nodes, flow nodes, or preflight followed by flow.
 
-# Variables entity
+# `<variables>`
 
 The `<variables>` element declares pipeline variables through nested `<variable>` elements.
 
@@ -372,7 +372,7 @@ Notes:
 - `<variables>` is optional and may occur once within a `<pipeline>`.
 - Initialized variables are available to pipeline nodes and may be interpolated where supported using `{{VariableName}}`.
 
-# Variable entity
+# `<variable>`
 
 The `<variable>` element defines an initial pipeline variable within a `<variables>` container.
 
@@ -388,7 +388,7 @@ Notes:
 - Declare `<variable>` elements inside the `<variables>` container.
 - Variable names can be interpolated in supported fields using `{{VariableName}}`.
 
-# Databases entity
+# `<databases>`
 
 The `<databases>` element declares database connections through nested `<database>` elements.
 
@@ -407,7 +407,7 @@ Notes:
 - `<databases>` is optional and may occur once within a `<pipeline>`.
 - Reference a configured connection by its `database.name`, for example with `db="reporting_db"` on a database-aware node.
 
-# Database entity
+# `<database>`
 
 The `<database>` element defines a database connection within a `<databases>` container.
 
@@ -424,7 +424,7 @@ Notes:
 - Declare `<database>` elements inside the `<databases>` container.
 - Use the connection name through `db` or `database` attributes on applicable pipeline nodes.
 
-# If, then, and else entities
+# `<if>`, `<then>`, `<else>`
 
 The `<if>` element conditionally executes one of two child branches. `<then>` contains the branch for a passing condition, and `<else>` contains the branch for a failing condition.
 
