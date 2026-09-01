@@ -38,9 +38,12 @@
         <assert id="user_check" var="PRELIGHT_CHECK_2_RESULT" equals="dbo" message="Pipeline must be connected as dbo!">
             <on_failure>
                 <template id="log_user_connected_as" output_var="LOG_RESULT">
-                   [FAILED] Expected connection as dbo. Found connected to database as user = {{PRELIGHT_CHECK_2_RESULT}}
+                   [FAILED] Expected connection as dbo. Found connected to database as user = {{.PRELIGHT_CHECK_2_RESULT}}
                 </template>
             </on_failure>
         </assert>
+          <template id="log_user_connected_as" output_var="LOG_RESULT">
+                   [PASSED] Expected connection as dbo. Found connected to database as user = {{.PRELIGHT_CHECK_2_RESULT}}
+          </template>
     </preflight>
 </pipeline>
