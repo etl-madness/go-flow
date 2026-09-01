@@ -390,11 +390,11 @@ Demonstrates how to configure and query multiple database servers of different t
 
         <!-- 2. Direct Cross-Database Stream ETL from PostgreSQL to SQLite -->
         <!-- The engine handles the parameter syntax transformation (PostgreSQL's $N vs SQLite's ?) seamlessly -->
-        <sql-bulk id="stream_pg_to_sqlite" db="postgres_db" target_db="sqlite_db" target_table="cached_users" batch_size="100" description="Stream users from PostgreSQL to SQLite cache table">
+        <sql_bulk id="stream_pg_to_sqlite" db="postgres_db" target_db="sqlite_db" target_table="cached_users" batch_size="100" description="Stream users from PostgreSQL to SQLite cache table">
             <![CDATA[
                 SELECT id, username FROM users;
             ]]>
-        </sql-bulk>
+        </sql_bulk>
 
         <!-- 3. Query MySQL -->
         <sql id="query_mysql" db="mysql_db" description="Query MySQL for pending orders">
@@ -540,11 +540,11 @@ The example script below run via `go-flow` executed in 821.5704ms. Your mileage 
                     TRUNCATE TABLE [dbo].[xfr_cross_db_objects];
                     ]]>
         </sql>
-        <sql-bulk id="MSSQL_BLK_STREAM_to_xfr_cross_db_objects" db="database1" target_db="database2" target_table="[dbo].[xfr_cross_db_objects]" batch_size="25000" tablock="true" check_constraints="true" fire_triggers="false" keep_nulls="true" description="Stream data in bulk from cross_db_objects in database1 to staging table in database2">
+        <sql_bulk id="MSSQL_BLK_STREAM_to_xfr_cross_db_objects" db="database1" target_db="database2" target_table="[dbo].[xfr_cross_db_objects]" batch_size="25000" tablock="true" check_constraints="true" fire_triggers="false" keep_nulls="true" description="Stream data in bulk from cross_db_objects in database1 to staging table in database2">
             <![CDATA[
                     SELECT [object_servername],[object_servicename],[object_database],[object_id],[object_schema],[object_name],[object_type],[object_desc],[LoadDate] FROM [dbo].[cross_db_objects] (NOLOCK);
                  ]]>
-        </sql-bulk>
+        </sql_bulk>
     </flow>
 </pipeline>
 ```

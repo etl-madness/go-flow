@@ -64,11 +64,11 @@
                     ]]>
                 </sql>
                 <!-- 4. Stream data from database1 to database2 directly using sqlStream -->
-                <sql-bulk id="MSSQL_BLK_STREAM_to_table_list" db="database1" target_db="database2" target_table="{{destination_table}}" batch_size="25000" tablock="true" check_constraints="true" fire_triggers="false" keep_nulls="true" description="Stream data in bulk from source table to destination table">
+                <sql_bulk id="MSSQL_BLK_STREAM_to_table_list" db="database1" target_db="database2" target_table="{{destination_table}}" batch_size="25000" tablock="true" check_constraints="true" fire_triggers="false" keep_nulls="true" description="Stream data in bulk from source table to destination table">
                     <![CDATA[
                     SELECT {{column_list}} FROM {{source_table}} (NOLOCK);
                     ]]>
-                </sql-bulk>
+                </sql_bulk>
 
 
             </group>

@@ -58,7 +58,7 @@
         <xsl:value-of select="$nl" />
         <xsl:text>| Language | ID/Name | XPath Location | Source Database | Target Database | Target Table | Batch Size | Value |</xsl:text><xsl:value-of select="$nl" />
         <xsl:text>|---|---|---|---|---|---|---|---|</xsl:text><xsl:value-of select="$nl" />
-         <xsl:for-each select="//script | //http-client | //assert | //sql | //sql-bulk">
+         <xsl:for-each select="//script | //http_client | //assert | //sql | //sql_bulk">
             <xsl:variable name="targetDb">
                 <xsl:choose>
                     <xsl:when test="@target_db and normalize-space(@target_db) != ''">

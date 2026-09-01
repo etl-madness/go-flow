@@ -14,11 +14,11 @@
             <sql db="source_db" output_var="SOURCE_MAX_DATE" id="is_source_data_uptodate" description="Fetch max export time from the source database"><![CDATA[
                 SELECT ISNULL(MAX(ExportTime), '1900-01-01') AS SOURCE_MAX_DATE
                                                                 FROM {{TABLE}};
-            ]]></sql>
+            ]]>            </sql>
             <sql db="target_db" output_var="TARGET_MAX_DATE" id="is_target_data_uptodate" description="Fetch max export time from the target database"><![CDATA[
                 SELECT ISNULL(MAX(ExportTime), '1900-01-01') AS TARGET_MAX_DATE
                                                                 FROM {{TABLE}};
-            ]]></sql>
+            ]]>            </sql>
         </parallel>
         <script language="go" output_variable="NEEDS_ACTION" id="compare_dates"><![CDATA[
             package main
@@ -39,11 +39,11 @@
                                                         fmt.Println("false")
                                                     }
                                                 }
-         ]]></script>
+         ]]>        </script>
         <if id="check_needs_action" var="NEEDS_ACTION" equal="true">
             <then>
                 <sql id="truncate_target_table" db="target_db" description="Truncate the target table before starting the copy"><![CDATA[TRUNCATE TABLE {{TABLE}};]]></sql>
-                <sql-bulk db="source_db" target_db="target_db" target_table="{{TABLE}}" tablock="true" batch_size="50000" id="StreamETL_to_target" description="Bulk copy data from source to target database"><![CDATA[SELECT * FROM {{TABLE}};]]></sql-bulk>
+                <sql_bulk db="source_db" target_db="target_db" target_table="{{TABLE}}" tablock="true" batch_size="50000" id="StreamETL_to_target" description="Bulk copy data from source to target database"><![CDATA[SELECT * FROM {{TABLE}};]]></sql_bulk>
             </then>
             <else>
                 <script language="go" id="NO_ACTION_REQUIRED"><![CDATA[
@@ -56,7 +56,7 @@
                                                                                 func main() {
                                                                                     fmt.Println("No action required. Target table is up to date.")
                                                                                 }
-                ]]></script>
+                ]]>                </script>
             </else>
         </if>
     </flow>

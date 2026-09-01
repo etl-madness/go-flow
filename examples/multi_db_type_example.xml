@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <pipeline description="Example pipeline demonstrating multiple database types">
     <variables>
-        <variable name="BatchSize"  description="Batch size for bulk operations" type="int" value="500" />
+        <variable name="BatchSize" description="Batch size for bulk operations" type="int" value="500" />
     </variables>
 
     <databases>
         <!-- MSSQL (Default driver when omitted) -->
-        <database name="mssql_db" driver="sqlserver"  description="MSSQL database connection" connection_string="sqlserver://sa:Password123!@localhost:1433?database=master&amp;trustServerCertificate=true" />
+        <database name="mssql_db" driver="sqlserver" description="MSSQL database connection" connection_string="sqlserver://sa:Password123!@localhost:1433?database=master&amp;trustServerCertificate=true" />
 
         <!-- PostgreSQL -->
         <database name="postgres_db" driver="postgres" description="PostgreSQL database connection" connection_string="postgres://user:password@localhost:5432/mydb?sslmode=disable" />
@@ -30,11 +30,11 @@
         </sql>
 
         <!-- 2. Direct Cross-Database Stream ETL from PostgreSQL to SQLite -->
-        <sql-bulk id="stream_pg_to_sqlite" db="postgres_db" target_db="sqlite_db" target_table="cached_users" batch_size="100" description="Stream users from PostgreSQL to SQLite cache table">
+        <sql_bulk id="stream_pg_to_sqlite" db="postgres_db" target_db="sqlite_db" target_table="cached_users" batch_size="100" description="Stream users from PostgreSQL to SQLite cache table">
             <![CDATA[
                 SELECT id, username FROM users;
             ]]>
-        </sql-bulk>
+        </sql_bulk>
 
         <!-- 3. Query MySQL -->
         <sql id="query_mysql" db="mysql_db" description="Query MySQL for pending orders">

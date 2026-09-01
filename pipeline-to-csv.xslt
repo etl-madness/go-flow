@@ -12,13 +12,13 @@
         <xsl:text>,Start / End,&#10;</xsl:text>
         
         <!-- Process Pipeline Nodes -->
-        <xsl:apply-templates select="//script | //sql | //sql-bulk | //sql_bulk | //http-client | //http_client | //*[local-name()='if'] | //parallel | //foreach | //loop | //while" />
+        <xsl:apply-templates select="//script | //sql | //sql_bulk   | //http_client | //*[local-name()='if'] | //parallel | //foreach | //loop | //while" />
 
         <!-- End Node -->
         <xsl:text>End_Node,End Pipeline Execution,,Start / End,&#10;</xsl:text>
     </xsl:template>
 
-    <xsl:template match="script | sql | sql-bulk | sql_bulk | http-client | http_client | *[local-name()='if'] | parallel | foreach | loop | while">
+    <xsl:template match="script | sql | sql_bulk   | http_client  | *[local-name()='if'] | parallel | foreach | loop | while">
         <xsl:variable name="id"><xsl:apply-templates select="." mode="get-id"/></xsl:variable>
         <xsl:variable name="nextId">
             <xsl:choose>

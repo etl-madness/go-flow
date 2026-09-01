@@ -92,7 +92,7 @@
                     </thead>
                     <tbody>
                         <!-- Target matching nodes (e.g., all <script> nodes) -->
-                        <xsl:for-each select="//script | //http-client | //assert | //sql | //sql-bulk">
+                        <xsl:for-each select="//script | //http_client | //assert | //sql | //sql_bulk">
                             <tr>
          
                                 <td><strong><xsl:value-of select="name()"/></strong></td>
@@ -148,8 +148,8 @@
             <xsl:otherwise><xsl:text>grp_</xsl:text><xsl:value-of select="if (@id) then @id else generate-id()"/></xsl:otherwise>
         </xsl:choose>
     </xsl:template>
-    <xsl:template match="sql-bulk" mode="get-exit-id">
-        <xsl:text>sql-bulk_</xsl:text><xsl:value-of select="if (@id) then @id else generate-id()"/>
+    <xsl:template match="sql_bulk" mode="get-exit-id">
+        <xsl:text>sql_bulk_</xsl:text><xsl:value-of select="if (@id) then @id else generate-id()"/>
     </xsl:template>
     <xsl:template match="assert" mode="get-exit-id">
         <xsl:text>assert_</xsl:text><xsl:value-of select="if (@id) then @id else generate-id()"/>
@@ -157,7 +157,7 @@
     <xsl:template match="sql" mode="get-exit-id">
         <xsl:text>sql_</xsl:text><xsl:value-of select="if (@id) then @id else generate-id()"/>
     </xsl:template>
-    <xsl:template match="http-client" mode="get-exit-id">
+    <xsl:template match="http_client" mode="get-exit-id">
         <xsl:text>http_client_</xsl:text><xsl:value-of select="if (@id) then @id else generate-id()"/>
     </xsl:template>
     <xsl:template match="script" mode="get-exit-id">

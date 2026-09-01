@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline>
+    <!-- Variable Overrides for Connection Strings and Settings -->
+    <variables>
+        <!-- MSSQL Connection Overrides -->
+        <variable name="PrimaryDBConnStr" type="string" value="sqlserver://myserver.example.com:1433?database=master&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="AnalyticsDBConnStr" type="string" value="sqlserver://myserver.example.com:1433?database=AdventureWorks2022&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="Database1ConnStr" type="string" value="sqlserver://myserver.example.com:1433?database=AdventureWorks2022&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <!-- Multi-DB Driver Connection Overrides (for scripts/multi_db_type_example.xml) -->
+        <variable name="PostgresDBConnStr" type="string" value="postgres://user:password@localhost:5432/mydb?sslmode=disable" />
+        <variable name="MySQLDBConnStr" type="string" value="user:password@tcp(127.0.0.1:3306)/mydb" />
+        <variable name="SQLiteDBConnStr" type="string" value="./pipeline_cache.db" />
+        <variable name="OracleDBConnStr" type="string" value="oracle://user:password@localhost:1521/XEPDB1" />
+
+        <!-- Query and Control Flow Variables -->
+        <variable name="GetDatabasesQuery" value="SELECT database_id, name FROM sys.databases WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb')" />
+        <variable name="EnableParallelJobs" type="bool" value="true" />
+        <variable name="IsMasterDB" type="bool" value="false" />
+        <variable name="GITHUB_TOKEN" type="string" value="" />
+        <variable name="GITHUB_API_URL" type="string" value="https://api.github.com/users" />
+        <variable name="GITHUB_USER" type="string" value="" />
+
+    </variables>
+    <preflight>
+        <sql id="preflight_check" db="database1" description="Preflight check for GCP billing data" output_var="PRELIGHT_CHECK_1_RESULT">
+            <![CDATA[
+                SELECT 1
+            ]]>
+        </sql>
+        <sql id="preflight_check_2" db="database2" description="Another preflight check for GCP billing data" output_var="PRELIGHT_CHECK_2_RESULT">
+            <![CDATA[
+                SELECT CURRENT_USER;
+            ]]>
+        </sql>
+        
+        <assert id="database_check" var="PRELIGHT_CHECK_1_RESULT" equals="1" message="Pipeline must be able to connect to database!" on_failure="halt" />
+
+        <assert id="user_check" var="PRELIGHT_CHECK_2_RESULT" equals="dbo" message="Pipeline must be connected as dbo!">
+            <on_failure>
+                <template id="log_user_connected_as" output_var="LOG_RESULT">
+                   [FAILED] Expected connection as dbo. Found connected to database as user = {{PRELIGHT_CHECK_2_RESULT}}
+                </template>
+            </on_failure>
+        </assert>
+    </preflight>
+</pipeline>

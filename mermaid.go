@@ -188,7 +188,7 @@ func (g *MermaidGenerator) ProcessNode(node DiagramNode) (string, string) {
 		g.builder.WriteString(fmt.Sprintf("    %s[\"%s\"]\n", id, label))
 		return id, id
 
-	case "sql", "sql_bulk", "sql-bulk":
+	case "sql", "sql_bulk":
 		id := node.ID
 		if id == "" {
 			id = g.nextID(nodeName)
