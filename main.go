@@ -11,13 +11,15 @@ import (
 	"time"
 
 	"github.com/etl-madness/flow"
+	"github.com/google/uuid"
 	"github.com/traefik/yaegi/interp"
 )
 
 func main() {
 
+	executionID := uuid.New()
 	filePath := flag.String("file", "scripts.xml", "Path to XML file containing scripts and databases")
-	format := flag.String("format", "json", "Output format (json,jsonpretty, text, or markdown)")
+	format := flag.String("format", "csv", "Output format (json,jsonpretty, text, or markdown, csv)")
 	xsdPath := flag.String("xsd", "", "Path to XSD file for schema validation (optional)")
 	configPath := flag.String("config", "", "Optional path to CONFIG.xml file containing variable overrides")
 	validateOnly := flag.Bool("validate", false, "Validate XML schema and structure without executing pipeline")
@@ -198,8 +200,12 @@ func main() {
 		outputText(&results)
 	case "json":
 		outputRawJSON(&results)
-	default:
+	case "jsonpretty", "prettyjson":
 		outputJSON(&results)
+	case "csv":
+		outputCSV(executionID, &results)
+	default:
+		outputCSV(executionID, &results)
 	}
 
 	end := time.Now()

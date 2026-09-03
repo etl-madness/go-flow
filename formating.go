@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
+"github.com/google/uuid"
 	"github.com/etl-madness/flow"
 )
 
@@ -105,5 +105,14 @@ func outputMarkdownTable(res *[]flow.ScriptResult) {
 		cleanResults := strings.ReplaceAll(r.ResultsString, "\n", "<br>")
 		cleanResults = strings.ReplaceAll(cleanResults, "|", "\\|")
 		fmt.Fprintf(w, "| %s | %d | %v | %s |\n", r.ScriptID, r.ReturnCode, r.Duration, cleanResults)
+	}
+}
+
+func outputCSV(id uuid.UUID, res *[]flow.ScriptResult) {
+	w := bufio.NewWriter(os.Stdout)
+	defer w.Flush()
+	for _, r := range *res {
+		// Escape newlines and pipe symbols to prevent table formatting breaks
+		fmt.Fprintf(w, " %s,  %s,  %d,  %v,  %s\n", id.String(), r.ScriptID, r.ReturnCode, r.Duration, r.ResultsString)
 	}
 }
