@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -11,13 +12,10 @@ import (
 	"time"
 
 	"github.com/etl-madness/flow"
-	"github.com/google/uuid"
 	"github.com/traefik/yaegi/interp"
 )
 
 func main() {
-
-	executionID := uuid.New()
 	filePath := flag.String("file", "scripts.xml", "Path to XML file containing scripts and databases")
 	format := flag.String("format", "csv", "Output format (json,jsonpretty, text, or markdown, csv)")
 	xsdPath := flag.String("xsd", "", "Path to XSD file for schema validation (optional)")
@@ -192,28 +190,48 @@ func main() {
 	executor.SetInterpHook(func(opts *interp.Options) {
 		opts.Unrestricted = true
 	})
-	results, execErr := executor.Execute(ctx, nodes)
-	switch strings.ToLower(*format) {
-	case "markdown", "md", "table":
-		outputMarkdownTable(&results)
-	case "text":
-		outputText(&results)
-	case "json":
-		outputRawJSON(&results)
-	case "jsonpretty", "prettyjson":
-		outputJSON(&results)
-	case "csv":
-		outputCSV(executionID, &results)
-	default:
-		outputCSV(executionID, &results)
-	}
 
+	if strings.ToLower(*format) == "summary" {
+
+		//executor.SetEventSink(&flow.JSONLineSink{Writer: os.Stdout})
+		fmt.Println("\n\nutc_runtime,run_id,execution_id,sequence,type,kind,id,status,error,row_counts")
+		executor.SetEventSink(&TextSink{Writer: os.Stdout})
+
+		results, execErr := executor.ExecuteRun(ctx, nodes)
+		if execErr != nil {
+			log.Printf("run %s finished with %s: %s", results, results.ErrorClass, results.ErrorMessage)
+		}
+
+		outputSummary(results, filePath, configPath)
+
+	} else {
+		results, execErr := executor.Execute(ctx, nodes)
+		if execErr != nil {
+			os.Exit(1)
+		}
+		switch strings.ToLower(*format) {
+
+		case "markdown", "md", "table":
+			outputMarkdownTable(&results)
+		case "text":
+			outputText(&results)
+		case "json":
+			outputRawJSON(&results)
+		case "jsonpretty", "prettyjson":
+			outputJSON(&results)
+		case "csv":
+			outputCSV(&results)
+		default:
+			outputCSV(&results)
+		}
+	}
+	/*
+
+	 */
 	end := time.Now()
 	duration := end.Sub(start)
 
 	fmt.Println("Pipeline End Time:  ", end.Format("2006-01-02 15:04:05.000"))
 	fmt.Println("Pipeline Duration:  ", duration)
-	if execErr != nil {
-		os.Exit(1)
-	}
+
 }

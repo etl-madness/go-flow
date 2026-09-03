@@ -4,7 +4,8 @@ go 1.26.5
 
 require (
 	cloud.google.com/go/bigquery v1.81.0
-	github.com/etl-madness/flow v1.2.20
+	github.com/etl-madness/flow v1.2.21
+	github.com/google/uuid v1.6.0
 	github.com/lestrrat-go/helium v0.7.0
 	github.com/traefik/yaegi v0.16.1
 	google.golang.org/api v0.293.0
@@ -33,7 +34,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.20 // indirect
 	github.com/googleapis/gax-go/v2 v2.23.0 // indirect
 	github.com/klauspost/compress v1.18.7 // indirect

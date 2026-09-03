@@ -3,11 +3,15 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"strings"
-"github.com/google/uuid"
+	"time"
+
 	"github.com/etl-madness/flow"
 )
 
@@ -16,6 +20,9 @@ type PrintableResult struct {
 	ReturnCode    any         `json:"return_code"`
 	Duration      any         `json:"duration"`
 	ResultsString interface{} `json:"results_string"`
+}
+type TextSink struct {
+	Writer io.Writer
 }
 
 var lineReturnsReplacer = strings.NewReplacer(
@@ -33,6 +40,23 @@ var jsonLineBreakReplacer = strings.NewReplacer(
 
 func formatLineReturns(s string) string {
 	return lineReturnsReplacer.Replace(s)
+}
+func (s TextSink) Emit(_ context.Context, event flow.ExecutionEvent) error {
+	_, err := fmt.Fprintf(
+		s.Writer,
+		"%s,%s,%s,%d,%s,%s,%s,%s,%s,%d\n",
+		event.OccurredAt.UTC().Format(time.RFC3339),
+		event.RunID,
+		event.ExecutionID,
+		event.Sequence,
+		event.Type,
+		event.NodeKind,
+		event.NodeID,
+		event.Status,
+		event.ErrorMessage,
+		event.RowCounts.Affected,
+	)
+	return err
 }
 
 func outputRawJSON(res *[]flow.ScriptResult) {
@@ -108,11 +132,30 @@ func outputMarkdownTable(res *[]flow.ScriptResult) {
 	}
 }
 
-func outputCSV(id uuid.UUID, res *[]flow.ScriptResult) {
+func outputCSV(res *[]flow.ScriptResult) {
 	w := bufio.NewWriter(os.Stdout)
 	defer w.Flush()
 	for _, r := range *res {
 		// Escape newlines and pipe symbols to prevent table formatting breaks
-		fmt.Fprintf(w, " %s,  %s,  %d,  %v,  %s\n", id.String(), r.ScriptID, r.ReturnCode, r.Duration, r.ResultsString)
+		fmt.Fprintf(w, " %s,  %d,  %v,  %s\n", r.ScriptID, r.ReturnCode, r.Duration, r.ResultsString)
 	}
+}
+
+func outputSummary(run flow.RunResult, file *string, config *string) {
+	var configStr string
+	if config != nil {
+		configStr = *config
+	}
+	fmt.Println("\n\nutc_runtime,file,config,status,started,finished,task_count")
+	log.Printf(
+		"%s,%s,%s,%s,%s,%s,%d",
+		time.Now().UTC().Format(time.RFC3339),
+		*file,
+		configStr,
+		run.Status,
+		run.StartedAt.UTC().Format(time.RFC3339),
+		run.FinishedAt.UTC().Format(time.RFC3339),
+		len(run.Nodes),
+	)
+
 }
