@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/etl-madness/flow"
@@ -16,21 +18,34 @@ type PrintableResult struct {
 	ResultsString interface{} `json:"results_string"`
 }
 
+var lineReturnsReplacer = strings.NewReplacer(
+	"\r\n", "\n",
+	`\r\n`, "\n",
+	"\r", "",
+)
+
+var jsonLineBreakReplacer = strings.NewReplacer(
+	`\\`, `\\`,
+	`\r\n`, "",
+	`\n`, "",
+	`\r`, "",
+)
+
 func formatLineReturns(s string) string {
-	cleaned := strings.ReplaceAll(s, "\r\n", "\n")
-	cleaned = strings.ReplaceAll(cleaned, `\r\n`, "\n")
-	cleaned = strings.ReplaceAll(cleaned, "\r", "")
-	return cleaned
+	return lineReturnsReplacer.Replace(s)
 }
 
 func outputRawJSON(res *[]flow.ScriptResult) {
 	jsonBytes, err := json.Marshal(res)
 	if err != nil {
-		fmt.Printf("[{\"script_id\": \"system\", \"return_code\": 1, \"results_string\": \"JSON encoding error: %v\"}]", err)
+		fmt.Printf("[{\"script_id\": \"system\", \"return_code\": 1, \"results_string\": \"JSON encoding error: %v\"}]\n", err)
 		return
 	}
+	w := bufio.NewWriter(os.Stdout)
+	defer w.Flush()
 	// Pass JSON output through line return cleanup before printing to stdout
-	fmt.Println(formatLineReturns(string(jsonBytes)))
+	w.WriteString(formatLineReturns(string(jsonBytes)))
+	w.WriteByte('\n')
 }
 
 func outputJSON(res *[]flow.ScriptResult) {
@@ -40,12 +55,10 @@ func outputJSON(res *[]flow.ScriptResult) {
 		cleanStr := formatLineReturns(r.ResultsString)
 		var val interface{} = cleanStr
 
+		cleanBytes := []byte(cleanStr)
 		// Embed as raw JSON object if ResultsString contains valid JSON
-		if json.Valid([]byte(cleanStr)) {
-			var raw json.RawMessage
-			if err := json.Unmarshal([]byte(cleanStr), &raw); err == nil {
-				val = raw
-			}
+		if json.Valid(cleanBytes) {
+			val = json.RawMessage(cleanBytes)
 		}
 
 		printable = append(printable, PrintableResult{
@@ -61,44 +74,36 @@ func outputJSON(res *[]flow.ScriptResult) {
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(printable); err != nil {
-		fmt.Printf("[{\"script_id\": \"system\", \"return_code\": 1, \"results_string\": \"JSON encoding error: %v\"}]", err)
+		fmt.Printf("[{\"script_id\": \"system\", \"return_code\": 1, \"results_string\": \"JSON encoding error: %v\"}]\n", err)
 		return
 	}
 
 	// Unescape JSON-encoded literal newline characters (\n and \r\n) inside the marshaled buffer
-	// using a temporary placeholder to preserve double-escaped path characters (e.g., C:\\folder)
-	outputStr := buf.String()
-	const backslashPlaceholder = "___DOUBLE_BACKSLASH___"
-	outputStr = strings.ReplaceAll(outputStr, `\\`, backslashPlaceholder)
-	outputStr = strings.ReplaceAll(outputStr, `\r\n`, "")
-	outputStr = strings.ReplaceAll(outputStr, `\n`, "")
-	outputStr = strings.ReplaceAll(outputStr, `\r`, "")
-	outputStr = strings.ReplaceAll(outputStr, backslashPlaceholder, `\\`)
+	outputStr := jsonLineBreakReplacer.Replace(buf.String())
 
-	// Loop through each line character by line break and print individually
-	lines := strings.Split(outputStr, "\n")
-	for i, line := range lines {
-		if i == len(lines)-1 && line == "" {
-			continue // Skip trailing empty line from encoder buffer
-		}
-		fmt.Println(line)
-	}
+	w := bufio.NewWriter(os.Stdout)
+	defer w.Flush()
+	w.WriteString(outputStr)
 }
 
 func outputText(res *[]flow.ScriptResult) {
+	w := bufio.NewWriter(os.Stdout)
+	defer w.Flush()
 	for _, r := range *res {
-		fmt.Printf("ScriptID: %s\nReturnCode: %d\nDuration: %v\nResultsString: %s\n\n",
+		fmt.Fprintf(w, "ScriptID: %s\nReturnCode: %d\nDuration: %v\nResultsString: %s\n\n",
 			r.ScriptID, r.ReturnCode, r.Duration, r.ResultsString)
 	}
 }
 
 func outputMarkdownTable(res *[]flow.ScriptResult) {
-	fmt.Println("| Script ID | Return Code | Duration | Results |")
-	fmt.Println("| :--- | :--- | :--- | :--- |")
+	w := bufio.NewWriter(os.Stdout)
+	defer w.Flush()
+	fmt.Fprintln(w, "| Script ID | Return Code | Duration | Results |")
+	fmt.Fprintln(w, "| :--- | :--- | :--- | :--- |")
 	for _, r := range *res {
 		// Escape newlines and pipe symbols to prevent table formatting breaks
 		cleanResults := strings.ReplaceAll(r.ResultsString, "\n", "<br>")
 		cleanResults = strings.ReplaceAll(cleanResults, "|", "\\|")
-		fmt.Printf("| %s | %d | %v | %s |\n", r.ScriptID, r.ReturnCode, r.Duration, cleanResults)
+		fmt.Fprintf(w, "| %s | %d | %v | %s |\n", r.ScriptID, r.ReturnCode, r.Duration, cleanResults)
 	}
 }

@@ -5,6 +5,7 @@ package bqbilling
 // and build.
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"flag"
@@ -148,9 +149,14 @@ func main() {
 		log.Fatalf("Query execution failed: %v", err)
 	}
 
-	var records []BillingExportRow
-	var grandTotal float64
+	w := bufio.NewWriter(os.Stdout)
+	defer w.Flush()
 
+	w.WriteString("[\n")
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("  ", "  ")
+
+	first := true
 	for {
 		var row BillingExportRow
 		err := it.Next(&row)
@@ -161,14 +167,15 @@ func main() {
 			log.Fatalf("Error iterating billing rows: %v", err)
 		}
 
-		records = append(records, row)
-		grandTotal += row.Cost
-	}
+		if !first {
+			w.WriteString(",\n")
+		}
+		first = false
 
-	// Direct stream encoder prevents stdout truncation on large output payloads
-	encoder := json.NewEncoder(os.Stdout)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(records); err != nil {
-		log.Fatalf("Error encoding records array to JSON: %v", err)
+		w.WriteString("  ")
+		if err := encoder.Encode(row); err != nil {
+			log.Fatalf("Error encoding record to JSON: %v", err)
+		}
 	}
+	w.WriteString("\n]\n")
 }

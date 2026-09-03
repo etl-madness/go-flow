@@ -134,7 +134,7 @@ See the package-specific [**`github.com/etl-madness/flow`**](https://github.com/
 ```bash
 # Verify & clean dependencies
 go mod tidy
-go build
+go build -ldflags="-s -w" -trimpath -o go-flow.exe .
 ```
 
 ---
@@ -148,38 +148,38 @@ Run the engine using command line flags to specify your scripts file, schema fil
 Before running any commands, ensure that you have built the CLI executable:
 
 ```bash
-go build -o flow main.go
+go build -ldflags="-s -w" -trimpath -o go-flow.exe .
 ```
 
-You can then replace `go run main.go` with `./flow` in the examples below.
+You can then replace `go run main.go` with `./go-flow.exe` in the examples below.
 
 ```bash
 # Basic Execution
-./flow --file pipeline.xml
+./go-flow.exe --file pipeline.xml
 
 # Execution with Variable Overrides via Config File
-./flow --file pipeline.xml --config production_config.xml
+./go-flow.exe --file pipeline.xml --config production_config.xml
 
 # Full Execution with Variable Overrides via Command Line
-./flow --file pipeline.xml --vars "BulkSize=1000"
+./go-flow.exe --file pipeline.xml --vars "BulkSize=1000"
 
 # Pipeline Validation Only (Does not execute scripts)
-./flow --file pipeline.xml --validate
+./go-flow.exe --file pipeline.xml --validate
 
 # Execute Preflight Validation Nodes Only (does not run main flow)
-./flow --file pipeline.xml --preflight
+./go-flow.exe --file pipeline.xml --preflight
 
 # Console Logging (Additional verbose output to stdout)
-./flow --file pipeline.xml --debug
+./go-flow.exe --file pipeline.xml --debug
 
 # Full Schema Validation and Execution
-./flow --file pipeline.xml --xsd schema.xsd --config CONFIG.xml
+./go-flow.exe --file pipeline.xml --xsd schema.xsd --config CONFIG.xml
 
 # Generate Interactive HTML Documentation with Flowchart
-./flow --file pipeline.xml --xslt autodoc.xslt --out pipeline.html
+./go-flow.exe --file pipeline.xml --xslt autodoc.xslt --out pipeline.html
 
 # Generate GitHub-Native Markdown Documentation with Flowchart
-./flow --file pipeline.xml --xslt autodoc_md.xslt --out pipeline.md
+./go-flow.exe --file pipeline.xml --xslt autodoc_md.xslt --out pipeline.md
 ```
 
 ### CLI Flag Reference
@@ -213,8 +213,8 @@ Generates a styled, single-file HTML document featuring:
 * Formatted source code blocks displaying SQL/Go step values.
 
 ```bash
-go build -o flow main.go
-./flow --file pipeline.xml --xslt autodoc.xslt --out pipeline.html
+go build -ldflags="-s -w" -trimpath -o go-flow.exe .
+./go-flow.exe --file pipeline.xml --xslt autodoc.xslt --out pipeline.html
 ```
 
 #### 2. GitHub-Native Markdown Output (`autodoc_md.xslt`)
@@ -224,7 +224,7 @@ Generates a plain Markdown (`.md`) file optimized for version control, GitHub/Gi
 * Escaped multiline script content wrapped inside HTML `<code>` blocks to preserve line formatting without breaking table alignment.
 
 ```bash
-./flow --file pipeline.xml --xslt autodoc_md.xslt --out pipeline.md
+./go-flow.exe --file pipeline.xml --xslt autodoc_md.xslt --out pipeline.md
 ```
 
 ---

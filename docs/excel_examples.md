@@ -51,7 +51,7 @@ Extract configuration or bulk upload data from an Excel sheet and send it to an 
         <!-- Reads the "Users" sheet into JSON (using row 1 as keys) -->
         <excel_read file="{{FILE_PATH}}" sheet="Users" output_var="USER_JSON_DATA" />
         
-        <http_client 
+        <sql_bulk 
             method="POST" 
             uri="https://api.example.com/v1/users/bulk" 
             content_type="application/json" 

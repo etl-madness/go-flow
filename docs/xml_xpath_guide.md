@@ -148,7 +148,7 @@ Allows writing long, complex, or formatted XPath expressions cleanly inside the 
   <variables>
     <variable name="raw_xml" type="string" value="&lt;root&gt;&lt;user role='admin'&gt;Alice&lt;/user&gt;&lt;user role='user'&gt;Bob&lt;/user&gt;&lt;/root&gt;" />
   </variables>
-<flow>
+
   <!-- Executes query written directly within body text -->
   <xml_xpath id="query_admins" var="raw_xml" output_var="admin_users">
     //user[@role='admin']

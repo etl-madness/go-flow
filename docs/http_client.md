@@ -72,29 +72,24 @@ When preparing an outgoing payload (e.g., `POST`, `PUT`, `PATCH`), the engine ap
 Inside a `<foreach>` block, every returned database row populates registry variables with column values (bound in exact, lowercase, and uppercase forms) alongside `LOOP_INDEX`[cite: 5, 10]. `<http_client>` consumes these variables per iteration[cite: 5, 6, 10]:
 
 ```xml
-<pipeline>
-    <flow>
-        <foreach id="IterateUsers" db="app_db">
-            SELECT user_id, email, account_tier FROM users WHERE sync_pending = 1;
+<foreach id="IterateUsers" db="app_db">
+    SELECT user_id, email, account_tier FROM users WHERE sync_pending = 1;
 
-                <http_client 
-                    id="PostUserToApi"
-                    uri="[https://api.example.com/v1/sync](https://api.example.com/v1/sync)"
-                    method="POST"
-                    content_type="application/json"
-                    data='{"id": {{user_id}}, "email": "{{email}}", "tier": "{{account_tier}}"}'
-                    output_var="ApiResponseBody"
-                    status_code_var="ApiResponseCode" />
+    <http_client 
+        id="PostUserToApi"
+        uri="[https://api.example.com/v1/sync](https://api.example.com/v1/sync)"
+        method="POST"
+        content_type="application/json"
+        data='{"id": {{user_id}}, "email": "{{email}}", "tier": "{{account_tier}}"}'
+        output_var="ApiResponseBody"
+        status_code_var="ApiResponseCode" />
 
-                <script id="LogSync" language="sql" db="app_db">
-                    UPDATE users 
-                    SET synced = 1, sync_code = {{ApiResponseCode}} 
-                    WHERE user_id = {{user_id}};
-                </script>
-            </foreach>
-  </flow>
-</pipeline>
- 
+    <script id="LogSync" language="sql" db="app_db">
+        UPDATE users 
+        SET synced = 1, sync_code = {{ApiResponseCode}} 
+        WHERE user_id = {{user_id}};
+    </script>
+</foreach>
 ```
 ### 4.2 Polling Loops (`<while>`)
 Inside a `<while>` loop, `<http_client>` can poll remote job status endpoints until a termination condition is met:
@@ -127,21 +122,17 @@ Inside a `<while>` loop, `<http_client>` can poll remote job status endpoints un
 Inside `<parallel>` blocks, each child branch runs in an isolated worker thread with a cloned registry snapshot. Output variables updated by `<http_client>` in thread branches are automatically merged or namespaced (`WORKER_<ID>_<VAR>`) back to the main registry upon completion.
 
 ```xml
-<pipeline>
-  <flow>
-    <parallel max_threads="2">
-        <http_client 
-            id="FetchServiceA"
-            uri="[https://service-a.internal/health](https://service-a.internal/health)"
-            output_var="HealthA" />
+<parallel max_threads="2">
+    <http_client 
+        id="FetchServiceA"
+        uri="[https://service-a.internal/health](https://service-a.internal/health)"
+        output_var="HealthA" />
 
-        <http_client 
-            id="FetchServiceB"
-            uri="[https://service-b.internal/health](https://service-b.internal/health)"
-            output_var="HealthB" />
-    </parallel>
-  </flow>
-</pipeline>
+    <http_client 
+        id="FetchServiceB"
+        uri="[https://service-b.internal/health](https://service-b.internal/health)"
+        output_var="HealthB" />
+</parallel>
 ```
 
 ### 5. Comprehensive Pipeline Examples

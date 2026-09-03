@@ -71,48 +71,36 @@ To capture a value returned from a SQL query, use the `output_var` attribute.
 *   Otherwise, it captures the entire tab-separated results block.
 
 ```xml
-<pipeline>
-    <flow>
-        <script id="GetMaxID" language="sql" db="app_db" output_var="LastProcessedID">
-            SELECT COALESCE(MAX(id), 0) FROM logs;
-        </script>
-    </flow>
-</pipeline>
+<script id="GetMaxID" language="sql" db="app_db" output_var="LastProcessedID">
+    SELECT COALESCE(MAX(id), 0) FROM logs;
+</script>
 ```
 
 ### Go Scripts (`output_var` / Stdout Capture)
 Because the Yaegi host bindings do not expose a variable mutation method, you write values to variables by printing them to **stdout**. The `output_var` attribute will capture the printed console output and store it as a string variable.
 
 ```xml
-<pipeline>
-    <flow>
-        <script id="CalculateStats" language="go" output_var="ResultScore">
-            package main
-            import "fmt"
-            func main() {
-                score := 98.4
-                // Captured directly by "ResultScore"
-                fmt.Printf("%.1f", score)
-            }
-        </script>
-    </flow>
-</pipeline>
+<script id="CalculateStats" language="go" output_var="ResultScore">
+    package main
+    import "fmt"
+    func main() {
+        score := 98.4
+        // Captured directly by "ResultScore"
+        fmt.Printf("%.1f", score)
+    }
+</script>
 ```
 
 ### C# Scripts (`output_var` / Stdout Capture)
 Similar to Go and shell scripts, `dotnet-script` outputs to **stdout** are captured by the `output_var` attribute and stored back into the pipeline variable registry.
 
 ```xml
-<pipeline>
-    <flow>
-        <script id="CsharpCalc" language="dotnet-script" output_var="ResultSum">
-            using System;
-            int a = 10;
-            int b = 20;
-            Console.Write(a + b); // Captured directly by "ResultSum"
-        </script>
-    </flow>
-</pipeline>
+<script id="CsharpCalc" language="dotnet-script" output_var="ResultSum">
+    using System;
+    int a = 10;
+    int b = 20;
+    Console.Write(a + b); // Captured directly by "ResultSum"
+</script>
 ```
 
 ---
@@ -128,19 +116,15 @@ When iterating over records using a `<foreach>` block, the loop driver query bin
     3.  **Uppercase** (e.g. `USERID`)
 
 ```xml
-<pipeline>
-    <flow>
-        <foreach id="IterateUsers" db="app_db" var="UserId">
-            SELECT id, username, email FROM users WHERE active = 1;
-            
-            <!-- Each iteration binds "id", "username", "email", and "LOOP_INDEX" -->
-            <script id="ProcessUser" language="sql" db="app_db">
-                INSERT INTO user_audit (user_id, action) 
-                VALUES ({{id}}, 'Processed iteration {{LOOP_INDEX}}');
-            </script>
-        </foreach>
-    </flow>
-</pipeline>
+<foreach id="IterateUsers" db="app_db" var="UserId">
+    SELECT id, username, email FROM users WHERE active = 1;
+    
+    <!-- Each iteration binds "id", "username", "email", and "LOOP_INDEX" -->
+    <script id="ProcessUser" language="sql" db="app_db">
+        INSERT INTO user_audit (user_id, action) 
+        VALUES ({{id}}, 'Processed iteration {{LOOP_INDEX}}');
+    </script>
+</foreach>
 ```
 
 ---

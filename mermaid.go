@@ -105,7 +105,7 @@ func generateMermaid(xmlBytes []byte) (*string, error) {
 	if pipeline.Preflight != nil && len(pipeline.Preflight.Nodes) > 0 {
 		gen.builder.WriteString("    subgraph PreflightBox [\"✈️ Preflight Flow\"]\n")
 		gen.builder.WriteString("        PreflightStart([Start Preflight])\n")
-		lastPreflight := gen.ProcessSequence(pipeline.Preflight.Nodes, "PreflightStart")
+		_, lastPreflight := gen.ProcessSequence(pipeline.Preflight.Nodes, "PreflightStart")
 		if lastPreflight != "" {
 			gen.builder.WriteString(fmt.Sprintf("        %s --> PreflightEnd([End Preflight])\n", lastPreflight))
 		}
@@ -125,7 +125,7 @@ func generateMermaid(xmlBytes []byte) (*string, error) {
 		gen.builder.WriteString("    subgraph FlowBox [\"⚡ Main Execution Flow\"]\n")
 		gen.builder.WriteString("        Start([Start Pipeline])\n")
 
-		lastExit := gen.ProcessSequence(flowNodes, "Start")
+		_, lastExit := gen.ProcessSequence(flowNodes, "Start")
 		if lastExit != "" {
 			endID := gen.nextID("End")
 			gen.builder.WriteString(fmt.Sprintf("        %s --> %s([End Pipeline])\n", lastExit, endID))
@@ -147,20 +147,25 @@ func (g *MermaidGenerator) nextID(prefix string) string {
 	return fmt.Sprintf("%s_%d", prefix, g.nodeCounter)
 }
 
-func (g *MermaidGenerator) ProcessSequence(nodes []DiagramNode, prevExitID string) string {
+func (g *MermaidGenerator) ProcessSequence(nodes []DiagramNode, prevExitID string) (string, string) {
 	currentPrev := prevExitID
+	var firstEntry, lastExit string
 
 	for _, node := range nodes {
 		entryID, exitID := g.ProcessNode(node)
+		if firstEntry == "" && entryID != "" {
+			firstEntry = entryID
+		}
 		if currentPrev != "" && entryID != "" {
 			g.builder.WriteString(fmt.Sprintf("    %s --> %s\n", currentPrev, entryID))
 		}
 		if exitID != "" {
 			currentPrev = exitID
+			lastExit = exitID
 		}
 	}
 
-	return currentPrev
+	return firstEntry, lastExit
 }
 
 func (g *MermaidGenerator) ProcessNode(node DiagramNode) (string, string) {
@@ -202,9 +207,7 @@ func (g *MermaidGenerator) ProcessNode(node DiagramNode) (string, string) {
 
 	case "group":
 		if len(node.Children) > 0 {
-			firstEntry, lastExit := g.getSequenceBounds(node.Children)
-			g.ProcessSequence(node.Children, "")
-			return firstEntry, lastExit
+			return g.ProcessSequence(node.Children, "")
 		}
 		return "", ""
 
@@ -249,8 +252,7 @@ func (g *MermaidGenerator) ProcessNode(node DiagramNode) (string, string) {
 		}
 
 		if len(thenNodes) > 0 {
-			firstEntry, lastExit := g.getSequenceBounds(thenNodes)
-			g.ProcessSequence(thenNodes, "")
+			firstEntry, lastExit := g.ProcessSequence(thenNodes, "")
 			g.builder.WriteString(fmt.Sprintf("    %s -- \"Yes / Then\" --> %s\n", ifStart, firstEntry))
 			g.builder.WriteString(fmt.Sprintf("    %s --> %s\n", lastExit, ifEnd))
 		} else {
@@ -258,8 +260,7 @@ func (g *MermaidGenerator) ProcessNode(node DiagramNode) (string, string) {
 		}
 
 		if node.Else != nil && len(node.Else.Nodes) > 0 {
-			firstEntry, lastExit := g.getSequenceBounds(node.Else.Nodes)
-			g.ProcessSequence(node.Else.Nodes, "")
+			firstEntry, lastExit := g.ProcessSequence(node.Else.Nodes, "")
 			g.builder.WriteString(fmt.Sprintf("    %s -- \"No / Else\" --> %s\n", ifStart, firstEntry))
 			g.builder.WriteString(fmt.Sprintf("    %s --> %s\n", lastExit, ifEnd))
 		} else {
@@ -281,8 +282,7 @@ func (g *MermaidGenerator) ProcessNode(node DiagramNode) (string, string) {
 		g.builder.WriteString(fmt.Sprintf("    %s(( Loop Exit ))\n", loopEnd))
 
 		if len(node.Children) > 0 {
-			firstEntry, lastExit := g.getSequenceBounds(node.Children)
-			g.ProcessSequence(node.Children, "")
+			firstEntry, lastExit := g.ProcessSequence(node.Children, "")
 			g.builder.WriteString(fmt.Sprintf("    %s -- \"Next Row\" --> %s\n", loopStart, firstEntry))
 			g.builder.WriteString(fmt.Sprintf("    %s --> %s\n", lastExit, loopStart))
 		}
@@ -292,21 +292,6 @@ func (g *MermaidGenerator) ProcessNode(node DiagramNode) (string, string) {
 	}
 
 	return "", ""
-}
-
-func (g *MermaidGenerator) getSequenceBounds(nodes []DiagramNode) (string, string) {
-	tempGen := &MermaidGenerator{}
-	var firstEntry, lastExit string
-	for i, n := range nodes {
-		e, ex := tempGen.ProcessNode(n)
-		if i == 0 {
-			firstEntry = e
-		}
-		if ex != "" {
-			lastExit = ex
-		}
-	}
-	return firstEntry, lastExit
 }
 
 func applyVariableOverrides(r *flow.Registry, overrideStr string) {
