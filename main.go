@@ -16,6 +16,7 @@ import (
 )
 
 func main() {
+	loadPath := flag.String("load", "", "Path to XML file containing CLI option defaults")
 	filePath := flag.String("file", "scripts.xml", "Path to XML file containing scripts and databases")
 	format := flag.String("format", "csv", "Output format (json,jsonpretty, text, or markdown, csv)")
 	xsdPath := flag.String("xsd", "", "Path to XSD file for schema validation (optional)")
@@ -28,6 +29,18 @@ func main() {
 	xsltPath := flag.String("xslt", "", "Path to custom XSLT stylesheet (optional)")
 	outFile := flag.String("out", "", "Path to output file for transformed XML (optional)")
 	flag.Parse()
+
+	// Apply XML load file options if specified
+	if *loadPath != "" {
+		if err := applyXMLOptions(*loadPath); err != nil {
+			outputJSON(&[]flow.ScriptResult{{
+				ScriptID:      "system",
+				ReturnCode:    1,
+				ResultsString: fmt.Sprintf("Error applying load XML: %v", err),
+			}})
+			os.Exit(1)
+		}
+	}
 
 	// 1. Optional XSD Validation Pass (runs xmllint if -xsd flag is provided)
 	if *xsdPath != "" {
