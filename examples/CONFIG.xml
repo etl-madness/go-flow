@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
+          xsi:noNamespaceSchemaLocation="../xsd/pipeline.xsd">
     <!-- Variable Overrides for Connection Strings and Settings -->
     <variables>
         <!-- MSSQL Connection Overrides -->
@@ -33,7 +33,7 @@
                 SELECT CURRENT_USER;
             ]]>
         </sql>
-        <assert id="database_check" var="PRELIGHT_CHECK_1_RESULT" equals="1" message="Pipeline must be able to connect to database!" on_failure="halt" />
+        <assert  id="database_check" var="PRELIGHT_CHECK_1_RESULT" equals="1" message="Pipeline must be able to connect to database!" on_failure="halt" />
         <assert id="user_check" var="PRELIGHT_CHECK_2_RESULT" equals="dbomoo" message="Pipeline must be connected as dbo!">
             <on_failure>
                  <script id="log_user_connected_as" language="go">

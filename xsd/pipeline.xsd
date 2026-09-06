@@ -277,7 +277,11 @@
                     <xs:documentation>Evaluates path queries on a YAML file or variable.</xs:documentation>
                 </xs:annotation>
             </xs:element>
-            <xs:element  ref="assert" />
+            <xs:element name="assert" type="AssertType">
+                <xs:annotation>
+                    <xs:documentation>Asserts variable values and controls error handling or rollback fallback branches.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
         </xs:choice>
     </xs:complexType>
 
