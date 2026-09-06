@@ -17,7 +17,7 @@
     </databases>
 
     <!-- 3. PIPELINE EXECUTION ENGINE -->
-    <scripts>
+    <flow>
         <!-- Step A: SQL Script checks condition and captures result in 'IsMasterDB' output variable -->
         <sql id="CheckIfMaster" db="primary_db" output_var="IsMasterDB" description="Check if the currently connected database is the master database">
             <![CDATA[
