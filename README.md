@@ -4,6 +4,16 @@ An enterprise-grade, XML-driven multi-database pipeline executor and ETL engine 
 
 With built-in support for environment-specific configuration overrides, strongly-typed variables, parallel execution, iterative looping, logical branching, and streaming cross-database ETL channels, this engine is optimized for robust, fail-fast, and memory-efficient data movements.
 
+***Note***: When using VS Code, it's recommended that XML Language Support by Red Hat is installed and enabled. This will provide proper XML syntax highlighting, validation, and IntelliSense for the XML pipeline configuration files. If intellisense is not working as expected, ensure that the extension is properly installed and that the workspace is correctly configured to recognize XML files, and that your pipeline root node includes the xml schema reference.
+
+```xml
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd>
+
+    <!-- Your pipeline configuration goes here -->
+</pipeline>
+```
+ 
 ---
 ## Comparison with SQL Server Integration Services (SSIS)
 

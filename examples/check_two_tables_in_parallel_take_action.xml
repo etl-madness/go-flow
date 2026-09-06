@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
     <variables>
         <variable name="Database1ConnStr" type="string" value="sqlserver://EXAMPLE:1433?database=AdventureWorks2020&amp;integrated+security=true&amp;trustServerCertificate=true" />
         <variable type="string" value="sqlserver://EXAMPLE:1433?database=AdventureWorks2019&amp;integrated+security=true&amp;trustServerCertificate=true" name="Database2ConnStr" />

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline description="Example pipeline demonstrating parallel execution of tasks">
+<pipeline description="Example pipeline demonstrating parallel execution of tasks" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
     <!-- 1. GLOBAL VARIABLES -->
     <variables>
         <variable name="PrimaryDBConnStr" description="Connection string for the primary database" type="string" value="sqlserver://PROD_SERVER:1433?database=master&amp;integrated+security=true&amp;trustServerCertificate=true" />

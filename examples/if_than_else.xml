@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline description="Example pipeline demonstrating if-then-else branching and conditional group execution">
+<pipeline description="Example pipeline demonstrating if-then-else branching and conditional group execution" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
     <variables>
         <variable name="PrimaryDBConnStr" description="Connection string for the primary database" type="string" value="sqlserver://PROD_SERVER:1433?database=PROTO_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
         <variable name="AnalyticsDBConnStr" description="Connection string for the analytics database" type="string" value="sqlserver://PROD_SERVER:1433?database=AdventureWorks_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />

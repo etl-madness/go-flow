@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline description="Example pipeline demonstrating multiple database types">
+<pipeline description="Example pipeline demonstrating multiple database types" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
     <variables>
         <variable name="BatchSize" description="Batch size for bulk operations" type="int" value="500" />
     </variables>

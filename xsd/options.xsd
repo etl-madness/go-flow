@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+    <!-- ROOT ELEMENT -->
+    <xs:element name="flow_cli_options">
+        <xs:annotation>
+            <xs:documentation>Root element for an ETL Madness Flow CLI options file (loaded via the -load flag).</xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="options" type="CliOptionsType" minOccurs="1" maxOccurs="1">
+                    <xs:annotation>
+                        <xs:documentation>Container for CLI option defaults. Each child element name matches a command-line flag (e.g. -file, -format). Options omitted here fall back to built-in defaults, and any flag explicitly set on the command line overrides the value defined in this file.</xs:documentation>
+                    </xs:annotation>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- CLI OPTIONS -->
+    <xs:complexType name="CliOptionsType">
+        <xs:annotation>
+            <xs:documentation>Defines the set of CLI flags that can be pre-populated from an XML options file. All elements are optional; unset options use their built-in defaults.</xs:documentation>
+        </xs:annotation>
+        <xs:all>
+            <xs:element name="file" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Path to the XML file defining scripts, databases, and workflow nodes. Equivalent to the -file flag. Default: scripts.xml</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="format" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Output formatting applied to execution results. Equivalent to the -format flag. Default: csv</xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:enumeration value="csv">
+                            <xs:annotation>
+                                <xs:documentation>Comma-separated values output.</xs:documentation>
+                            </xs:annotation>
+                        </xs:enumeration>
+                        <xs:enumeration value="text">
+                            <xs:annotation>
+                                <xs:documentation>Plain text output.</xs:documentation>
+                            </xs:annotation>
+                        </xs:enumeration>
+                        <xs:enumeration value="json">
+                            <xs:annotation>
+                                <xs:documentation>Compact JSON output.</xs:documentation>
+                            </xs:annotation>
+                        </xs:enumeration>
+                        <xs:enumeration value="jsonpretty">
+                            <xs:annotation>
+                                <xs:documentation>Indented, human-readable JSON output.</xs:documentation>
+                            </xs:annotation>
+                        </xs:enumeration>
+                        <xs:enumeration value="markdown">
+                            <xs:annotation>
+                                <xs:documentation>Markdown table output.</xs:documentation>
+                            </xs:annotation>
+                        </xs:enumeration>
+                        <xs:enumeration value="summary">
+                            <xs:annotation>
+                                <xs:documentation>Condensed summary output.</xs:documentation>
+                            </xs:annotation>
+                        </xs:enumeration>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+            <xs:element name="xsd" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Optional path to an XSD file used for schema validation of the pipeline XML via xmllint. Equivalent to the -xsd flag. Default: (empty)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="config" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Optional path to a CONFIG.xml file containing variable and database overrides. Equivalent to the -config flag. Default: (empty)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="validate" type="xs:boolean" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>When true, validates the XML schema and AST structure without executing the pipeline. Equivalent to the -validate flag. Default: false</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="preflight" type="xs:boolean" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>When true, executes preflight validation nodes only, without running the main pipeline. Equivalent to the -preflight flag. Default: false</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="vars" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Comma-separated key=value runtime variable overrides (e.g. TargetTable=override_table,Threshold=500). Equivalent to the -vars flag. Default: (empty)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="debug" type="xs:boolean" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>When true, enables detailed console execution logging. Equivalent to the -debug flag. Default: false</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="gopath" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>GOPATH directory used for dynamic interpreter package imports. Equivalent to the -gopath flag. Default: the GOPATH environment variable</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="xslt" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Optional path to a custom XSLT stylesheet applied to transform the pipeline XML output. Equivalent to the -xslt flag. Default: (empty)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="out" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Path to the output file used when saving transformed XML produced by the -xslt transformation. Equivalent to the -out flag. Default: (empty)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:all>
+    </xs:complexType>
+
+</xs:schema>

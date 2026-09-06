@@ -277,6 +277,7 @@
                     <xs:documentation>Evaluates path queries on a YAML file or variable.</xs:documentation>
                 </xs:annotation>
             </xs:element>
+            <xs:element  ref="assert" />
         </xs:choice>
     </xs:complexType>
 

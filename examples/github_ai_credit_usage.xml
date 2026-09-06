@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline description="ETL pipeline for extracting GitHub AI credit usage and loading it into SQL Server">
+<pipeline description="ETL pipeline for extracting GitHub AI credit usage and loading it into SQL Server" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
     <!-- Pipeline Variables -->
     <variables>
         <!-- Connection strings & GitHub API Configuration -->

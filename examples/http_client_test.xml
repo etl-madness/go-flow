@@ -1,4 +1,5 @@
-<pipeline description="Pipeline to test various HTTP client requests with dynamic token generation">
+<pipeline description="Pipeline to test various HTTP client requests with dynamic token generation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
     <flow>
         <!-- 1. SCRIPT TASK: Dynamically creates a value and captures stdout to 'GeneratedToken' -->
         <script id="GenerateAuthToken" language="go" description="Dynamically generates an authentication token" output_var="GeneratedToken">

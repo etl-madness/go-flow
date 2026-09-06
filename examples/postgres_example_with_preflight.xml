@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline  description="PostgreSQL example pipeline with preflight checks">
+<pipeline  description="PostgreSQL example pipeline with preflight checks" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
     <!-- Pipeline Variables -->
     <variables>
         <!-- Connection strings & GitHub API Configuration -->
@@ -11,17 +12,17 @@
         <database name="database1"  description="Primary PostgreSQL database connection" driver="postgres" connection_string="{{postgres_conn_str}}" />
     </databases>
     <preflight>
-        <sql id="preflight_check_access" language="sql" description="Preflight check" db="database1">
+        <sql id="preflight_check_access"   description="Preflight check" db="database1">
             <![CDATA[
             SELECT 1;
         ]]>
         </sql>
-        <sql id="preflight_check_user" language="sql" description="Preflight check 2" db="database1">
+        <sql id="preflight_check_user"   description="Preflight check 2" db="database1">
             <![CDATA[
             SELECT current_user;
         ]]>
         </sql>
-        <sql id="preflight_check_database" language="sql" description="Preflight check 3" db="database1">
+        <sql id="preflight_check_database"  description="Preflight check 3" db="database1">
             <![CDATA[
             SELECT current_database();
         ]]>

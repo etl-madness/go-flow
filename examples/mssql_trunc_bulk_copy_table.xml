@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline description="Pipeline to truncate and bulk copy data between SQL Server tables">
+<pipeline description="Pipeline to truncate and bulk copy data between SQL Server tables" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
     <variables>
         <!-- Connection strings (Replace with actual SQL Server connection details if needed) -->
         <variable name="Database1ConnStr" description="Connection string for database1" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />

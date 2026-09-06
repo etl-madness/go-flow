@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline description="Example pipeline demonstrating a while loop to poll PostgreSQL job status">
+<pipeline description="Example pipeline demonstrating a while loop to poll PostgreSQL job status" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
     <variables>
         <variable name="JobStatus" description="Current status of the PostgreSQL job" type="string" value="RUNNING" />
         <variable name="TargetJobId" description="ID of the target PostgreSQL job to monitor" type="string" value="JOB_98765" />

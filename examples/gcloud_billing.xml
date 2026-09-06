@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline description="ETL pipeline for extracting GCP billing data from BigQuery and loading it into SQL Server">
+<pipeline description="ETL pipeline for extracting GCP billing data from BigQuery and loading it into SQL Server" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
     <!-- Pipeline Variables -->
     <variables>
         <variable name="full_table_path" description="Full table path for the BigQuery billing table" type="string" value="" />
