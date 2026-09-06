@@ -126,35 +126,45 @@ CREATE TABLE IF NOT EXISTS pipeline_events (
 ## Microsoft SQL Server
 
 ```sql
-CREATE TABLE pipeline_runs (
-    run_id VARCHAR(64) PRIMARY KEY,
-    file_path VARCHAR(255) NOT NULL,
-    config_path VARCHAR(255),
-    status VARCHAR(32) NOT NULL,
-    started_at DATETIMEOFFSET NOT NULL,
-    finished_at DATETIMEOFFSET NOT NULL,
-    duration_ms BIGINT NOT NULL,
-    task_count INT NOT NULL,
-    error_class VARCHAR(128),
-    error_message NVARCHAR(MAX),
-    created_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
-);
+-- Create pipeline_runs table
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[pipeline_runs]') AND type in (N'U'))
+BEGIN
+    CREATE TABLE dbo.pipeline_runs (
+        run_id VARCHAR(64) PRIMARY KEY,
+        file_path VARCHAR(255) NOT NULL,
+        config_path VARCHAR(255),
+        status VARCHAR(32) NOT NULL,
+        started_at DATETIMEOFFSET NOT NULL,
+        finished_at DATETIMEOFFSET NOT NULL,
+        duration_ms BIGINT NOT NULL,
+        task_count INT NOT NULL,
+        error_class VARCHAR(128),
+        error_message NVARCHAR(MAX),
+        created_at DATETIMEOFFSET DEFAULT SYSUTCDATETIME()
+    );
+END;
+GO
 
-CREATE TABLE pipeline_events (
-    id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    run_id VARCHAR(64) NOT NULL,
-    execution_id VARCHAR(64) NOT NULL,
-    sequence_num INT NOT NULL,
-    occurred_at DATETIMEOFFSET NOT NULL,
-    event_type VARCHAR(64) NOT NULL,
-    node_kind VARCHAR(64) NOT NULL,
-    node_id VARCHAR(128) NOT NULL,
-    status VARCHAR(32) NOT NULL,
-    error_message NVARCHAR(MAX),
-    rows_read BIGINT DEFAULT 0,
-    rows_written BIGINT DEFAULT 0,
-    rows_affected BIGINT DEFAULT 0
-);
+-- Create pipeline_events table
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[pipeline_events]') AND type in (N'U'))
+BEGIN
+    CREATE TABLE dbo.pipeline_events (
+        id BIGINT IDENTITY(1,1) PRIMARY KEY,
+        run_id VARCHAR(64) NOT NULL,
+        execution_id VARCHAR(64) NOT NULL,
+        sequence_num INT NOT NULL,
+        occurred_at DATETIMEOFFSET NOT NULL,
+        event_type VARCHAR(64) NOT NULL,
+        node_kind VARCHAR(64) NOT NULL,
+        node_id VARCHAR(128) NOT NULL,
+        status VARCHAR(32) NOT NULL,
+        error_message NVARCHAR(MAX),
+        rows_read BIGINT DEFAULT 0,
+        rows_written BIGINT DEFAULT 0,
+        rows_affected BIGINT DEFAULT 0,
+        created_at DATETIMEOFFSET DEFAULT SYSUTCDATETIME()
+    );
+END;
 ```
 
 ## Oracle
