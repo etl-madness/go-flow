@@ -131,8 +131,8 @@ IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[pi
 BEGIN
     CREATE TABLE dbo.pipeline_runs (
         run_id VARCHAR(64) PRIMARY KEY,
-        file_path VARCHAR(255) NOT NULL,
-        config_path VARCHAR(255),
+        file_path VARCHAR(4000) NOT NULL,
+        config_path VARCHAR(4000),
         status VARCHAR(32) NOT NULL,
         started_at DATETIMEOFFSET NOT NULL,
         finished_at DATETIMEOFFSET NOT NULL,
