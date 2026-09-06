@@ -1,20 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline description="Example pipeline demonstrating if-then-else branching and conditional group execution" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
+<pipeline
+    description="Example pipeline demonstrating if-then-else branching and conditional group execution"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <variables>
-        <variable name="PrimaryDBConnStr" description="Connection string for the primary database" type="string" value="sqlserver://PROD_SERVER:1433?database=PROTO_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
-        <variable name="AnalyticsDBConnStr" description="Connection string for the analytics database" type="string" value="sqlserver://PROD_SERVER:1433?database=AdventureWorks_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="PrimaryDBConnStr" description="Connection string for the primary database"
+            type="string"
+            value="sqlserver://PROD_SERVER:1433?database=PROTO_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="AnalyticsDBConnStr"
+            description="Connection string for the analytics database" type="string"
+            value="sqlserver://PROD_SERVER:1433?database=AdventureWorks_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
     </variables>
 
     <!-- Databases referencing variable placeholders -->
     <databases>
-        <database name="primary_db"  description="Primary database connection" connection_string="{{PrimaryDBConnStr}}" />
-        <database name="analytics_db" description="Analytics database connection" connection_string="{{AnalyticsDBConnStr}}" />
+        <database name="primary_db" description="Primary database connection"
+            connection_string="{{PrimaryDBConnStr}}" />
+        <database name="analytics_db" description="Analytics database connection"
+            connection_string="{{AnalyticsDBConnStr}}" />
     </databases>
 
     <flow>
         <!-- Step 1: Script A runs and stores its output ('true' or 'false') into 'ScriptAResult' -->
-        <sql id="ScriptA" db="primary_db" output_var="ScriptAResult" description="Query system databases to check if count is greater than zero">
+        <sql id="ScriptA" db="primary_db" output_var="ScriptAResult"
+            description="Query system databases to check if count is greater than zero">
             <![CDATA[
             SELECT CASE WHEN COUNT(*) > 0 THEN 'true' ELSE 'false' END FROM sys.databases;
         ]]>
@@ -24,7 +33,8 @@
         <if var="ScriptAResult" equals="true">
             <then>
                 <group id="GroupA">
-                    <sql id="GroupA_Step1" db="primary_db" description="Execute Group A step 1 status query">
+                    <sql id="GroupA_Step1" db="primary_db"
+                        description="Execute Group A step 1 status query">
                         <![CDATA[ SELECT 'Executing Group A - Step 1' AS status; ]]>
                     </sql>
                     <script id="GroupA_Step2" language="go">
@@ -38,7 +48,8 @@
             </then>
             <else>
                 <group id="GroupB">
-                    <sql id="GroupB_Step1" db="primary_db" description="Execute Group B step 1 status query">
+                    <sql id="GroupB_Step1" db="primary_db"
+                        description="Execute Group B step 1 status query">
                         <![CDATA[ SELECT 'Executing Group B - Step 1' AS status; ]]>
                     </sql>
                 </group>
@@ -47,7 +58,8 @@
 
         <!-- Option 2: Conditional attributes directly on <group> -->
         <group id="GroupA_Alternative" if_var="ScriptAResult" if_equals="true">
-            <sql id="GroupA_Alt_Step1" db="primary_db" description="Execute direct Group A alternative step status query">
+            <sql id="GroupA_Alt_Step1" db="primary_db"
+                description="Execute direct Group A alternative step status query">
                 <![CDATA[ SELECT 'Direct Group A Executed' AS status; ]]>
             </sql>
         </group>

@@ -1,22 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline description="ETL pipeline for extracting GitHub AI credit usage and loading it into SQL Server" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
+<pipeline
+    description="ETL pipeline for extracting GitHub AI credit usage and loading it into SQL Server"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <!-- Pipeline Variables -->
     <variables>
         <!-- Connection strings & GitHub API Configuration -->
-        <variable name="Database1ConnStr" description="Connection string for the primary database" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
-        <variable name="GITHUB_TOKEN" description="GitHub personal access token" type="string" value="" />
-        <variable name="GITHUB_API_URL" description="Base URL for the GitHub API" type="string" value="https://api.github.com/users" />
-        <variable name="GITHUB_USER" description="GitHub username for which to fetch AI credit usage" type="string" value="" />
+        <variable name="Database1ConnStr" description="Connection string for the primary database"
+            type="string"
+            value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
+        <variable name="GITHUB_TOKEN" description="GitHub personal access token" type="string"
+            value="" />
+        <variable name="GITHUB_API_URL" description="Base URL for the GitHub API" type="string"
+            value="https://api.github.com/users" />
+        <variable name="GITHUB_USER"
+            description="GitHub username for which to fetch AI credit usage" type="string" value="" />
     </variables>
 
     <databases>
-        <database name="database1" description="Primary SQL Server database" connection_string="{{Database1ConnStr}}" />
+        <database name="database1" description="Primary SQL Server database"
+            connection_string="{{Database1ConnStr}}" />
     </databases>
 
     <flow>
         <!-- Step 1: Ensure Target Table Exists in MSSQL -->
-        <sql id="CREATE_GITHUB_COPILOT_BILLING_TABLE" db="database1" description="Ensure GitHub Copilot billing usage table exists in SQL Server">
+        <sql id="CREATE_GITHUB_COPILOT_BILLING_TABLE" db="database1"
+            description="Ensure GitHub Copilot billing usage table exists in SQL Server">
             <![CDATA[
                 IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[github_copilot_billing_usage]') AND type in (N'U'))
                 BEGIN
@@ -43,7 +52,9 @@
         </sql>
 
         <!-- Step 2: Fetch GitHub Billing JSON via Go Script and output JSON payload -->
-        <script id="GET_GITHUB_BILLING" language="go" description="Fetch GitHub AI credit usage via Go script" output_var="GITHUB_BILLING_JSON">
+        <script id="GET_GITHUB_BILLING" language="go"
+            description="Fetch GitHub AI credit usage via Go script"
+            output_var="GITHUB_BILLING_JSON">
             <![CDATA[
                 package main
 
@@ -93,7 +104,8 @@
         </script>
 
         <!-- Step 3: Insert URL JSON Results into dbo.github_copilot_billing_usage using OPENJSON -->
-        <sql id="LOAD_GITHUB_COPILOT_BILLING_TO_SQL" db="database1" description="Insert URL JSON results into SQL Server table using OPENJSON">
+        <sql id="LOAD_GITHUB_COPILOT_BILLING_TO_SQL" db="database1"
+            description="Insert URL JSON results into SQL Server table using OPENJSON">
             <![CDATA[
                 INSERT INTO dbo.github_copilot_billing_usage (
                     period_year,

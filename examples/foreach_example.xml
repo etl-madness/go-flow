@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
+    xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <!-- 1. Define variable containing SQL code to drive the foreach loop -->
 
 
     <variables>
-        <variable name="PrimaryDBConnStr" type="string" value="sqlserver://PROD_SERVER:1433?database=PROTO_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
-        <variable name="AnalyticsDBConnStr" type="string" value="sqlserver://PROD_SERVER:1433?database=AdventureWorks_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="PrimaryDBConnStr" type="string"
+            value="sqlserver://PROD_SERVER:1433?database=PROTO_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="AnalyticsDBConnStr" type="string"
+            value="sqlserver://PROD_SERVER:1433?database=AdventureWorks_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
         <variable name="GetActiveRegionsQuery" value="SELECT database_id, name FROM sys.databases" />
     </variables>
 
@@ -25,7 +27,8 @@
             <group id="ProcessRegionGroup">
 
                 <!-- SQL script referencing loop variables via {{col_name}} -->
-                <sql id="LogRegionSQL" db="primary_db" description="Log current region information to standard status output">
+                <sql id="LogRegionSQL" db="primary_db"
+                    description="Log current region information to standard status output">
                     <![CDATA[
                     SELECT 'Processing database ID: {{database_id}}, Name: {{name}}' AS current_status;
                 ]]>

@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
+    xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <!-- Pipeline Variables -->
     <variables>
         <variable name="JilPath" type="string" value="./examples/JIL/csx_logfile_example.jil" />
-        <variable name="Database1ConnStr" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
+        <variable name="Database1ConnStr" type="string"
+            value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
     </variables>
 
     <databases>
@@ -13,7 +14,8 @@
 
     <flow>
         <!-- Step 1: Query if data is up to date -->
-        <sql id="is_data_uptodate" db="database1" output_var="DATA_UPTODATE" description="Check if GCP billing data is up to date for the current UTC date">
+        <sql id="is_data_uptodate" db="database1" output_var="DATA_UPTODATE"
+            description="Check if GCP billing data is up to date for the current UTC date">
             <![CDATA[
             SELECT CASE 
                 WHEN EXISTS (

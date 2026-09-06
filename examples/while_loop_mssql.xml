@@ -1,24 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline  description="Example pipeline demonstrating a while loop to poll MSSQL job status" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
+<pipeline description="Example pipeline demonstrating a while loop to poll MSSQL job status"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <variables>
-        <variable name="JobStatus"  description="Current status of the MSSQL job" type="string" value="RUNNING" />
-        <variable name="TargetJobId"  description="ID of the target MSSQL job to monitor" type="string" value="JOB_98765" />
-        <variable name="PrimaryDBConnStr"  description="Connection string for the primary SQL Server database" type="string" value="sqlserver://myserver.example.com:1433?database=master&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="JobStatus" description="Current status of the MSSQL job" type="string"
+            value="RUNNING" />
+        <variable name="TargetJobId" description="ID of the target MSSQL job to monitor"
+            type="string" value="JOB_98765" />
+        <variable name="PrimaryDBConnStr"
+            description="Connection string for the primary SQL Server database" type="string"
+            value="sqlserver://myserver.example.com:1433?database=master&amp;integrated+security=true&amp;trustServerCertificate=true" />
 
     </variables>
 
     <databases>
         <!-- 
-            MSSQL Connection String Format: sqlserver://username:password@hostname:port?database=dbname&encrypt=disable
+            MSSQL Connection String Format:
+        sqlserver://username:password@hostname:port?database=dbname&encrypt=disable
             (Note: Use &amp; in XML for query parameters)
         -->
-        <database name="primary_db"  description="Primary SQL Server database connection" connection_string="{{PrimaryDBConnStr}}" />
+        <database name="primary_db" description="Primary SQL Server database connection"
+            connection_string="{{PrimaryDBConnStr}}" />
     </databases>
 
     <flow>
         <!-- Loop continues while JobStatus == "RUNNING" up to 20 times -->
-        <while id="poll_mssql_job" var="JobStatus" equals="RUNNING" max_iterations="20" description="Poll the MSSQL job status until it is no longer RUNNING or until max iterations are reached">
+        <while id="poll_mssql_job" var="JobStatus" equals="RUNNING" max_iterations="20"
+            description="Poll the MSSQL job status until it is no longer RUNNING or until max iterations are reached">
 
             <!-- Step 1: Wait 2 seconds between polls -->
             <script id="sleep_step" language="go" description="Wait for 2 seconds between each poll">
@@ -30,14 +38,16 @@
             </script>
 
             <!-- Step 2: Query MSSQL using T-SQL syntax and capture single value into JobStatus -->
-            <sql id="check_job_status" db="primary_db" output_var="JobStatus" description="Query SQL Server to fetch the current status of the target job">
+            <sql id="check_job_status" db="primary_db" output_var="JobStatus"
+                description="Query SQL Server to fetch the current status of the target job">
                 SELECT TOP 1 [status]
                 FROM dbo.async_tasks WITH (NOLOCK)
                 WHERE task_id = '{{TargetJobId}}';
             </sql>
 
             <!-- Step 3: Print poll count & current status -->
-            <script id="log_poll_attempt" language="go" description="Log the current poll attempt and job status">
+            <script id="log_poll_attempt" language="go"
+                description="Log the current poll attempt and job status">
                 package main
                 import (
                     "fmt"
@@ -53,16 +63,19 @@
         </while>
 
         <!-- Step 4: Handle completion or failure -->
-        <if var="JobStatus" equals="COMPLETED" description="Check if the MSSQL job has completed successfully">
+        <if var="JobStatus" equals="COMPLETED"
+            description="Check if the MSSQL job has completed successfully">
             <then>
-                <script id="on_success" language="go" description="Handle successful completion of the MSSQL job">
+                <script id="on_success" language="go"
+                    description="Handle successful completion of the MSSQL job">
                     package main
                     import "fmt"
                     func main() { fmt.Println("MSSQL task completed successfully.") }
                 </script>
             </then>
             <else>
-                <script id="on_failure" language="go" description="Handle failure or timeout of the MSSQL job">
+                <script id="on_failure" language="go"
+                    description="Handle failure or timeout of the MSSQL job">
                     package main
                     import "fmt"
                     func main() { fmt.Println("MSSQL task failed or timed out.") }

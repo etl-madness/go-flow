@@ -1,40 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline  description="Example pipeline demonstrating true/false conditional logic with a foreach loop" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
+<pipeline
+    description="Example pipeline demonstrating true/false conditional logic with a foreach loop"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <variables>
-        <variable name="PrimaryDBConnStr"  description="Connection string for the primary SQL Server database" type="string" value="sqlserver://PROD_SERVER:1433?database=master&amp;integrated+security=true&amp;trustServerCertificate=true" />
-        <variable name="AnalyticsDBConnStr"  description="Connection string for the analytics SQL Server database" type="string" value="sqlserver://PROD_SERVER:1433?database=AdventureWorks_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
-        <variable name="GetActiveRegionsQuery"  description="Query to retrieve active regions from sys.databases" value="SELECT database_id, name FROM sys.databases" />
+        <variable name="PrimaryDBConnStr"
+            description="Connection string for the primary SQL Server database" type="string"
+            value="sqlserver://PROD_SERVER:1433?database=master&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="AnalyticsDBConnStr"
+            description="Connection string for the analytics SQL Server database" type="string"
+            value="sqlserver://PROD_SERVER:1433?database=AdventureWorks_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="GetActiveRegionsQuery"
+            description="Query to retrieve active regions from sys.databases"
+            value="SELECT database_id, name FROM sys.databases" />
 
         <!-- Variable to hold the check result (defaults to false) -->
-        <variable name="IsMasterDB"  description="Flag indicating if the current database is the master database" type="bool" value="false" />
+        <variable name="IsMasterDB"
+            description="Flag indicating if the current database is the master database" type="bool"
+            value="false" />
     </variables>
 
     <databases>
-        <database name="primary_db"  description="Primary SQL Server database connection" connection_string="{{PrimaryDBConnStr}}" />
-        <database name="analytics_db"  description="Analytics SQL Server database connection" connection_string="{{AnalyticsDBConnStr}}" />
+        <database name="primary_db" description="Primary SQL Server database connection"
+            connection_string="{{PrimaryDBConnStr}}" />
+        <database name="analytics_db" description="Analytics SQL Server database connection"
+            connection_string="{{AnalyticsDBConnStr}}" />
     </databases>
 
     <flow>
         <!-- 1. Script checks DB_NAME() and saves 'true' or 'false' into 'IsMasterDB' -->
-        <sql id="CheckIfMaster" db="primary_db" output_var="IsMasterDB" description="Check if the currently connected database is the master database">
+        <sql id="CheckIfMaster" db="primary_db" output_var="IsMasterDB"
+            description="Check if the currently connected database is the master database">
             <![CDATA[
             SELECT CASE WHEN DB_NAME() = 'master' THEN 'true' ELSE 'false' END AS is_master;
             ]]>
         </sql>
 
         <!-- 2. Conditional check using the dynamically populated 'IsMasterDB' variable -->
-        <if var="IsMasterDB" equals="true" description="Check if the current database is the master database">
+        <if var="IsMasterDB" equals="true"
+            description="Check if the current database is the master database">
             <then>
-                <sql id="LogMasterNotice" db="primary_db" description="Log confirmation message that connected to master database">
+                <sql id="LogMasterNotice" db="primary_db"
+                    description="Log confirmation message that connected to master database">
                     <![CDATA[
                     SELECT 'Connected to master database. Running master-level tasks...' AS notice;
                     ]]>
                 </sql>
 
-                <foreach id="RegionLoop" language="sql" db="primary_db" var="GetActiveRegionsQuery" description="Iterate over each active region returned by GetActiveRegionsQuery">
-                    <group id="ProcessRegionGroup" description="Group of tasks processing each active region in the iteration">
-                        <sql id="LogRegionSQL" db="primary_db" description="Log current loop region's database ID and name to status output">
+                <foreach id="RegionLoop" language="sql" db="primary_db" var="GetActiveRegionsQuery"
+                    description="Iterate over each active region returned by GetActiveRegionsQuery">
+                    <group id="ProcessRegionGroup"
+                        description="Group of tasks processing each active region in the iteration">
+                        <sql id="LogRegionSQL" db="primary_db"
+                            description="Log current loop region's database ID and name to status output">
                             <![CDATA[
                             SELECT 'Processing database ID: {{database_id}}, Name: {{name}}' AS current_status;
                             ]]>
@@ -44,7 +62,8 @@
             </then>
 
             <else>
-                <sql id="LogNonMasterNotice" db="primary_db" description="Log warning message when connection is not on master database">
+                <sql id="LogNonMasterNotice" db="primary_db"
+                    description="Log warning message when connection is not on master database">
                     <![CDATA[
                     SELECT 'Not connected to master. Skipping sys.databases loop.' AS notice;
                     ]]>

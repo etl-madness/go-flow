@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
+    xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <variables>
-        <variable name="Database1ConnStr" type="string" value="sqlserver://EXAMPLE:1433?database=AdventureWorks2020&amp;integrated+security=true&amp;trustServerCertificate=true" />
-        <variable type="string" value="sqlserver://EXAMPLE:1433?database=AdventureWorks2019&amp;integrated+security=true&amp;trustServerCertificate=true" name="Database2ConnStr" />
+        <variable name="Database1ConnStr" type="string"
+            value="sqlserver://EXAMPLE:1433?database=AdventureWorks2020&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable type="string"
+            value="sqlserver://EXAMPLE:1433?database=AdventureWorks2019&amp;integrated+security=true&amp;trustServerCertificate=true"
+            name="Database2ConnStr" />
         <variable name="TABLE" type="string" value="[dbo].[GcpBillingExport]" />
     </variables>
     <databases>
@@ -11,15 +14,20 @@
         <database name="target_db" connection_string="{{Database2ConnStr}}" />
     </databases>
     <flow>
-        <parallel max_workers="2">
-            <sql db="source_db" output_var="SOURCE_MAX_DATE" id="is_source_data_uptodate" description="Fetch max export time from the source database"><![CDATA[
+        <parallel max_threads="2">
+            <sql db="source_db" output_var="SOURCE_MAX_DATE" id="is_source_data_uptodate"
+                description="Fetch max export time from the source database"><![CDATA[
                 SELECT ISNULL(MAX(ExportTime), '1900-01-01') AS SOURCE_MAX_DATE
                                                                 FROM {{TABLE}};
-            ]]>            </sql>
-            <sql db="target_db" output_var="TARGET_MAX_DATE" id="is_target_data_uptodate" description="Fetch max export time from the target database"><![CDATA[
+            ]]>            
+            </sql>
+            <sql db="target_db" output_var="TARGET_MAX_DATE" id="is_target_data_uptodate"
+                description="Fetch max export time from the target database">
+                <![CDATA[
                 SELECT ISNULL(MAX(ExportTime), '1900-01-01') AS TARGET_MAX_DATE
                                                                 FROM {{TABLE}};
-            ]]>            </sql>
+            ]]>            
+            </sql>
         </parallel>
         <script language="go" output_variable="NEEDS_ACTION" id="compare_dates"><![CDATA[
             package main
@@ -40,24 +48,29 @@
                                                         fmt.Println("false")
                                                     }
                                                 }
-         ]]>        </script>
-        <if id="check_needs_action" var="NEEDS_ACTION" equal="true">
+         ]]>        
+        </script>
+        <if id="check_needs_action" var="NEEDS_ACTION" equals="true">
             <then>
-                <sql id="truncate_target_table" db="target_db" description="Truncate the target table before starting the copy"><![CDATA[TRUNCATE TABLE {{TABLE}};]]></sql>
-                <sql_bulk db="source_db" target_db="target_db" target_table="{{TABLE}}" tablock="true" batch_size="50000" id="StreamETL_to_target" description="Bulk copy data from source to target database"><![CDATA[SELECT * FROM {{TABLE}};]]></sql_bulk>
+                <sql id="truncate_target_table" db="target_db"
+                    description="Truncate the target table before starting the copy"><![CDATA[TRUNCATE TABLE {{TABLE}};]]></sql>
+                <sql_bulk db="source_db" target_db="target_db" target_table="{{TABLE}}"
+                    tablock="true" batch_size="50000" id="StreamETL_to_target"
+                    description="Bulk copy data from source to target database"><![CDATA[SELECT * FROM {{TABLE}};]]></sql_bulk>
             </then>
             <else>
                 <script language="go" id="NO_ACTION_REQUIRED"><![CDATA[
                     package main
                                                             
-                                                                                import (
-                                                                                    "fmt"
-                                                                                )
-                                                            
-                                                                                func main() {
-                                                                                    fmt.Println("No action required. Target table is up to date.")
-                                                                                }
-                ]]>                </script>
+                    import (
+                        "fmt"
+                    )
+
+                    func main() {
+                        fmt.Println("No action required. Target table is up to date.")
+                    }
+                ]]>                
+                </script>
             </else>
         </if>
     </flow>

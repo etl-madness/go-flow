@@ -1,25 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline description="Example pipeline demonstrating parallel execution of tasks" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
+<pipeline description="Example pipeline demonstrating parallel execution of tasks"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <!-- 1. GLOBAL VARIABLES -->
     <variables>
-        <variable name="PrimaryDBConnStr" description="Connection string for the primary database" type="string" value="sqlserver://PROD_SERVER:1433?database=master&amp;integrated+security=true&amp;trustServerCertificate=true" />
-        <variable name="AnalyticsDBConnStr" description="Connection string for the analytics database" type="string" value="sqlserver://PROD_SERVER:1433?database=AdventureWorks_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
-        <variable name="GetDatabasesQuery" description="Query to fetch non-system databases" value="SELECT database_id, name FROM sys.databases WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb')" />
-        <variable name="EnableParallelJobs" description="Flag to enable or disable parallel job execution" type="bool" value="true" />
-        <variable name="IsMasterDB" description="Flag indicating if the current database is the master database" type="bool" value="false" />
+        <variable name="PrimaryDBConnStr" description="Connection string for the primary database"
+            type="string"
+            value="sqlserver://PROD_SERVER:1433?database=master&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="AnalyticsDBConnStr"
+            description="Connection string for the analytics database" type="string"
+            value="sqlserver://PROD_SERVER:1433?database=AdventureWorks_PROD&amp;integrated+security=true&amp;trustServerCertificate=true" />
+        <variable name="GetDatabasesQuery" description="Query to fetch non-system databases"
+            value="SELECT database_id, name FROM sys.databases WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb')" />
+        <variable name="EnableParallelJobs"
+            description="Flag to enable or disable parallel job execution" type="bool" value="true" />
+        <variable name="IsMasterDB"
+            description="Flag indicating if the current database is the master database" type="bool"
+            value="false" />
     </variables>
 
     <!-- 2. DATABASES (Using variable placeholders {{VarName}}) -->
     <databases>
-        <database name="primary_db" description="Primary database connection" connection_string="{{PrimaryDBConnStr}}" />
-        <database name="analytics_db" description="Analytics database connection" connection_string="{{AnalyticsDBConnStr}}" />
+        <database name="primary_db" description="Primary database connection"
+            connection_string="{{PrimaryDBConnStr}}" />
+        <database name="analytics_db" description="Analytics database connection"
+            connection_string="{{AnalyticsDBConnStr}}" />
     </databases>
 
     <!-- 3. PIPELINE EXECUTION ENGINE -->
     <flow>
         <!-- Step A: SQL Script checks condition and captures result in 'IsMasterDB' output variable -->
-        <sql id="CheckIfMaster" db="primary_db" output_var="IsMasterDB" description="Check if the currently connected database is the master database">
+        <sql id="CheckIfMaster" db="primary_db" output_var="IsMasterDB"
+            description="Check if the currently connected database is the master database">
             <![CDATA[
             SELECT CASE WHEN DB_NAME() = 'master' THEN 'true' ELSE 'false' END AS is_master;
             ]]>
@@ -29,7 +41,8 @@
         <if var="IsMasterDB" equals="true">
             <then>
                 <!-- Log status via embedded Go script using host/vars module -->
-                <script id="LogMasterStatus" description="Log the status of the master database connection" language="go">
+                <script id="LogMasterStatus"
+                    description="Log the status of the master database connection" language="go">
                     <![CDATA[
                     package main
                     import (
@@ -43,17 +56,21 @@
                 </script>
 
                 <!-- Step C: Parallel Execution Block (Capped at 2 concurrent worker threads) -->
-                <parallel max_threads="2" description="Parallel execution block capped at 2 concurrent worker threads">
+                <parallel max_threads="2"
+                    description="Parallel execution block capped at 2 concurrent worker threads">
 
                     <!-- Parallel Task 1: SQL Cleanup Query -->
-                    <sql id="Task1_SqlCleanup" db="analytics_db" description="Execute parallel clean-up operations on the analytics database">
+                    <sql id="Task1_SqlCleanup" db="analytics_db"
+                        description="Execute parallel clean-up operations on the analytics database">
                         <![CDATA[
                         SELECT 'Running log cleanup in parallel branch 1...' AS status;
                         ]]>
                     </sql>
 
                     <!-- Parallel Task 2: Embedded Go Async Task -->
-                    <script id="Task2_GoWorker" description="Embedded Go async task running in parallel branch 2" language="go">
+                    <script id="Task2_GoWorker"
+                        description="Embedded Go async task running in parallel branch 2"
+                        language="go">
                         <![CDATA[
                         package main
                         import (
@@ -68,7 +85,9 @@
                     </script>
 
                     <!-- Parallel Task 3: Streaming ETL directly from primary_db to analytics_db -->
-                    <sql_bulk id="Task3_StreamETL" db="primary_db" target_db="analytics_db" target_table="Person.test_demo" batch_size="500" description="Stream databases mapping data in bulk to test_demo staging table">
+                    <sql_bulk id="Task3_StreamETL" db="primary_db" target_db="analytics_db"
+                        target_table="Person.test_demo" batch_size="500"
+                        description="Stream databases mapping data in bulk to test_demo staging table">
                         <![CDATA[
                         SELECT database_id, name FROM sys.databases;
                         ]]>
@@ -77,18 +96,24 @@
                 </parallel>
 
                 <!-- Step D: Foreach Loop executing per row returned by GetDatabasesQuery -->
-                <foreach id="IterateDatabases" language="sql" db="primary_db" description="Iterate over each database returned by GetDatabasesQuery" var="GetDatabasesQuery">
-                    <group id="DatabaseProcessGroup" description="Group of tasks processing each database in the iteration">
+                <foreach id="IterateDatabases" language="sql" db="primary_db"
+                    description="Iterate over each database returned by GetDatabasesQuery"
+                    var="GetDatabasesQuery">
+                    <group id="DatabaseProcessGroup"
+                        description="Group of tasks processing each database in the iteration">
 
                         <!-- SQL Script accessing loop variable via {{column_name}} -->
-                        <sql id="ProcessDB_SQL" db="primary_db" description="Log processing of currently selected database ID and name to status output">
+                        <sql id="ProcessDB_SQL" db="primary_db"
+                            description="Log processing of currently selected database ID and name to status output">
                             <![CDATA[
                             SELECT 'Processing DB ID {{database_id}} - Name: {{name}}' AS current_db;
                             ]]>
                         </sql>
 
                         <!-- Go Script accessing loop variable via host/vars export -->
-                        <script id="ProcessDB_Go" description="Go script processing each database in the iteration" language="go">
+                        <script id="ProcessDB_Go"
+                            description="Go script processing each database in the iteration"
+                            language="go">
                             <![CDATA[
                             package main
                             import (
@@ -109,7 +134,8 @@
 
             <else>
                 <!-- Executed only if 'IsMasterDB' evaluated to false -->
-                <sql id="NotMasterAlert" db="primary_db" description="Log warning message when database is not master">
+                <sql id="NotMasterAlert" db="primary_db"
+                    description="Log warning message when database is not master">
                     <![CDATA[
                     SELECT 'Skipping processing because database is not master.' AS alert;
                     ]]>

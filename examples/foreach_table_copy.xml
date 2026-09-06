@@ -1,17 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
+    xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <variables>
         <!-- Connection strings (Replace with actual SQL Server connection details if needed) -->
-        <variable name="ProdDBConnStr" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=PROD&amp;trustServerCertificate=true" />
-        <variable name="Database1ConnStr" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
-        <variable name="Database2ConnStr" type="string" value="sqlserver://sa:Password123!@localhost:1433?database=database2&amp;trustServerCertificate=true" />
+        <variable name="ProdDBConnStr" type="string"
+            value="sqlserver://sa:Password123!@localhost:1433?database=PROD&amp;trustServerCertificate=true" />
+        <variable name="Database1ConnStr" type="string"
+            value="sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true" />
+        <variable name="Database2ConnStr" type="string"
+            value="sqlserver://sa:Password123!@localhost:1433?database=database2&amp;trustServerCertificate=true" />
 
         <!-- Initial value for ProcessDate -->
         <variable name="ProcessDate" type="string" value="" />
 
         <!-- Query to drive the foreach loop -->
-        <variable name="GetTablesQuery" value="SELECT source_table, destination_table, column_list, application, processing_date FROM [dbo].[table_xfr_map] WHERE CAST(processing_date AS DATE) = CAST('{{ProcessDate}}' AS DATE)" />
+        <variable name="GetTablesQuery"
+            value="SELECT source_table, destination_table, column_list, application, processing_date FROM [dbo].[table_xfr_map] WHERE CAST(processing_date AS DATE) = CAST('{{ProcessDate}}' AS DATE)" />
     </variables>
 
     <databases>
@@ -21,7 +25,8 @@
     </databases>
 
     <flow>
-        <!-- 1. Fetch ProcessDate (today's date in format YYYY-MM-DD) and set to ProcessDate variable -->
+        <!-- 1. Fetch ProcessDate (today's date in format YYYY-MM-DD) and set to ProcessDate
+        variable -->
 
         <script id="GetProcessDate" language="go" output_var="ProcessDate">
             <![CDATA[
@@ -59,13 +64,17 @@
                 </script>
 
                 <!-- 3. Truncate the target table -->
-                <sql id="TruncateTable" db="database2" description="Truncate destination table to prepare for import">
+                <sql id="TruncateTable" db="database2"
+                    description="Truncate destination table to prepare for import">
                     <![CDATA[
                     TRUNCATE TABLE {{destination_table}};
                     ]]>
                 </sql>
                 <!-- 4. Stream data from database1 to database2 directly using sqlStream -->
-                <sql_bulk id="MSSQL_BLK_STREAM_to_table_list" db="database1" target_db="database2" target_table="{{destination_table}}" batch_size="25000" tablock="true" check_constraints="true" fire_triggers="false" keep_nulls="true" description="Stream data in bulk from source table to destination table">
+                <sql_bulk id="MSSQL_BLK_STREAM_to_table_list" db="database1" target_db="database2"
+                    target_table="{{destination_table}}" batch_size="25000" tablock="true"
+                    check_constraints="true" fire_triggers="false" keep_nulls="true"
+                    description="Stream data in bulk from source table to destination table">
                     <![CDATA[
                     SELECT {{column_list}} FROM {{source_table}} (NOLOCK);
                     ]]>

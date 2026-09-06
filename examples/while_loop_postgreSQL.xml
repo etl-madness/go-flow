@@ -1,13 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline description="Example pipeline demonstrating a while loop to poll PostgreSQL job status" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
+<pipeline description="Example pipeline demonstrating a while loop to poll PostgreSQL job status"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <variables>
-        <variable name="JobStatus" description="Current status of the PostgreSQL job" type="string" value="RUNNING" />
-        <variable name="TargetJobId" description="ID of the target PostgreSQL job to monitor" type="string" value="JOB_98765" />
+        <variable name="JobStatus" description="Current status of the PostgreSQL job" type="string"
+            value="RUNNING" />
+        <variable name="TargetJobId" description="ID of the target PostgreSQL job to monitor"
+            type="string" value="JOB_98765" />
     </variables>
 
     <databases>
-        <database name="postgres_db" description="Primary PostgreSQL database connection" driver="postgres" connection_string="host=localhost user=postgres password=secret dbname=jobs sslmode=disable" />
+        <database name="postgres_db" description="Primary PostgreSQL database connection"
+            driver="postgres"
+            connection_string="host=localhost user=postgres password=secret dbname=jobs sslmode=disable" />
     </databases>
 
     <flow>
@@ -15,7 +20,8 @@
             Loop continues while JobStatus == "RUNNING".
             Limits execution to a maximum of 20 passes to prevent infinite deadlocks.
         -->
-        <while id="poll_async_job" var="JobStatus" equals="RUNNING" max_iterations="20" description="Poll the PostgreSQL job status until it is no longer RUNNING or until max iterations are reached">
+        <while id="poll_async_job" var="JobStatus" equals="RUNNING" max_iterations="20"
+            description="Poll the PostgreSQL job status until it is no longer RUNNING or until max iterations are reached">
 
             <!-- Step 1: Pause execution via embedded Go script -->
             <script id="sleep_step" language="go" description="Wait for 2 seconds between each poll">
@@ -27,14 +33,16 @@
             </script>
 
             <!-- Step 2: Query DB and update output_var (JobStatus) -->
-            <sql id="check_job_status" db="postgres_db" output_var="JobStatus" description="Query PostgreSQL database to fetch the current status of the target job">
+            <sql id="check_job_status" db="postgres_db" output_var="JobStatus"
+                description="Query PostgreSQL database to fetch the current status of the target job">
                 SELECT status 
                 FROM async_tasks 
                 WHERE task_id = '{{TargetJobId}}';
             </sql>
 
             <!-- Step 3: Optional logging using built-in WHILE_INDEX variable -->
-            <script id="log_poll_attempt" language="go" description="Log the current poll attempt and job status">
+            <script id="log_poll_attempt" language="go"
+                description="Log the current poll attempt and job status">
                 package main
                 import (
                     "fmt"
@@ -50,16 +58,19 @@
         </while>
 
         <!-- Post-loop evaluation using <if> block -->
-        <if var="JobStatus" equals="COMPLETED" description="Check if the PostgreSQL job has completed successfully">
+        <if var="JobStatus" equals="COMPLETED"
+            description="Check if the PostgreSQL job has completed successfully">
             <then>
-                <script id="on_success" language="go" description="Handle successful completion of the PostgreSQL job">
+                <script id="on_success" language="go"
+                    description="Handle successful completion of the PostgreSQL job">
                     package main
                     import "fmt"
                     func main() { fmt.Println("Pipeline execution finished successfully.") }
                 </script>
             </then>
             <else>
-                <script id="on_failure" language="go" description="Handle failure or timeout of the PostgreSQL job">
+                <script id="on_failure" language="go"
+                    description="Handle failure or timeout of the PostgreSQL job">
                     package main
                     import "fmt"
                     func main() { fmt.Println("Job failed or exceeded maximum loop iterations.") }

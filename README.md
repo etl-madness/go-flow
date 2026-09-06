@@ -147,7 +147,7 @@ go build -ldflags="-s -w" -trimpath -o go-flow.exe .
 
 ```xml
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/pipeline.xsd">
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
 
     <!-- Your pipeline configuration goes here -->
 </pipeline>
