@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"log"
@@ -64,6 +65,7 @@ func main() {
 		}})
 		os.Exit(1)
 	}
+
 	if *xsltPath != "" {
 		xsltBytes, err := os.ReadFile(*xsltPath)
 		if err != nil {
@@ -204,13 +206,98 @@ func main() {
 		opts.Unrestricted = true
 	})
 
+	// =========================================================================
+	// DYNAMIC EVENT SINK ASSEMBLY & DATABASE CONNECTION
+	// =========================================================================
+	var sinks []flow.EventSink
+	var logDB *sql.DB
+	var driverType string
+
+	// Search dbConfigs in reverse order so -config database overrides take precedence
+	var selectedLogDBCfg *flow.DatabaseConfig
+	for i := len(dbConfigs) - 1; i >= 0; i-- {
+		if dbConfigs[i].Name == "log_db" {
+			selectedLogDBCfg = &dbConfigs[i]
+			break
+		}
+	}
+
+	if selectedLogDBCfg != nil {
+		driverName := selectedLogDBCfg.Driver
+
+		// Expand {{log_db_cs}} using merged variables from XML, -config, and -vars
+		expandedDSN := resolveConnectionString(selectedLogDBCfg.ConnectionString, varConfigs, *varOverrides)
+
+		if driverName == "" {
+			driverName = detectDriverFromDSN(expandedDSN)
+		}
+
+		if *debug {
+			log.Printf("Connecting to log_db with resolved DSN: %s", expandedDSN)
+		}
+
+		db, err := sql.Open(driverName, expandedDSN)
+		if err != nil {
+			log.Printf("Warning: failed to open log_db connection: %v", err)
+		} else if err := db.PingContext(ctx); err != nil {
+			log.Printf("Warning: failed to ping log_db: %v", err)
+			db.Close()
+		} else {
+			logDB = db
+			driverType = detectDriverType(logDB)
+			if driverType == "unknown" && driverName != "" {
+				driverType = driverName
+			}
+
+			if *debug && logDB != nil {
+				var currentDB string
+				if err := logDB.QueryRowContext(ctx, "SELECT DB_NAME()").Scan(&currentDB); err == nil {
+					log.Printf("Connected to 'log_db' [%s] with driver dialect: %s", currentDB, driverType)
+				} else {
+					log.Printf("Connected to 'log_db' with driver dialect: %s", driverType)
+				}
+			}
+
+			sinks = append(sinks, NewDatabaseSink(logDB, driverType))
+			defer logDB.Close()
+		}
+	}
+
+	// Attach console streaming sink if output format is summary
 	if strings.ToLower(*format) == "summary" {
-
-		//executor.SetEventSink(&flow.JSONLineSink{Writer: os.Stdout})
 		fmt.Println("\n\nutc_runtime,run_id,execution_id,sequence,type,kind,id,status,error,row_counts_read,row_counts_written,row_counts_affected")
-		executor.SetEventSink(&TextSink{Writer: os.Stdout})
+		sinks = append(sinks, &TextSink{Writer: os.Stdout})
+	}
 
+	// Register single or fan-out multi-sink
+	if len(sinks) == 1 {
+		executor.SetEventSink(sinks[0])
+	} else if len(sinks) > 1 {
+		executor.SetEventSink(&MultiSink{Sinks: sinks})
+	}
+	// =========================================================================
+
+	if strings.ToLower(*format) == "summary" {
 		results, execErr := executor.ExecuteRun(ctx, nodes)
+
+		if logDB != nil {
+			summary := RunSummaryRecord{
+				RunID:        results.RunID,
+				FilePath:     *filePath,
+				ConfigPath:   *configPath,
+				Status:       string(results.Status),
+				StartedAt:    results.StartedAt,
+				FinishedAt:   results.FinishedAt,
+				Duration:     results.FinishedAt.Sub(results.StartedAt),
+				TaskCount:    len(results.Nodes),
+				ErrorClass:   string(results.ErrorClass),
+				ErrorMessage: results.ErrorMessage,
+			}
+			if err := LogRunSummaryToDB(ctx, logDB, driverType, summary); err != nil {
+				log.Printf("Failed to log run summary to database: %v", err)
+			}
+		}
+
 		if execErr != nil {
 			log.Printf("run %s finished with %s: %s", results.RunID, results.ErrorClass, results.ErrorMessage)
 			os.Exit(1)
@@ -220,11 +307,40 @@ func main() {
 
 	} else {
 		results, execErr := executor.Execute(ctx, nodes)
+
+		// Record run summary if log_db connection exists
+		if logDB != nil {
+			status := "SUCCESS"
+			errClass := ""
+			errMsg := ""
+			if execErr != nil {
+				status = "FAILED"
+				errClass = "ExecutionError"
+				errMsg = execErr.Error()
+			}
+
+			summary := RunSummaryRecord{
+				RunID:        "",
+				FilePath:     *filePath,
+				ConfigPath:   *configPath,
+				Status:       status,
+				StartedAt:    start,
+				FinishedAt:   time.Now(),
+				Duration:     time.Since(start),
+				TaskCount:    len(nodes),
+				ErrorClass:   errClass,
+				ErrorMessage: errMsg,
+			}
+			if err := LogRunSummaryToDB(ctx, logDB, driverType, summary); err != nil {
+				log.Printf("Failed to log run summary to database: %v", err)
+			}
+		}
+
 		if execErr != nil {
 			os.Exit(1)
 		}
-		switch strings.ToLower(*format) {
 
+		switch strings.ToLower(*format) {
 		case "markdown", "md", "table":
 			outputMarkdownTable(&results)
 		case "text":
@@ -239,13 +355,53 @@ func main() {
 			outputCSV(&results)
 		}
 	}
-	/*
 
-	 */
 	end := time.Now()
 	duration := end.Sub(start)
 
 	fmt.Println("Pipeline End Time:  ", end.Format("2006-01-02 15:04:05.000"))
 	fmt.Println("Pipeline Duration:  ", duration)
+}
 
+// resolveConnectionString expands {{variable_name}} templates using XML variables and CLI overrides
+// resolveConnectionString expands {{variable_name}} templates using merged variables
+func resolveConnectionString(dsn string, varConfigs []flow.VariableConfig, varOverrides string) string {
+	// Build a map of variable key -> value with correct precedence:
+	// 1. Base XML variables (scripts.xml)
+	// 2. Override XML variables (-config)
+	// 3. CLI variable overrides (-vars)
+	varsMap := make(map[string]string)
+
+	for _, v := range varConfigs {
+		varsMap[v.Name] = v.Value
+	}
+
+	if strings.TrimSpace(varOverrides) != "" {
+		pairs := strings.Split(varOverrides, ",")
+		for _, pair := range pairs {
+			parts := strings.SplitN(strings.TrimSpace(pair), "=", 2)
+			if len(parts) == 2 {
+				varsMap[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+			}
+		}
+	}
+
+	resolved := dsn
+
+	// Perform iterative replacement (handles nested variable references)
+	for i := 0; i < 3; i++ {
+		changed := false
+		for k, v := range varsMap {
+			placeholder := fmt.Sprintf("{{%s}}", k)
+			if strings.Contains(resolved, placeholder) {
+				resolved = strings.ReplaceAll(resolved, placeholder, v)
+				changed = true
+			}
+		}
+		if !changed {
+			break
+		}
+	}
+
+	return resolved
 }
