@@ -1,0 +1,10 @@
+<flow_cli_options>
+    <options>
+        <file>.\.private\github_ai_credit_usage.xml</file>
+        <format>summary</format>
+        <config>.\.private\CONFIG.xml</config>
+        <validate>false</validate>
+        <preflight>false</preflight>
+        <debug>false</debug>
+    </options>
+</flow_cli_options>

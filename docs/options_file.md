@@ -65,7 +65,10 @@ Loads baseline settings from cli_options.xml, but forces output format to jsonpr
 
 To define CLI parameters in an XML file, use `<flow_cli_options>` as the root element with a nested `<options>` element containing child tags that match flag names:
 
-### Example XML Option File
+### Available Settings in XML Options File
+
+Options not included in your custom options XML file will fall back to their default values as specified in the CLI documentation.
+
 ```xml cli_options.xml
 <flow_cli_options>
     <options>
@@ -80,6 +83,21 @@ To define CLI parameters in an XML file, use `<flow_cli_options>` as the root el
         <gopath>/usr/local/go</gopath>
         <xslt>transforms/diagram.xslt</xslt>
         <out>output/transformed.xml</out>
+    </options>
+</flow_cli_options>
+```
+
+### Example Options File
+
+```xml cli_options.xml
+<flow_cli_options>
+    <options>
+        <file>.\.private\github_ai_credit_usage.xml</file>
+        <format>jsonpretty</format>
+        <config>.\.private\CONFIG.xml</config>
+        <validate>false</validate>
+        <preflight>false</preflight>
+        <debug>false</debug>
     </options>
 </flow_cli_options>
 ```

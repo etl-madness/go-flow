@@ -245,17 +245,14 @@ Use the same pattern to create an OpenTelemetry bridge: start a span on `node.st
 
 ## Interpret Row Counts and Errors
 
-`RowCounts` contains only measurements known to the executed node:
+`RowCounts` contains measurements captured during node execution and aggregated at the run level:
 
-- SQL DML exposes `Affected` when the driver returns rows affected.
-- Bulk SQL ETL exposes `Read` and `Written` from the number of streamed rows.
-- Other nodes currently leave row counts empty.
+- **SQL Operations**: SQL queries expose `Affected` (for DML statements or queries returning `(X row(s) affected)`, such as `SELECT @@ROWCOUNT`) or `Read` (for queries returning `(X row(s) returned)`).
+- **Bulk SQL ETL**: `sql_bulk` nodes expose `Read` and `Written` based on the number of streamed rows.
+- **File & Excel Nodes**: `file_read`, `file_save`, `excel_read`, and `excel_write` populate `Read` or `Written` based on rows or bytes processed.
+- **Run-Level Totals**: `run.finished` events contain the cumulative sum of `Read`, `Written`, and `Affected` row counts across all nodes executed during the run.
 
-An omitted count means the executor did not measure that value. Do not treat it as a confirmed zero.
-
-`ErrorClass` is designed for filtering and alert routing. Current values include `canceled`, `validation`, `database`, `http`, `filesystem`, `script`, `template`, `data_format`, and `unknown`. Preserve the Go error returned by `ExecuteRun` for detailed handling; the classified fields are a summary rather than a replacement.
-
-Events do not include SQL text, request/response bodies, headers, or pipeline variables. Common credential fragments in recorded error messages, such as `password=...` and `token=...`, are redacted. Applications should still avoid placing sensitive values in custom event fields or logs.
+An omitted count means the executor did not measure that value for the specific node. Do not treat an omitted value as a confirmed zero.
 
 ## Keep Existing Callers Unchanged
 

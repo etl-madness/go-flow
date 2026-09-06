@@ -44,7 +44,7 @@ func formatLineReturns(s string) string {
 func (s TextSink) Emit(_ context.Context, event flow.ExecutionEvent) error {
 	_, err := fmt.Fprintf(
 		s.Writer,
-		"%s,%s,%s,%d,%s,%s,%s,%s,%s,%d\n",
+		"%s,%s,%s,%d,%s,%s,%s,%s,%s,%d,%d,%d\n",
 		event.OccurredAt.UTC().Format(time.RFC3339),
 		event.RunID,
 		event.ExecutionID,
@@ -54,6 +54,8 @@ func (s TextSink) Emit(_ context.Context, event flow.ExecutionEvent) error {
 		event.NodeID,
 		event.Status,
 		event.ErrorMessage,
+		event.RowCounts.Read,
+		event.RowCounts.Written,
 		event.RowCounts.Affected,
 	)
 	return err

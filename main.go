@@ -207,12 +207,13 @@ func main() {
 	if strings.ToLower(*format) == "summary" {
 
 		//executor.SetEventSink(&flow.JSONLineSink{Writer: os.Stdout})
-		fmt.Println("\n\nutc_runtime,run_id,execution_id,sequence,type,kind,id,status,error,row_counts")
+		fmt.Println("\n\nutc_runtime,run_id,execution_id,sequence,type,kind,id,status,error,row_counts_read,row_counts_written,row_counts_affected")
 		executor.SetEventSink(&TextSink{Writer: os.Stdout})
 
 		results, execErr := executor.ExecuteRun(ctx, nodes)
 		if execErr != nil {
-			log.Printf("run %s finished with %s: %s", results, results.ErrorClass, results.ErrorMessage)
+			log.Printf("run %s finished with %s: %s", results.RunID, results.ErrorClass, results.ErrorMessage)
+			os.Exit(1)
 		}
 
 		outputSummary(results, filePath, configPath)
