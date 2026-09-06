@@ -17,13 +17,13 @@ Variables are kept in a single unified registry, but their behavior and scope ch
 
 ## 2. Using Variables
 
-### SQL Scripts (Variable Interpolation)
-For SQL scripts, variables are dynamically interpolated before execution using double curly brace placeholders: `{{VarName}}`.
+### SQL Queries (Variable Interpolation)
+For SQL nodes, variables are dynamically interpolated before execution using double curly brace placeholders: `{{VarName}}`.
 
 ```xml
-<script id="QueryWithLimit" language="sql" db="app_db">
+<sql id="QueryWithLimit" db="app_db">
     SELECT * FROM orders WHERE status = 'PENDING' LIMIT {{MaxLimit}};
-</script>
+</sql>
 ```
 
 ### Go Scripts (Yaegi `vars` Exports)
@@ -65,15 +65,15 @@ Console.WriteLine($"Writing to {targetTable}");
 
 ## 3. Setting Variables in Scripts
 
-### SQL Scripts (`output_var`)
+### SQL Queries (`output_var`)
 To capture a value returned from a SQL query, use the `output_var` attribute.
 *   If the SQL query returns a single row with a single column, `output_var` stores that value.
 *   Otherwise, it captures the entire tab-separated results block.
 
 ```xml
-<script id="GetMaxID" language="sql" db="app_db" output_var="LastProcessedID">
+<sql id="GetMaxID" db="app_db" output_var="LastProcessedID">
     SELECT COALESCE(MAX(id), 0) FROM logs;
-</script>
+</sql>
 ```
 
 ### Go Scripts (`output_var` / Stdout Capture)
@@ -120,10 +120,10 @@ When iterating over records using a `<foreach>` block, the loop driver query bin
     SELECT id, username, email FROM users WHERE active = 1;
     
     <!-- Each iteration binds "id", "username", "email", and "LOOP_INDEX" -->
-    <script id="ProcessUser" language="sql" db="app_db">
+    <sql id="ProcessUser" db="app_db">
         INSERT INTO user_audit (user_id, action) 
         VALUES ({{id}}, 'Processed iteration {{LOOP_INDEX}}');
-    </script>
+    </sql>
 </foreach>
 ```
 
@@ -135,7 +135,8 @@ When iterating over records using a `<foreach>` block, the loop driver query bin
 When you need to output multiple distinct values from a script to be consumed as separate parameters in a subsequent step, you can format the output as a delimited string and parse it inside the next Go script.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <flow>
         <!-- Step 1: Export a delimited config from Go -->
         <script id="GenerateParams" language="go" output_var="MultiParams">
@@ -177,7 +178,8 @@ When you need to output multiple distinct values from a script to be consumed as
 For complex, structured data, you can output a JSON string, capture it, and parse it back into typed structs in subsequent dynamic Go scripts.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <flow>
         <!-- Step 1: Query database config details, formatting output as JSON -->
         <script id="FetchServiceConfig" language="go" output_var="ServiceJSON">
@@ -226,6 +228,7 @@ For complex, structured data, you can output a JSON string, capture it, and pars
             }
         </script>
     </flow>
+
 </pipeline>
 ```
 
@@ -233,7 +236,8 @@ For complex, structured data, you can output a JSON string, capture it, and pars
 You can easily pass state between dynamic Go interpreter scripts and C# process-executed scripts using variables.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <variables>
         <variable name="Threshold" type="int" value="42" />
     </variables>

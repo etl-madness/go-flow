@@ -170,6 +170,109 @@ To write events to standard output, use `os.Stdout` as the writer:
 executor.SetEventSink(&flow.JSONLineSink{Writer: os.Stdout})
 ```
 
+## Control Event Output Format
+
+`SetEventSink` selects the component that receives events. With `JSONLineSink`, the output format is fixed: one JSON-encoded `ExecutionEvent` per line. `Writer` controls the destination, such as a file, standard output, or a network-backed writer; it does not alter the JSON field selection or indentation.
+
+To change the output format, implement `flow.EventSink` and register it with `SetEventSink`.
+
+### Compact Text Output
+
+Use a custom sink to produce human-readable lines rather than JSON:
+
+```go
+type TextSink struct {
+    Writer io.Writer
+}
+
+func (s TextSink) Emit(_ context.Context, event flow.ExecutionEvent) error {
+    _, err := fmt.Fprintf(
+        s.Writer,
+        "%s run=%s type=%s node=%s status=%s error=%s\n",
+        event.OccurredAt.Format(time.RFC3339),
+        event.RunID,
+        event.Type,
+        event.NodeID,
+        event.Status,
+        event.ErrorMessage,
+    )
+    return err
+}
+
+executor.SetEventSink(TextSink{Writer: os.Stdout})
+```
+
+### Indented JSON Output
+
+For formatted JSON, marshal each event with `json.MarshalIndent`. The mutex prevents parallel branches from interleaving writes:
+
+```go
+type PrettyJSONSink struct {
+    Writer io.Writer
+    mu     sync.Mutex
+}
+
+func (s *PrettyJSONSink) Emit(_ context.Context, event flow.ExecutionEvent) error {
+    s.mu.Lock()
+    defer s.mu.Unlock()
+
+    data, err := json.MarshalIndent(event, "", "  ")
+    if err != nil {
+        return err
+    }
+    _, err = fmt.Fprintln(s.Writer, string(data))
+    return err
+}
+
+executor.SetEventSink(&PrettyJSONSink{Writer: os.Stdout})
+```
+
+### Reduced Audit JSON
+
+Map `ExecutionEvent` to an application-specific structure when downstream systems should receive only selected fields. This is also the appropriate place to add application metadata, as long as it does not contain sensitive values.
+
+```go
+type AuditEvent struct {
+    Time   time.Time      `json:"time"`
+    RunID  string         `json:"run_id"`
+    Event  flow.EventType `json:"event"`
+    NodeID string         `json:"node_id,omitempty"`
+    Status flow.RunStatus `json:"status,omitempty"`
+    Error  string         `json:"error,omitempty"`
+}
+
+type AuditSink struct {
+    Writer io.Writer
+    mu     sync.Mutex
+}
+
+func (s *AuditSink) Emit(_ context.Context, event flow.ExecutionEvent) error {
+    audit := AuditEvent{
+        Time:   event.OccurredAt,
+        RunID:  event.RunID,
+        Event:  event.Type,
+        NodeID: event.NodeID,
+        Status: event.Status,
+        Error:  event.ErrorMessage,
+    }
+
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    return json.NewEncoder(s.Writer).Encode(audit)
+}
+
+executor.SetEventSink(&AuditSink{Writer: os.Stdout})
+```
+
+Use `SetEventSinks` to retain the built-in JSON Lines output while emitting a second representation:
+
+```go
+executor.SetEventSinks(
+    &flow.JSONLineSink{Writer: jsonLogFile},
+    TextSink{Writer: os.Stdout},
+)
+```
+
 A typical event resembles this:
 
 ```json
@@ -245,14 +348,20 @@ Use the same pattern to create an OpenTelemetry bridge: start a span on `node.st
 
 ## Interpret Row Counts and Errors
 
-`RowCounts` contains measurements captured during node execution and aggregated at the run level:
+`RowCounts` contains only measurements known to the executed node:
 
-- **SQL Operations**: SQL queries expose `Affected` (for DML statements or queries returning `(X row(s) affected)`, such as `SELECT @@ROWCOUNT`) or `Read` (for queries returning `(X row(s) returned)`).
-- **Bulk SQL ETL**: `sql_bulk` nodes expose `Read` and `Written` based on the number of streamed rows.
-- **File & Excel Nodes**: `file_read`, `file_save`, `excel_read`, and `excel_write` populate `Read` or `Written` based on rows or bytes processed.
-- **Run-Level Totals**: `run.finished` events contain the cumulative sum of `Read`, `Written`, and `Affected` row counts across all nodes executed during the run.
+- SQL DML exposes `Affected` when the driver returns rows affected.
+- Bulk SQL ETL (`<sql_bulk>`) exposes `Read` and `Written` from the number of streamed rows.
+- Key-Value operations (`<kv>`) expose `Affected` for writes and deletions (`put`, `set`, `delete`, `del`), and `Read` for lookups and prefix scans (`get`, `scan`, `list`).
+- Key-Value bulk transfers (`<kv_bulk>`) expose `Read` and `Written` from the number of streamed records transferred from SQL to the KV store.
+- Excel reads and writes expose `Read` and `Written` row metrics.
+- Other nodes currently leave row counts empty.
 
-An omitted count means the executor did not measure that value for the specific node. Do not treat an omitted value as a confirmed zero.
+An omitted count means the executor did not measure that value. Do not treat it as a confirmed zero.
+
+`ErrorClass` is designed for filtering and alert routing. Current values include `canceled`, `validation`, `database`, `http`, `filesystem`, `script`, `template`, `data_format`, and `unknown`. Preserve the Go error returned by `ExecuteRun` for detailed handling; the classified fields are a summary rather than a replacement.
+
+Events do not include SQL text, request/response bodies, headers, or pipeline variables. Common credential fragments in recorded error messages, such as `password=...` and `token=...`, are redacted. Applications should still avoid placing sensitive values in custom event fields or logs.
 
 ## Keep Existing Callers Unchanged
 

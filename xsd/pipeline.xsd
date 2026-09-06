@@ -4,34 +4,41 @@
     <!-- ROOT ELEMENT -->
     <xs:element name="pipeline">
         <xs:annotation>
-            <xs:documentation>Root element for an ETL Madness Flow pipeline definition.</xs:documentation>
+            <xs:documentation>Root element for an ETL data pipeline orchestration definition.
+                Encapsulates global variables, database handles, preflight validations, and
+                execution flow nodes.</xs:documentation>
         </xs:annotation>
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="variables" type="VariablesType" minOccurs="0" maxOccurs="1">
                     <xs:annotation>
-                        <xs:documentation>Container for initial pipeline variable declarations.</xs:documentation>
+                        <xs:documentation>Container for initial pipeline environment variable
+                            declarations.</xs:documentation>
                     </xs:annotation>
                 </xs:element>
                 <xs:element name="databases" type="DatabasesType" minOccurs="0" maxOccurs="1">
                     <xs:annotation>
-                        <xs:documentation>Container for database connection definitions and connection pool settings.</xs:documentation>
+                        <xs:documentation>Container for database connection configurations,
+                            connection pooling, and workload profile setup.</xs:documentation>
                     </xs:annotation>
                 </xs:element>
                 <xs:element name="preflight" type="PipelineNodesType" minOccurs="0" maxOccurs="1">
                     <xs:annotation>
-                        <xs:documentation>Preflight execution block containing validation and initialization tasks run prior to the main flow.</xs:documentation>
+                        <xs:documentation>Preflight execution block containing validation and
+                            initialization tasks run prior to the main flow.</xs:documentation>
                     </xs:annotation>
                 </xs:element>
                 <xs:element name="flow" type="PipelineNodesType" minOccurs="0" maxOccurs="1">
                     <xs:annotation>
-                        <xs:documentation>Main flow execution block containing the primary pipeline steps.</xs:documentation>
+                        <xs:documentation>Main execution block containing the primary sequential,
+                            conditional, parallel, or iterative pipeline steps.</xs:documentation>
                     </xs:annotation>
                 </xs:element>
             </xs:sequence>
             <xs:attribute name="description" type="xs:string" use="optional">
                 <xs:annotation>
-                    <xs:documentation>Human-readable description of the pipeline.</xs:documentation>
+                    <xs:documentation>Human-readable summary or metadata description of the
+                        pipeline.</xs:documentation>
                 </xs:annotation>
             </xs:attribute>
         </xs:complexType>
@@ -40,25 +47,25 @@
     <!-- VARIABLE DEFINITIONS -->
     <xs:complexType name="VariablesType">
         <xs:annotation>
-            <xs:documentation>Defines a collection of pipeline variables.</xs:documentation>
+            <xs:documentation>Defines a collection of dynamic pipeline environment variables.</xs:documentation>
         </xs:annotation>
         <xs:sequence>
             <xs:element name="variable" type="VariableType" minOccurs="0" maxOccurs="unbounded">
                 <xs:annotation>
-                    <xs:documentation>An individual variable declaration.</xs:documentation>
+                    <xs:documentation>An individual variable declaration with type parsing.</xs:documentation>
                 </xs:annotation>
             </xs:element>
         </xs:sequence>
         <xs:attribute name="description" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Description of the variables block.</xs:documentation>
+                <xs:documentation>Description of the variables section.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
     </xs:complexType>
 
     <xs:complexType name="VariableType">
         <xs:annotation>
-            <xs:documentation>Initializes a named pipeline variable with a typed value.</xs:documentation>
+            <xs:documentation>Initializes a named pipeline variable with explicit type conversion.</xs:documentation>
         </xs:annotation>
         <xs:attribute name="id" type="xs:string" use="optional">
             <xs:annotation>
@@ -67,12 +74,14 @@
         </xs:attribute>
         <xs:attribute name="name" type="xs:string" use="required">
             <xs:annotation>
-                <xs:documentation>Name used to reference or interpolate the variable (e.g. {{VarName}}).</xs:documentation>
+                <xs:documentation>Variable identifier used for interpolation (e.g., {{VarName}}) or
+                    environment lookup.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="type" use="optional" default="string">
             <xs:annotation>
-                <xs:documentation>Data type of the variable value (defaults to string).</xs:documentation>
+                <xs:documentation>Data type for parsing (defaults to string). Converts raw strings
+                    to int, bool, float, or datetime values.</xs:documentation>
             </xs:annotation>
             <xs:simpleType>
                 <xs:restriction base="xs:string">
@@ -91,12 +100,12 @@
         </xs:attribute>
         <xs:attribute name="value" type="xs:string" use="required">
             <xs:annotation>
-                <xs:documentation>Initial value for the variable.</xs:documentation>
+                <xs:documentation>Initial scalar string value assigned to the variable.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="description" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Description of the variable.</xs:documentation>
+                <xs:documentation>Description of the variable's usage or source.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
     </xs:complexType>
@@ -104,39 +113,41 @@
     <!-- DATABASE DEFINITIONS -->
     <xs:complexType name="DatabasesType">
         <xs:annotation>
-            <xs:documentation>Defines a collection of database connection handles and connection pool configurations.</xs:documentation>
+            <xs:documentation>Container for relational and key-value database connection handles.</xs:documentation>
         </xs:annotation>
         <xs:sequence>
             <xs:element name="database" type="DatabaseType" minOccurs="0" maxOccurs="unbounded">
                 <xs:annotation>
-                    <xs:documentation>A database connection configuration.</xs:documentation>
+                    <xs:documentation>Individual database target definition.</xs:documentation>
                 </xs:annotation>
             </xs:element>
         </xs:sequence>
         <xs:attribute name="description" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Description of the database collection.</xs:documentation>
+                <xs:documentation>Description of the database connection block.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
     </xs:complexType>
 
     <xs:complexType name="DatabaseType">
         <xs:annotation>
-            <xs:documentation>Declares a named database connection and pool settings.</xs:documentation>
+            <xs:documentation>Configures relational (e.g., SQL Server, PostgreSQL, MySQL, SQLite,
+                Oracle) or embedded Key-Value handles (e.g., bbolt, BadgerDB, Redis, etcd).</xs:documentation>
         </xs:annotation>
         <xs:attribute name="id" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Optional identifier for the database configuration.</xs:documentation>
+                <xs:documentation>Optional internal identifier for the database item.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="name" type="xs:string" use="required">
             <xs:annotation>
-                <xs:documentation>Unique connection name referenced by db, database, or target_db attributes.</xs:documentation>
+                <xs:documentation>Unique alias name referenced by pipeline execution nodes.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="driver" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Database driver name (e.g. sqlite, postgres, mysql, sqlserver, oracle).</xs:documentation>
+                <xs:documentation>Driver protocol (e.g., postgres, mysql, sqlite, sqlserver, oracle,
+                    bbolt, badger, redis, etcd).</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="type" type="xs:string" use="optional">
@@ -146,32 +157,34 @@
         </xs:attribute>
         <xs:attribute name="connection_string" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Driver connection string or DSN. Supports {{VarName}} interpolation.</xs:documentation>
+                <xs:documentation>DSN, connection URI, or embedded DB file/directory path. Supports
+                    {{VarName}} interpolation.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="max_open_conns" type="xs:positiveInteger" use="optional">
             <xs:annotation>
-                <xs:documentation>Maximum open concurrent connections in the connection pool.</xs:documentation>
+                <xs:documentation>Maximum concurrent open connections in the pool (defaults to 25).</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="max_idle_conns" type="xs:positiveInteger" use="optional">
             <xs:annotation>
-                <xs:documentation>Maximum idle connections retained in the connection pool.</xs:documentation>
+                <xs:documentation>Maximum idle connections retained in the pool (defaults to 10).</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="conn_max_lifetime_seconds" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Maximum duration a connection can be reused before recycling (e.g. 5m or 300).</xs:documentation>
+                <xs:documentation>Maximum duration a connection is recycled (e.g., 5m or 300).</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="workload" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Tuning profile metadata (e.g. oltp, bulk, analytics, batch).</xs:documentation>
+                <xs:documentation>Workload profile metadata for driver tuning (e.g., oltp, bulk,
+                    analytics).</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="description" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Description of the database connection.</xs:documentation>
+                <xs:documentation>Description of the database target.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
     </xs:complexType>
@@ -179,143 +192,358 @@
     <!-- RECURSIVE NODE CONTAINER -->
     <xs:complexType name="PipelineNodesType">
         <xs:annotation>
-            <xs:documentation>Sequence container holding executable pipeline AST steps.</xs:documentation>
+            <xs:documentation>Polymorphic sequence container holding executable pipeline AST steps.</xs:documentation>
         </xs:annotation>
         <xs:choice minOccurs="0" maxOccurs="unbounded">
             <xs:element name="script" type="ScriptType">
                 <xs:annotation>
-                    <xs:documentation>Executes code in dynamic Go, Shell (Bash, PowerShell, Cmd), or .NET Script (CSX).</xs:documentation>
+                    <xs:documentation>Executes code in Go (Yaegi), Shell (Bash, PowerShell, Cmd), or
+                        .NET Script (CSX).</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="sql" type="SqlType">
                 <xs:annotation>
-                    <xs:documentation>Executes standard SQL statements (DDL, DML, queries) on a database.</xs:documentation>
+                    <xs:documentation>Executes SQL statements, DDL, DML, or queries on a registered
+                        database.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="sql_bulk" type="SqlBulkType">
                 <xs:annotation>
-                    <xs:documentation>High-performance streaming copy from a source query into a target database table.</xs:documentation>
+                    <xs:documentation>Performs high-performance bulk streaming copy between query
+                        sources and database target tables.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="kv" type="KVType">
+                <xs:annotation>
+                    <xs:documentation>Executes single Key-Value store operations (GET, PUT, DELETE,
+                        SCAN) on embedded or server KV stores.</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="kv_bulk" type="KVBulkType">
+                <xs:annotation>
+                    <xs:documentation>Streams bulk datasets directly between relational SQL source
+                        queries and Key-Value database buckets or key prefix namespaces.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="group" type="GroupType">
                 <xs:annotation>
-                    <xs:documentation>Sequential step container with optional condition evaluation and transaction wrapping.</xs:documentation>
+                    <xs:documentation>Groups child steps sequentially with optional conditional
+                        evaluation and transaction wrapping.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="parallel" type="ParallelType">
                 <xs:annotation>
-                    <xs:documentation>Executes child steps concurrently across worker threads with isolated scopes.</xs:documentation>
+                    <xs:documentation>Executes child steps concurrently across worker threads with
+                        isolated scopes.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="if" type="IfType">
                 <xs:annotation>
-                    <xs:documentation>Conditional branching block evaluating variables or expressions.</xs:documentation>
+                    <xs:documentation>Conditional branching block evaluating pipeline variables or
+                        expressions.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="foreach" type="ForEachType">
                 <xs:annotation>
-                    <xs:documentation>Iterates over rows returned by a SQL query, binding columns as variables.</xs:documentation>
+                    <xs:documentation>Iterates over rows returned by a SQL query driver, binding
+                        columns as loop variables.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="loop" type="ForEachType">
                 <xs:annotation>
-                    <xs:documentation>Alias for foreach iteration loop.</xs:documentation>
+                    <xs:documentation>Alias for foreach.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="while" type="WhileType">
                 <xs:annotation>
-                    <xs:documentation>Repeats execution of child steps while condition expression evaluates to true.</xs:documentation>
+                    <xs:documentation>Repeats execution of child steps while a variable condition
+                        evaluates to true.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="http_client" type="HttpClientType">
                 <xs:annotation>
-                    <xs:documentation>Sends HTTP requests and captures response payloads and status codes.</xs:documentation>
+                    <xs:documentation>Dispatches HTTP requests and captures response bodies and
+                        status codes.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="template" type="TemplateType">
                 <xs:annotation>
-                    <xs:documentation>Renders Go text/template templates using pipeline variables.</xs:documentation>
+                    <xs:documentation>Renders Go text/template templates using current variable
+                        context.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="template_html" type="TemplateHtmlType">
                 <xs:annotation>
-                    <xs:documentation>Renders Go html/template templates with contextual escaping using pipeline variables.</xs:documentation>
+                    <xs:documentation>Renders Go html/template templates with contextual HTML
+                        escaping.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="file_save" type="FileSaveType">
                 <xs:annotation>
-                    <xs:documentation>Writes text or variable contents to a file on disk.</xs:documentation>
+                    <xs:documentation>Writes string payload or variable contents to disk.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="file_read" type="FileReadType">
                 <xs:annotation>
-                    <xs:documentation>Reads file contents from disk into a pipeline variable.</xs:documentation>
+                    <xs:documentation>Reads raw file content from disk into a target pipeline
+                        variable.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="excel_read" type="ExcelReadType">
                 <xs:annotation>
-                    <xs:documentation>Reads an Excel worksheet and converts rows to a JSON array variable.</xs:documentation>
+                    <xs:documentation>Reads an Excel worksheet and converts rows into a JSON array
+                        variable.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="excel_write" type="ExcelWriteType">
                 <xs:annotation>
-                    <xs:documentation>Executes a database query and writes the records into an Excel worksheet.</xs:documentation>
+                    <xs:documentation>Executes a database query and writes result sets directly into
+                        an Excel worksheet.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="xml_xpath" type="XmlXPathType">
                 <xs:annotation>
-                    <xs:documentation>Evaluates XPath queries on an XML file or variable.</xs:documentation>
+                    <xs:documentation>Evaluates XPath expressions against XML files or variable
+                        sources.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="json_path" type="JsonPathType">
                 <xs:annotation>
-                    <xs:documentation>Evaluates JSONPath expressions on a JSON file or variable.</xs:documentation>
+                    <xs:documentation>Evaluates JSONPath expressions against JSON files or variable
+                        sources.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="yaml_path" type="YamlPathType">
                 <xs:annotation>
-                    <xs:documentation>Evaluates path queries on a YAML file or variable.</xs:documentation>
+                    <xs:documentation>Evaluates path queries against YAML files or variable sources.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="assert" type="AssertType">
                 <xs:annotation>
-                    <xs:documentation>Asserts variable values and controls error handling or rollback fallback branches.</xs:documentation>
+                    <xs:documentation>Validates pipeline conditions and controls flow continuation,
+                        warning, or fallback branches.</xs:documentation>
                 </xs:annotation>
             </xs:element>
         </xs:choice>
     </xs:complexType>
 
+    <!-- KEY-VALUE SINGLE NODE -->
+    <xs:complexType name="KVType">
+        <xs:annotation>
+            <xs:documentation>Executes atomic Key-Value database operations (GET, PUT, DELETE, SCAN)
+                against target KV stores (bbolt, BadgerDB, Redis, etcd).</xs:documentation>
+        </xs:annotation>
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="id" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Unique step identifier for execution tracking.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="db" type="xs:string" use="required">
+                    <xs:annotation>
+                        <xs:documentation>Registered Key-Value database connection name.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="database" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Alias for db.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="bucket" type="xs:string" use="optional" default="default">
+                    <xs:annotation>
+                        <xs:documentation>Bucket name (bbolt) or key prefix/namespace
+                            (BadgerDB/Redis/etcd). Defaults to 'default'.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="op" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>KV operation type: get, put, set, delete, del, scan, or
+                            list.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="operation" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Alias for op.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="key" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Target record key string. Supports {{VarName}}
+                            interpolation.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="value" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Target record value payload for put/set operations.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="val" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Alias for value.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="var" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Input variable containing dynamic command DSL text.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="variable" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Alias for var.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="output_var" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Variable name that stores retrieved values or execution
+                            output.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="output_variable" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Alias for output_var.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="out_var" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Alias for output_var.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="description" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Description of the KV step.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
+    <!-- KEY-VALUE BULK STREAMING NODE -->
+    <xs:complexType name="KVBulkType">
+        <xs:annotation>
+            <xs:documentation>Streams bulk record sets between relational SQL databases and
+                Key-Value stores.</xs:documentation>
+        </xs:annotation>
+        <xs:simpleContent>
+            <xs:extension base="xs:string">
+                <xs:attribute name="id" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Unique step identifier for execution tracking.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="db" type="xs:string" use="required">
+                    <xs:annotation>
+                        <xs:documentation>Source database handle executing the extraction query.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="database" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Alias for db.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="target_db" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Destination Key-Value database handle (defaults to source
+                            db if omitted).</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="target_database" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Alias for target_db.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="bucket" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Source bucket/namespace identifier.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="target_bucket" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Destination bucket/namespace receiving streamed key/value
+                            pairs.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="target_table" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Destination table name when exporting Key-Value records
+                            into a relational SQL database.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="batch_size" type="xs:positiveInteger" use="optional"
+                    default="10000">
+                    <xs:annotation>
+                        <xs:documentation>Number of key-value records per transactional flush
+                            (defaults to 10,000).</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="var" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Variable containing the source extraction SQL query
+                            string.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="variable" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Alias for var.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="output_var" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Variable that receives the count of written records.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="output_variable" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Alias for output_var.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="out_var" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Alias for output_var.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="description" type="xs:string" use="optional">
+                    <xs:annotation>
+                        <xs:documentation>Description of the KV bulk streaming step.</xs:documentation>
+                    </xs:annotation>
+                </xs:attribute>
+            </xs:extension>
+        </xs:simpleContent>
+    </xs:complexType>
+
     <!-- ASSERT NODE -->
     <xs:element name="assert" type="AssertType">
         <xs:annotation>
-            <xs:documentation>Asserts variable values and controls error handling or rollback fallback branches.</xs:documentation>
+            <xs:documentation>Asserts variable state and defines fallback behavior on condition
+                failure.</xs:documentation>
         </xs:annotation>
     </xs:element>
 
     <xs:complexType name="AssertType">
         <xs:annotation>
-            <xs:documentation>Validates variable conditions with halt, warn, continue, or fallback failure handling.</xs:documentation>
+            <xs:documentation>Evaluates conditions against variables with halt, warn, continue, or
+                on_failure fallback blocks.</xs:documentation>
         </xs:annotation>
         <xs:sequence>
             <xs:element name="on_failure" type="PipelineNodesType" minOccurs="0" maxOccurs="1">
                 <xs:annotation>
-                    <xs:documentation>Optional child execution block executed if the assertion condition fails.</xs:documentation>
+                    <xs:documentation>Child nodes executed when the assertion condition fails.</xs:documentation>
                 </xs:annotation>
             </xs:element>
         </xs:sequence>
         <xs:attribute name="id" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Unique identifier for the assert step.</xs:documentation>
+                <xs:documentation>Unique step identifier.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="var" type="xs:string" use="required">
             <xs:annotation>
-                <xs:documentation>Name of the pipeline variable or condition expression to evaluate.</xs:documentation>
+                <xs:documentation>Variable name or expression evaluated for condition checking.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="equals" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Expected value required for assertion to pass.</xs:documentation>
+                <xs:documentation>Expected string value required to pass assertion.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="value" type="xs:string" use="optional">
@@ -325,27 +553,33 @@
         </xs:attribute>
         <xs:attribute name="operator" type="xs:string" use="optional" default="eq">
             <xs:annotation>
-                <xs:documentation>Comparison operator (e.g. eq, ==, ne, !=).</xs:documentation>
+                <xs:documentation>Comparison operator (e.g., eq, ==, ne, !=).</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="message" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Custom error or warning message emitted on assertion failure.</xs:documentation>
+                <xs:documentation>Message emitted when assertion fails.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="on_failure" type="xs:string" use="optional" default="halt">
             <xs:annotation>
-                <xs:documentation>Behavior on failure: halt (default), warn, continue, or set_var.</xs:documentation>
+                <xs:documentation>Action on failure: halt (stops pipeline execution), warn/continue
+                    (logs and continues), or set_var.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="fail_var" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Optional variable name to set on failure.</xs:documentation>
+                <xs:documentation>Variable set when assertion fails.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="fail_val" type="xs:string" use="optional" default="true">
             <xs:annotation>
-                <xs:documentation>Value to assign to fail_var on failure (defaults to true).</xs:documentation>
+                <xs:documentation>Value assigned to fail_var on failure (defaults to true).</xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="description" type="xs:string" use="optional">
+            <xs:annotation>
+                <xs:documentation>Human-readable description of the assertion step.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
     </xs:complexType>
@@ -353,18 +587,20 @@
     <!-- SCRIPT NODE -->
     <xs:complexType name="ScriptType">
         <xs:annotation>
-            <xs:documentation>Executes non-SQL scripts in Go, Shell, PowerShell, Bash, or .NET Script (CSX).</xs:documentation>
+            <xs:documentation>Executes dynamic code in Go, Shell, PowerShell, Bash, or .NET Script
+                (CSX).</xs:documentation>
         </xs:annotation>
         <xs:simpleContent>
             <xs:extension base="xs:string">
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the script step.</xs:documentation>
+                        <xs:documentation>Unique step identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="language" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Execution language runtime (e.g. go, shell, cmd, powershell, pwsh, bash, zsh, dotnet-script, csx).</xs:documentation>
+                        <xs:documentation>Script runtime (e.g., go, shell, cmd, powershell, pwsh,
+                            bash, zsh, dotnet-script, csx).</xs:documentation>
                     </xs:annotation>
                     <xs:simpleType>
                         <xs:restriction base="xs:string">
@@ -395,7 +631,7 @@
                 </xs:attribute>
                 <xs:attribute name="variable" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable containing the script code to evaluate dynamically.</xs:documentation>
+                        <xs:documentation>Variable providing script body dynamically.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="var" type="xs:string" use="optional">
@@ -405,7 +641,7 @@
                 </xs:attribute>
                 <xs:attribute name="output_var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable that receives the standard output/result of the script.</xs:documentation>
+                        <xs:documentation>Variable receiving stdout/stderr output.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="output_variable" type="xs:string" use="optional">
@@ -420,7 +656,7 @@
                 </xs:attribute>
                 <xs:attribute name="description" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Description of the script step.</xs:documentation>
+                        <xs:documentation>Description of script action.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
             </xs:extension>
@@ -430,19 +666,18 @@
     <!-- HTTP CLIENT NODE -->
     <xs:complexType name="HttpClientType">
         <xs:annotation>
-            <xs:documentation>Sends HTTP requests and maps responses to variables.</xs:documentation>
+            <xs:documentation>Sends HTTP requests with TLS, timeout, cookie, and proxy options.</xs:documentation>
         </xs:annotation>
         <xs:simpleContent>
             <xs:extension base="xs:string">
-                <!-- Core Request Attributes -->
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the HTTP request step.</xs:documentation>
+                        <xs:documentation>Unique step identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="uri" type="xs:string" use="required">
                     <xs:annotation>
-                        <xs:documentation>Target URL / endpoint for the request.</xs:documentation>
+                        <xs:documentation>Endpoint URL. Supports {{VarName}} interpolation.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="url" type="xs:string" use="optional">
@@ -452,7 +687,7 @@
                 </xs:attribute>
                 <xs:attribute name="method" use="optional" default="GET">
                     <xs:annotation>
-                        <xs:documentation>HTTP request method (GET, POST, PUT, DELETE, PATCH, etc.).</xs:documentation>
+                        <xs:documentation>HTTP verb (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS).</xs:documentation>
                     </xs:annotation>
                     <xs:simpleType>
                         <xs:restriction base="xs:string">
@@ -470,7 +705,8 @@
                 </xs:attribute>
                 <xs:attribute name="data" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Request body payload. Supports variable interpolation and Go templating.</xs:documentation>
+                        <xs:documentation>Request body payload. Supports variable interpolation and
+                            templating.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="headers" type="xs:string" use="optional">
@@ -480,14 +716,12 @@
                 </xs:attribute>
                 <xs:attribute name="content_type" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Content-Type request header (e.g. application/json).</xs:documentation>
+                        <xs:documentation>Content-Type request header (e.g., application/json).</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
-
-                <!-- Variable Assignment Attributes -->
                 <xs:attribute name="var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable receiving response body.</xs:documentation>
+                        <xs:documentation>Variable receiving response body text.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="variable" type="xs:string" use="optional">
@@ -510,11 +744,10 @@
                         <xs:documentation>Alias for var.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
-
-                <!-- Status Code Assignment Attributes -->
                 <xs:attribute name="status_code_var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable receiving the integer HTTP status code (e.g. 200, 404).</xs:documentation>
+                        <xs:documentation>Variable receiving integer HTTP status code (e.g., 200,
+                            404).</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="status_code_variable" type="xs:string" use="optional">
@@ -532,36 +765,34 @@
                         <xs:documentation>Alias for status_code_var.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
-
-                <!-- Go http.Client Options -->
                 <xs:attribute name="timeout" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Total request timeout duration (e.g. 30s, 2m).</xs:documentation>
+                        <xs:documentation>Total request timeout duration (e.g., 30s, 2m).</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="max_redirects" type="xs:nonNegativeInteger" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Maximum number of redirect hops allowed.</xs:documentation>
+                        <xs:documentation>Maximum redirect hops allowed.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
-                <xs:attribute name="follow_redirects" type="xs:boolean" use="optional" default="true">
+                <xs:attribute name="follow_redirects" type="xs:boolean" use="optional"
+                    default="true">
                     <xs:annotation>
-                        <xs:documentation>Whether to automatically follow HTTP redirects.</xs:documentation>
+                        <xs:documentation>Whether to follow HTTP redirects automatically.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="cookie_jar" type="xs:boolean" use="optional" default="false">
                     <xs:annotation>
-                        <xs:documentation>Enables an in-memory cookie jar across requests.</xs:documentation>
+                        <xs:documentation>Enables persistent in-memory cookie jar.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
-
-                <!-- Go http.Transport Options -->
                 <xs:attribute name="proxy" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>HTTP/HTTPS proxy server URL.</xs:documentation>
+                        <xs:documentation>HTTP/HTTPS proxy endpoint URL.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
-                <xs:attribute name="tls_insecure_skip_verify" type="xs:boolean" use="optional" default="false">
+                <xs:attribute name="tls_insecure_skip_verify" type="xs:boolean" use="optional"
+                    default="false">
                     <xs:annotation>
                         <xs:documentation>Disables SSL/TLS certificate verification when true.</xs:documentation>
                     </xs:annotation>
@@ -578,52 +809,53 @@
                 </xs:attribute>
                 <xs:attribute name="tls_min_version" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Minimum accepted TLS version (e.g. 1.2, 1.3).</xs:documentation>
+                        <xs:documentation>Minimum accepted TLS version (e.g., 1.2, 1.3).</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="tls_max_version" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Maximum accepted TLS version (e.g. 1.3).</xs:documentation>
+                        <xs:documentation>Maximum accepted TLS version (e.g., 1.3).</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="disable_keep_alives" type="xs:boolean" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Disables HTTP keep-alives and TCP connection reuse.</xs:documentation>
+                        <xs:documentation>Disables HTTP keep-alives and connection reuse.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="disable_compression" type="xs:boolean" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Disables transport level Gzip compression.</xs:documentation>
+                        <xs:documentation>Disables Gzip transport compression.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="max_idle_conns" type="xs:nonNegativeInteger" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Maximum idle connections retained across all hosts.</xs:documentation>
+                        <xs:documentation>Maximum total idle connections across all hosts.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
-                <xs:attribute name="max_idle_conns_per_host" type="xs:nonNegativeInteger" use="optional">
+                <xs:attribute name="max_idle_conns_per_host" type="xs:nonNegativeInteger"
+                    use="optional">
                     <xs:annotation>
-                        <xs:documentation>Maximum idle connections retained per target host.</xs:documentation>
+                        <xs:documentation>Maximum idle connections per host.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="max_conns_per_host" type="xs:nonNegativeInteger" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Maximum total connections per host.</xs:documentation>
+                        <xs:documentation>Maximum concurrent connections per target host.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="idle_conn_timeout" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Maximum duration an idle connection remains open before closing.</xs:documentation>
+                        <xs:documentation>Maximum duration an idle connection stays open.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="response_header_timeout" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Maximum duration to wait for server response headers.</xs:documentation>
+                        <xs:documentation>Timeout waiting for server response headers.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="expect_continue_timeout" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Timeout for Expect: 100-continue response headers.</xs:documentation>
+                        <xs:documentation>Timeout for Expect: 100-continue headers.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="max_response_header_bytes" type="xs:long" use="optional">
@@ -643,7 +875,7 @@
                 </xs:attribute>
                 <xs:attribute name="force_attempt_http2" type="xs:boolean" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Forces HTTP/2 negotiation when custom TLS transport is configured.</xs:documentation>
+                        <xs:documentation>Forces HTTP/2 negotiation.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="description" type="xs:string" use="optional">
@@ -658,18 +890,19 @@
     <!-- GROUP NODE -->
     <xs:complexType name="GroupType">
         <xs:annotation>
-            <xs:documentation>Organizes child steps sequentially with optional condition checking and transaction wrapping.</xs:documentation>
+            <xs:documentation>Executes steps sequentially with optional condition checking and
+                transaction wrapping.</xs:documentation>
         </xs:annotation>
         <xs:complexContent>
             <xs:extension base="PipelineNodesType">
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the group.</xs:documentation>
+                        <xs:documentation>Unique group identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable or condition expression evaluated before executing group.</xs:documentation>
+                        <xs:documentation>Variable evaluated before executing child steps.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="if_var" type="xs:string" use="optional">
@@ -679,7 +912,7 @@
                 </xs:attribute>
                 <xs:attribute name="equals" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Expected value required for the condition to pass.</xs:documentation>
+                        <xs:documentation>Expected value required for execution.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="val" type="xs:string" use="optional">
@@ -714,12 +947,12 @@
                 </xs:attribute>
                 <xs:attribute name="transaction" type="xs:boolean" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Wraps child steps in an atomic database transaction when true.</xs:documentation>
+                        <xs:documentation>Wraps child steps in an atomic database transaction.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="db" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Database connection name for the transaction.</xs:documentation>
+                        <xs:documentation>Database connection name for the transaction group.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="database" type="xs:string" use="optional">
@@ -739,13 +972,14 @@
     <!-- PARALLEL NODE -->
     <xs:complexType name="ParallelType">
         <xs:annotation>
-            <xs:documentation>Executes child steps concurrently across worker threads with isolated variable environments.</xs:documentation>
+            <xs:documentation>Executes child steps concurrently across worker threads with isolated
+                variable registries.</xs:documentation>
         </xs:annotation>
         <xs:complexContent>
             <xs:extension base="PipelineNodesType">
                 <xs:attribute name="max_threads" type="xs:positiveInteger" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Maximum concurrency thread pool limit (defaults to 4).</xs:documentation>
+                        <xs:documentation>Thread pool limit (defaults to 4).</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="threads" type="xs:positiveInteger" use="optional">
@@ -770,24 +1004,27 @@
     <!-- IF / CONDITIONAL NODE -->
     <xs:complexType name="IfType">
         <xs:annotation>
-            <xs:documentation>Conditional execution branch container with optional then and else branches.</xs:documentation>
+            <xs:documentation>Evaluates boolean or string equality conditions to trigger then or
+                else sub-branches.</xs:documentation>
         </xs:annotation>
         <xs:sequence>
             <xs:element name="then" type="PipelineNodesType" minOccurs="0" maxOccurs="1">
                 <xs:annotation>
-                    <xs:documentation>Container for steps executed when condition evaluates to true.</xs:documentation>
+                    <xs:documentation>Child nodes executed when condition evaluates to true.</xs:documentation>
                 </xs:annotation>
             </xs:element>
             <xs:element name="else" type="PipelineNodesType" minOccurs="0" maxOccurs="1">
                 <xs:annotation>
-                    <xs:documentation>Container for steps executed when condition evaluates to false.</xs:documentation>
+                    <xs:documentation>Child nodes executed when condition evaluates to false.</xs:documentation>
                 </xs:annotation>
             </xs:element>
-            <!-- Allows inline children without explicit <then> tags -->
+            <!-- Allows inline elements directly inside <if> -->
             <xs:choice minOccurs="0" maxOccurs="unbounded">
                 <xs:element name="script" type="ScriptType" />
                 <xs:element name="sql" type="SqlType" />
                 <xs:element name="sql_bulk" type="SqlBulkType" />
+                <xs:element name="kv" type="KVType" />
+                <xs:element name="kv_bulk" type="KVBulkType" />
                 <xs:element name="group" type="GroupType" />
                 <xs:element name="parallel" type="ParallelType" />
                 <xs:element name="if" type="IfType" />
@@ -804,16 +1041,17 @@
                 <xs:element name="xml_xpath" type="XmlXPathType" />
                 <xs:element name="json_path" type="JsonPathType" />
                 <xs:element name="yaml_path" type="YamlPathType" />
+                <xs:element name="assert" type="AssertType" />
             </xs:choice>
         </xs:sequence>
         <xs:attribute name="id" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Unique identifier for the conditional step.</xs:documentation>
+                <xs:documentation>Unique step identifier.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="var" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Variable or condition expression to evaluate.</xs:documentation>
+                <xs:documentation>Variable evaluated for branch execution.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="if_var" type="xs:string" use="optional">
@@ -848,7 +1086,7 @@
         </xs:attribute>
         <xs:attribute name="condition" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Inline condition expression.</xs:documentation>
+                <xs:documentation>Inline expression evaluation.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="cond" type="xs:string" use="optional">
@@ -858,7 +1096,7 @@
         </xs:attribute>
         <xs:attribute name="description" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Description of the conditional step.</xs:documentation>
+                <xs:documentation>Description of the conditional branch.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
     </xs:complexType>
@@ -866,18 +1104,20 @@
     <!-- FOREACH / LOOP NODE -->
     <xs:complexType name="ForEachType">
         <xs:annotation>
-            <xs:documentation>Executes nested child steps for each row returned by the SQL driver query.</xs:documentation>
+            <xs:documentation>Executes child nodes for each record returned by the driver SQL query,
+                mapping columns to variables. The driver query can be supplied as inline SQL text
+                inside the element body or via the var / variable attribute.</xs:documentation>
         </xs:annotation>
         <xs:complexContent>
             <xs:extension base="PipelineNodesType">
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the foreach loop.</xs:documentation>
+                        <xs:documentation>Unique step identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="language" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Driver query language (defaults to sql).</xs:documentation>
+                        <xs:documentation>Driver query language runtime (defaults to sql).</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="lang" type="xs:string" use="optional">
@@ -887,7 +1127,7 @@
                 </xs:attribute>
                 <xs:attribute name="db" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Database connection name for the driver query.</xs:documentation>
+                        <xs:documentation>Database handle executing the query driver.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="database" type="xs:string" use="optional">
@@ -897,7 +1137,7 @@
                 </xs:attribute>
                 <xs:attribute name="variable" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable containing the SQL driver query.</xs:documentation>
+                        <xs:documentation>Variable containing the driver query text.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="var" type="xs:string" use="optional">
@@ -907,7 +1147,7 @@
                 </xs:attribute>
                 <xs:attribute name="description" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Description of the loop.</xs:documentation>
+                        <xs:documentation>Description of the foreach iteration.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
             </xs:extension>
@@ -917,18 +1157,19 @@
     <!-- WHILE LOOP NODE -->
     <xs:complexType name="WhileType">
         <xs:annotation>
-            <xs:documentation>Executes child steps repeatedly while the specified condition remains true.</xs:documentation>
+            <xs:documentation>Executes child nodes repeatedly while a variable condition evaluates
+                to true.</xs:documentation>
         </xs:annotation>
         <xs:complexContent>
             <xs:extension base="PipelineNodesType">
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the while loop.</xs:documentation>
+                        <xs:documentation>Unique step identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable or condition expression evaluated before each iteration.</xs:documentation>
+                        <xs:documentation>Variable evaluated before each iteration.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="if_var" type="xs:string" use="optional">
@@ -938,7 +1179,7 @@
                 </xs:attribute>
                 <xs:attribute name="equals" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Expected value required to continue looping.</xs:documentation>
+                        <xs:documentation>Expected value required to continue loop execution.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="val" type="xs:string" use="optional">
@@ -971,9 +1212,10 @@
                         <xs:documentation>Alias for condition.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
-                <xs:attribute name="max_iterations" type="xs:positiveInteger" use="optional" default="1000">
+                <xs:attribute name="max_iterations" type="xs:positiveInteger" use="optional"
+                    default="1000">
                     <xs:annotation>
-                        <xs:documentation>Safety limit for maximum iterations to prevent infinite loops (defaults to 1000).</xs:documentation>
+                        <xs:documentation>Infinite loop guard ceiling (defaults to 1000 iterations).</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="max_loops" type="xs:positiveInteger" use="optional">
@@ -993,13 +1235,14 @@
     <!-- TEMPLATE NODE -->
     <xs:complexType name="TemplateType">
         <xs:annotation>
-            <xs:documentation>Renders a Go text/template template using current pipeline variables.</xs:documentation>
+            <xs:documentation>Evaluates Go text/template files or inline text blocks with variable
+                bindings.</xs:documentation>
         </xs:annotation>
         <xs:simpleContent>
             <xs:extension base="xs:string">
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the template step.</xs:documentation>
+                        <xs:documentation>Unique step identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="name" type="xs:string" use="optional">
@@ -1009,7 +1252,7 @@
                 </xs:attribute>
                 <xs:attribute name="file" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Path to an external template file.</xs:documentation>
+                        <xs:documentation>Path to external template file.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="engine" type="xs:string" use="optional" default="text">
@@ -1019,17 +1262,17 @@
                 </xs:attribute>
                 <xs:attribute name="var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable receiving the rendered output.</xs:documentation>
+                        <xs:documentation>Variable that receives rendered string output.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="mode" type="xs:string" use="optional" default="text">
                     <xs:annotation>
-                        <xs:documentation>Output mode: text or summary.</xs:documentation>
+                        <xs:documentation>Output logging mode: text or summary.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="output_var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable receiving the rendered output.</xs:documentation>
+                        <xs:documentation>Alias for var.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="description" type="xs:string" use="optional">
@@ -1044,13 +1287,14 @@
     <!-- HTML TEMPLATE NODE -->
     <xs:complexType name="TemplateHtmlType">
         <xs:annotation>
-            <xs:documentation>Renders a Go html/template template with HTML escaping using pipeline variables.</xs:documentation>
+            <xs:documentation>Evaluates Go html/template files with automatic HTML contextual
+                escaping.</xs:documentation>
         </xs:annotation>
         <xs:simpleContent>
             <xs:extension base="xs:string">
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the HTML template step.</xs:documentation>
+                        <xs:documentation>Unique step identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="name" type="xs:string" use="optional">
@@ -1060,27 +1304,27 @@
                 </xs:attribute>
                 <xs:attribute name="file" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Path to an external HTML template file.</xs:documentation>
+                        <xs:documentation>Path to external HTML template file.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="engine" type="xs:string" use="optional" default="html">
                     <xs:annotation>
-                        <xs:documentation>Template engine (defaults to html).</xs:documentation>
+                        <xs:documentation>Template engine type (defaults to html).</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable receiving the rendered HTML output.</xs:documentation>
+                        <xs:documentation>Variable receiving rendered HTML output.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="mode" type="xs:string" use="optional" default="text">
                     <xs:annotation>
-                        <xs:documentation>Output mode: text or summary.</xs:documentation>
+                        <xs:documentation>Output logging mode: text or summary.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="output_var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable receiving the rendered HTML output.</xs:documentation>
+                        <xs:documentation>Alias for var.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="description" type="xs:string" use="optional">
@@ -1095,18 +1339,18 @@
     <!-- FILE SAVE NODE -->
     <xs:complexType name="FileSaveType">
         <xs:annotation>
-            <xs:documentation>Writes text content or variable data to a file on disk.</xs:documentation>
+            <xs:documentation>Saves text content or variable data to disk file path.</xs:documentation>
         </xs:annotation>
         <xs:simpleContent>
             <xs:extension base="xs:string">
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the file save step.</xs:documentation>
+                        <xs:documentation>Unique step identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="file" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Target destination file path.</xs:documentation>
+                        <xs:documentation>Destination file path.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="path" type="xs:string" use="optional">
@@ -1121,7 +1365,7 @@
                 </xs:attribute>
                 <xs:attribute name="var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable containing the content to write to disk.</xs:documentation>
+                        <xs:documentation>Variable containing text payload to write.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="variable" type="xs:string" use="optional">
@@ -1131,7 +1375,7 @@
                 </xs:attribute>
                 <xs:attribute name="append" type="xs:boolean" use="optional" default="false">
                     <xs:annotation>
-                        <xs:documentation>When true, appends content to file instead of overwriting.</xs:documentation>
+                        <xs:documentation>Appends to existing file when true; overwrites when false.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="description" type="xs:string" use="optional">
@@ -1146,18 +1390,18 @@
     <!-- FILE READ NODE -->
     <xs:complexType name="FileReadType">
         <xs:annotation>
-            <xs:documentation>Reads raw file content from disk into a pipeline variable.</xs:documentation>
+            <xs:documentation>Reads file contents from disk into a target variable.</xs:documentation>
         </xs:annotation>
         <xs:simpleContent>
             <xs:extension base="xs:string">
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the file read step.</xs:documentation>
+                        <xs:documentation>Unique step identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="file" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Source file path to read from disk.</xs:documentation>
+                        <xs:documentation>Source file path on disk.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="path" type="xs:string" use="optional">
@@ -1172,7 +1416,7 @@
                 </xs:attribute>
                 <xs:attribute name="var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable that receives the file content.</xs:documentation>
+                        <xs:documentation>Variable name that stores file contents.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="variable" type="xs:string" use="optional">
@@ -1197,7 +1441,7 @@
                 </xs:attribute>
                 <xs:attribute name="description" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Description of the file read step.</xs:documentation>
+                        <xs:documentation>Description of file read step.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
             </xs:extension>
@@ -1207,31 +1451,31 @@
     <!-- EXCEL READ/WRITE NODES -->
     <xs:complexType name="ExcelReadType">
         <xs:annotation>
-            <xs:documentation>Reads an Excel workbook sheet and stores records as a JSON string in a variable.</xs:documentation>
+            <xs:documentation>Parses Excel sheet rows into a JSON array variable.</xs:documentation>
         </xs:annotation>
         <xs:attribute name="id" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Unique identifier for the Excel read step.</xs:documentation>
+                <xs:documentation>Unique step identifier.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="file" type="xs:string" use="required">
             <xs:annotation>
-                <xs:documentation>Path to the Excel file (.xlsx).</xs:documentation>
+                <xs:documentation>Target Excel file path (.xlsx).</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="sheet" type="xs:string" use="optional" default="Sheet1">
             <xs:annotation>
-                <xs:documentation>Target sheet name to read (defaults to the first sheet or Sheet1).</xs:documentation>
+                <xs:documentation>Sheet name to read (defaults to Sheet1).</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="header" type="xs:boolean" use="optional" default="true">
             <xs:annotation>
-                <xs:documentation>Whether the first row contains column headers (defaults to true).</xs:documentation>
+                <xs:documentation>Specifies if the first row contains column header keys.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="var" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Variable receiving the extracted records as a JSON array string.</xs:documentation>
+                <xs:documentation>Variable receiving extracted JSON record string.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="output_var" type="xs:string" use="optional">
@@ -1241,20 +1485,20 @@
         </xs:attribute>
         <xs:attribute name="description" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Description of the Excel read step.</xs:documentation>
+                <xs:documentation>Description of Excel read step.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
     </xs:complexType>
 
     <xs:complexType name="ExcelWriteType">
         <xs:annotation>
-            <xs:documentation>Executes a database SQL query and writes the result rows directly to an Excel sheet.</xs:documentation>
+            <xs:documentation>Executes database query and writes rows to an Excel workbook.</xs:documentation>
         </xs:annotation>
         <xs:simpleContent>
             <xs:extension base="xs:string">
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the Excel write step.</xs:documentation>
+                        <xs:documentation>Unique step identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="file" type="xs:string" use="required">
@@ -1264,12 +1508,12 @@
                 </xs:attribute>
                 <xs:attribute name="sheet" type="xs:string" use="optional" default="Sheet1">
                     <xs:annotation>
-                        <xs:documentation>Target sheet name to write or update (defaults to Sheet1).</xs:documentation>
+                        <xs:documentation>Target sheet name (defaults to Sheet1).</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="db" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Database connection name executing the export query.</xs:documentation>
+                        <xs:documentation>Database connection name executing source export query.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="var" type="xs:string" use="optional">
@@ -1279,7 +1523,7 @@
                 </xs:attribute>
                 <xs:attribute name="description" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Description of the Excel write step.</xs:documentation>
+                        <xs:documentation>Description of Excel write step.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
             </xs:extension>
@@ -1289,11 +1533,11 @@
     <!-- XML XPATH NODE -->
     <xs:complexType name="XmlXPathType">
         <xs:annotation>
-            <xs:documentation>Evaluates an XPath expression against an XML file or variable source.</xs:documentation>
+            <xs:documentation>Evaluates XPath expressions against XML sources.</xs:documentation>
         </xs:annotation>
         <xs:attribute name="id" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Unique identifier for the XML XPath step.</xs:documentation>
+                <xs:documentation>Unique step identifier.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="file" type="xs:string" use="optional">
@@ -1303,7 +1547,7 @@
         </xs:attribute>
         <xs:attribute name="var" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Variable containing raw XML source string.</xs:documentation>
+                <xs:documentation>Variable containing raw XML source.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="xpath" type="xs:string" use="required">
@@ -1313,17 +1557,17 @@
         </xs:attribute>
         <xs:attribute name="mode" type="xs:string" use="optional" default="text">
             <xs:annotation>
-                <xs:documentation>Output formatting mode: text (default), xml, or json_array.</xs:documentation>
+                <xs:documentation>Output formatting: text, xml, or json_array.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="output_var" type="xs:string" use="required">
             <xs:annotation>
-                <xs:documentation>Variable receiving the extracted XPath results.</xs:documentation>
+                <xs:documentation>Variable receiving XPath evaluation results.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
         <xs:attribute name="description" type="xs:string" use="optional">
             <xs:annotation>
-                <xs:documentation>Description of the XML XPath step.</xs:documentation>
+                <xs:documentation>Description of XPath step.</xs:documentation>
             </xs:annotation>
         </xs:attribute>
     </xs:complexType>
@@ -1331,13 +1575,13 @@
     <!-- JSON PATH NODE -->
     <xs:complexType name="JsonPathType">
         <xs:annotation>
-            <xs:documentation>Evaluates a JSONPath query against a JSON file or variable source.</xs:documentation>
+            <xs:documentation>Evaluates JSONPath expressions against JSON sources.</xs:documentation>
         </xs:annotation>
         <xs:simpleContent>
             <xs:extension base="xs:string">
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the JSONPath step.</xs:documentation>
+                        <xs:documentation>Unique step identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="file" type="xs:string" use="optional">
@@ -1347,12 +1591,12 @@
                 </xs:attribute>
                 <xs:attribute name="var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable containing raw JSON string.</xs:documentation>
+                        <xs:documentation>Variable containing raw JSON source string.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="path" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>JSONPath expression (e.g. $.store.book[*].price).</xs:documentation>
+                        <xs:documentation>JSONPath query expression.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="jsonpath" type="xs:string" use="optional">
@@ -1362,12 +1606,12 @@
                 </xs:attribute>
                 <xs:attribute name="mode" type="xs:string" use="optional" default="value">
                     <xs:annotation>
-                        <xs:documentation>Output format mode: value (default scalar/text), json, or json_array.</xs:documentation>
+                        <xs:documentation>Output formatting: value (scalar), json, or json_array.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="output_var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable receiving the extracted JSONPath results.</xs:documentation>
+                        <xs:documentation>Variable receiving extracted results.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="out_var" type="xs:string" use="optional">
@@ -1377,7 +1621,7 @@
                 </xs:attribute>
                 <xs:attribute name="description" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Description of the JSONPath step.</xs:documentation>
+                        <xs:documentation>Description of JSONPath step.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
             </xs:extension>
@@ -1387,13 +1631,13 @@
     <!-- YAML PATH NODE -->
     <xs:complexType name="YamlPathType">
         <xs:annotation>
-            <xs:documentation>Evaluates a path query against a YAML file or variable source.</xs:documentation>
+            <xs:documentation>Evaluates path queries against YAML sources.</xs:documentation>
         </xs:annotation>
         <xs:simpleContent>
             <xs:extension base="xs:string">
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the YAML path step.</xs:documentation>
+                        <xs:documentation>Unique step identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="file" type="xs:string" use="optional">
@@ -1403,12 +1647,12 @@
                 </xs:attribute>
                 <xs:attribute name="var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable containing raw YAML string.</xs:documentation>
+                        <xs:documentation>Variable containing raw YAML source string.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="path" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Path expression evaluated against the converted YAML structure.</xs:documentation>
+                        <xs:documentation>Path query expression.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="yamlpath" type="xs:string" use="optional">
@@ -1418,12 +1662,12 @@
                 </xs:attribute>
                 <xs:attribute name="mode" type="xs:string" use="optional" default="value">
                     <xs:annotation>
-                        <xs:documentation>Output format mode: value (default), json, json_array, or yaml.</xs:documentation>
+                        <xs:documentation>Output mode: value, json, json_array, or yaml.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="output_var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable receiving the extracted path results.</xs:documentation>
+                        <xs:documentation>Variable receiving path evaluation results.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="out_var" type="xs:string" use="optional">
@@ -1433,7 +1677,7 @@
                 </xs:attribute>
                 <xs:attribute name="description" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Description of the YAML path step.</xs:documentation>
+                        <xs:documentation>Description of YAML path step.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
             </xs:extension>
@@ -1443,18 +1687,19 @@
     <!-- SQL NODE -->
     <xs:complexType name="SqlType">
         <xs:annotation>
-            <xs:documentation>Executes standard SQL statements (DDL, DML, queries) on a configured database.</xs:documentation>
+            <xs:documentation>Executes standard SQL statements (DDL, DML, queries) on a database
+                handle.</xs:documentation>
         </xs:annotation>
         <xs:simpleContent>
             <xs:extension base="xs:string">
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the SQL step.</xs:documentation>
+                        <xs:documentation>Unique step identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="db" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Name of the configured database connection to execute against.</xs:documentation>
+                        <xs:documentation>Target database connection handle name.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="database" type="xs:string" use="optional">
@@ -1464,7 +1709,7 @@
                 </xs:attribute>
                 <xs:attribute name="var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable providing the SQL query string.</xs:documentation>
+                        <xs:documentation>Variable providing SQL query text.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="variable" type="xs:string" use="optional">
@@ -1474,7 +1719,7 @@
                 </xs:attribute>
                 <xs:attribute name="output_var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable that receives query outputs or affected row counts.</xs:documentation>
+                        <xs:documentation>Variable receiving output logs or affected row counts.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="output_variable" type="xs:string" use="optional">
@@ -1489,7 +1734,7 @@
                 </xs:attribute>
                 <xs:attribute name="description" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Description of the SQL step.</xs:documentation>
+                        <xs:documentation>Description of SQL step.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
             </xs:extension>
@@ -1499,18 +1744,19 @@
     <!-- SQL BULK NODE -->
     <xs:complexType name="SqlBulkType">
         <xs:annotation>
-            <xs:documentation>Streams query results directly into a destination database table via high-performance bulk copy.</xs:documentation>
+            <xs:documentation>Streams query results directly into a destination database table via
+                high-performance copy.</xs:documentation>
         </xs:annotation>
         <xs:simpleContent>
             <xs:extension base="xs:string">
                 <xs:attribute name="id" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Unique identifier for the bulk SQL step.</xs:documentation>
+                        <xs:documentation>Unique step identifier.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="db" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Source database connection executing the streaming query.</xs:documentation>
+                        <xs:documentation>Source database handle executing source extraction query.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="database" type="xs:string" use="optional">
@@ -1520,7 +1766,8 @@
                 </xs:attribute>
                 <xs:attribute name="target_db" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Destination database connection (defaults to source db if omitted).</xs:documentation>
+                        <xs:documentation>Destination database connection name (defaults to source
+                            db).</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="target_database" type="xs:string" use="optional">
@@ -1530,17 +1777,18 @@
                 </xs:attribute>
                 <xs:attribute name="target_table" type="xs:string" use="required">
                     <xs:annotation>
-                        <xs:documentation>Destination table name receiving the streamed rows.</xs:documentation>
+                        <xs:documentation>Destination table name receiving copied rows.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
-                <xs:attribute name="batch_size" type="xs:positiveInteger" use="optional">
+                <xs:attribute name="batch_size" type="xs:positiveInteger" use="optional"
+                    default="10000">
                     <xs:annotation>
-                        <xs:documentation>Row batch size per commit chunk (defaults to 10000).</xs:documentation>
+                        <xs:documentation>Batch size per commit chunk (defaults to 10,000).</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable providing the source SQL query.</xs:documentation>
+                        <xs:documentation>Variable supplying source query string.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="variable" type="xs:string" use="optional">
@@ -1550,7 +1798,7 @@
                 </xs:attribute>
                 <xs:attribute name="output_var" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Variable receiving the total number of streamed rows.</xs:documentation>
+                        <xs:documentation>Variable receiving total streamed row count.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="output_variable" type="xs:string" use="optional">
@@ -1563,29 +1811,31 @@
                         <xs:documentation>Alias for output_var.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
-                <xs:attribute name="tablock" type="xs:boolean" use="optional">
+                <xs:attribute name="tablock" type="xs:boolean" use="optional" default="true">
                     <xs:annotation>
-                        <xs:documentation>Acquires table lock during bulk insert for minimal logging (defaults to true).</xs:documentation>
+                        <xs:documentation>Acquires table lock during SQL Server bulk copy for
+                            minimal logging.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="check_constraints" type="xs:boolean" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Evaluates table constraints during bulk insert when true.</xs:documentation>
+                        <xs:documentation>Enforces table constraints during bulk insert when true.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="fire_triggers" type="xs:boolean" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Executes table triggers during bulk insert when true.</xs:documentation>
+                        <xs:documentation>Triggers target table trigger execution during bulk insert
+                            when true.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="keep_nulls" type="xs:boolean" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Preserves explicit NULL values during bulk insert when true.</xs:documentation>
+                        <xs:documentation>Preserves explicit NULL values during copy when true.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="description" type="xs:string" use="optional">
                     <xs:annotation>
-                        <xs:documentation>Description of the bulk SQL step.</xs:documentation>
+                        <xs:documentation>Description of bulk SQL copy step.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
             </xs:extension>

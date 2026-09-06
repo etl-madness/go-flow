@@ -1,28 +1,29 @@
 # Overview of the `<yaml_path>` Node in Flow
 
-The `<yaml_path>` node in `flow` enables evaluating path queries against raw YAML content loaded from disk files or stored inside pipeline variables[cite: 1, 2, 4]. It converts YAML structures into normalized JSON in memory and evaluates path expressions, writing the output back to downstream pipeline variables.
+The `<yaml_path>` node in `flow` enables evaluating path queries against raw YAML content loaded from disk files or stored inside pipeline variables. It converts YAML structures into normalized JSON in memory and evaluates path expressions, writing the output back to downstream pipeline variables.
 
 ## Key Attributes
 
-* **`file`**: (Optional) Path to a `.yaml` or `.yml` file on disk[cite: 1, 2]. Supports `{{VarName}}` variable interpolation.
-* **`var`**: (Optional) Pipeline environment variable containing raw YAML text[cite: 1, 2].
-* **`path` / `yamlpath`**: (Optional) The path query expression to evaluate[cite: 1, 2]. Alternatively, the path expression can be written inside the element body[cite: 2, 4].
-* **`mode`**: (Optional) Format of the extracted output[cite: 1, 2, 4]:
-  * `value` (Default): Returns scalar text or line-separated value matches[cite: 1, 2, 4].
-  * `json`: Returns extracted sub-objects as a formatted JSON string[cite: 2, 4].
-  * `json_array`: Serializes all matched nodes into a JSON array string[cite: 1, 2, 4].
-  * `yaml`: Serializes matched nodes back into clean YAML block format[cite: 2, 4].
-* **`output_var` / `out_var`**: Target pipeline environment variable where extracted results will be saved[cite: 1, 2, 4].
+* **`file`**: (Optional) Path to a `.yaml` or `.yml` file on disk. Supports `{{VarName}}` variable interpolation.
+* **`var`**: (Optional) Pipeline environment variable containing raw YAML text.
+* **`path` / `yamlpath`**: (Optional) The path query expression to evaluate. Alternatively, the path expression can be written inside the element body.
+* **`mode`**: (Optional) Format of the extracted output:
+  * `value` (Default): Returns scalar text or line-separated value matches.
+  * `json`: Returns extracted sub-objects as a formatted JSON string.
+  * `json_array`: Serializes all matched nodes into a JSON array string.
+  * `yaml`: Serializes matched nodes back into clean YAML block format.
+* **`output_var` / `out_var`**: Target pipeline environment variable where extracted results will be saved.
 
 ---
 
 ## Examples
 
 ### 1. Extracting a Database Host from a Configuration File
-Load a service configuration file and extract a scalar database connection string[cite: 2, 4].
+Load a service configuration file and extract a scalar database connection string.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <variables>
         <variable name="CONFIG_FILE" type="string" value="./config/app.yaml" />
     </variables>
@@ -45,7 +46,8 @@ Load a service configuration file and extract a scalar database connection strin
 Extract a sub-map or configuration block from a YAML file directly into a JSON string to pass into an HTTP client node.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <flow>
         <!-- Extract the entire telemetry configuration block as JSON -->
         <yaml_path 
@@ -67,7 +69,8 @@ Extract a sub-map or configuration block from a YAML file directly into a JSON s
 Place dynamic or complex path queries directly inside the element body using template variable substitution.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <variables>
         <variable name="ENVIRONMENT" type="string" value="production" />
     </variables>
@@ -87,7 +90,8 @@ Place dynamic or complex path queries directly inside the element body using tem
 Extract a list of container images from a Kubernetes manifest file as a clean JSON array string.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <flow>
         <!-- Query all container images across all specs -->
         <yaml_path 
@@ -108,7 +112,8 @@ Extract a list of container images from a Kubernetes manifest file as a clean JS
 Extract a sub-section of a larger YAML document and output it formatted as valid YAML for writing to disk.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <flow>
         <file_read file="./config/cluster.yaml" output_var="FULL_CLUSTER_YAML" />
 

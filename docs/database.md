@@ -1,20 +1,36 @@
 # Database Operations in Flow Pipelines 🗄️
 
-Flow features native, high-performance integration with SQL relational databases, enabling direct query execution, transactional grouping, rapid bulk data replication, and styled multi-tab spreadsheet generation.
+Flow features native, high-performance integration with both relational SQL databases and modern Key-Value (KV) stores—enabling direct query execution, transactional grouping, rapid bulk data replication, key-value lookups/streaming, and styled multi-tab spreadsheet generation.
 
 ---
 
-## Database connection tuning <database>
-Defined under `<databases>` as child `<database>` elements.
-Connection parameters live on the `<database>` definition itself, not on each SQL step.
+## Supported Databases & Storage Engines
 
-- **`name`**: unique logical database identifier used by SQL nodes.
-- **`driver`**: database driver (for example `sqlite`, `postgres`, `mysql`, `sqlserver`).
-- **`connection_string`**: driver-specific DSN/connection string.
-- **`max_open_conns`**: max number of simultaneous open connections in the pool.
-- **`max_idle_conns`**: number of idle connections retained ready for reuse.
-- **`conn_max_lifetime_seconds`**: maximum age of a pooled connection before it is recycled.
-- **`workload`**: optional tuning profile label such as `oltp`, `bulk`, or `analytics`.
+| Engine / Store | Driver Identifier(s) | Type | Connection String Example | Primary Workload & Capabilities |
+| :--- | :--- | :--- | :--- | :--- |
+| **PostgreSQL** | `postgres`, `postgresql`, `pq` | Relational SQL | `postgresql://user:pass@localhost:5432/dbname?sslmode=disable` | OLTP, high-throughput bulk ETL, JSON analytics |
+| **SQLite** | `sqlite`, `sqlite3` | Embedded SQL | `file::memory:?cache=shared` or `./app.db` | Local development, testing, caching, zero-config persistence |
+| **MySQL** | `mysql` | Relational SQL | `user:pass@tcp(localhost:3306)/dbname?parseTime=true` | Web OLTP, read replicas, batch ingestion |
+| **SQL Server** | `sqlserver`, `mssql` | Relational SQL | `sqlserver://sa:pass@localhost:1433?database=dbname` | Enterprise OLTP, analytics, fast bulk copies (`tablock`) |
+| **Oracle** | `oracle`, `godror` | Relational SQL | `oracle://user:pass@localhost:1521/service_name` | Mission-critical enterprise OLTP, data warehouses |
+| **bbolt** | `bbolt`, `bolt` | Embedded KV | `./data/cache.db` | ACID transactions, zero-dependency embedded KV caching |
+| **BadgerDB** | `badger`, `badgerdb` | Embedded KV | `./data/badger_dir` | LSM-tree architecture, high-write-throughput embedded KV |
+| **Redis / Valkey** | `redis`, `valkey` | Server KV | `redis://:password@localhost:6379/0` or `127.0.0.1:6379` | In-memory caching, pub/sub, pipelined bulk replication |
+| **etcd** | `etcd`, `etcdv3` | Distributed KV | `http://127.0.0.1:2379,http://127.0.0.1:22379` | Distributed configuration, metadata consensus, prefix scans |
+
+---
+
+## Database Connection Tuning `<database>`
+Defined under `<databases>` as child `<database>` elements.
+Connection parameters live on the `<database>` definition itself, not on each SQL or KV step.
+
+- **`name`**: unique logical database identifier used by SQL and KV nodes.
+- **`driver`**: database driver (e.g., `sqlite`, `postgres`, `mysql`, `sqlserver`, `oracle`, `bbolt`, `badger`, `redis`, `etcd`).
+- **`connection_string`**: driver-specific DSN, file path, or endpoint list. Supports variable interpolation (e.g. `{{DB_URL}}`).
+- **`max_open_conns`**: max number of simultaneous open connections in the pool (SQL engines).
+- **`max_idle_conns`**: number of idle connections retained ready for reuse (SQL engines).
+- **`conn_max_lifetime_seconds`**: maximum age of a pooled connection before it is recycled (SQL engines).
+- **`workload`**: optional tuning profile label such as `oltp`, `bulk`, or `analytics` (SQL engines).
 
 A workload is the operational pattern of a database connection. It describes how a connection is expected to be used at runtime so the pool can be tuned for the right trade-off between concurrency, latency, and throughput. In practice, Flow uses the workload label as a hint to choose sane defaults for connection count, idle retention, and lifetime without hardcoding one-size-fits-all values.
 
@@ -36,6 +52,8 @@ Supported database engines and typical workload fit:
 These workload labels are not limited to a single database engine; they describe the application behavior of the connection, so all supported drivers can use the same tuning model.
 
 ```xml
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
 <databases>
     <database name="analytics_db"
               driver="postgres"
@@ -45,12 +63,15 @@ These workload labels are not limited to a single database engine; they describe
               conn_max_lifetime_seconds="300"
               workload="oltp" />
 </databases>
+</pipeline>
 ```
 
 ### Example: Pool tuning for bulk ETL
 Use a larger pool for high-throughput bulk workloads and a shorter idle lifetime for transient jobs.
 
 ```xml
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
 <databases>
     <database name="warehouse_db"
               driver="postgres"
@@ -70,6 +91,7 @@ Use a larger pool for high-throughput bulk workloads and a shorter idle lifetime
         SELECT order_id, customer_id, amount, created_at FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '7 days';
     </sql_bulk>
 </flow>
+</pipeline>
 ```
 
 
@@ -93,6 +115,26 @@ Optimized for streaming huge datasets directly from a source database query into
 - **`fire_triggers`**: Execute target table triggers during insert (`true` / `false`).
 - **`keep_nulls`**: Preserve explicit NULL values (`true` / `false`).
 
+### 3. `<kv>`
+Executes individual atomic operations (`get`, `put`/`set`, `delete`/`del`, `scan`/`list`) against Key-Value stores (`bbolt`, `badger`, `redis`, `etcd`).
+- **`db` / `database`**: Name of the configured KV database connection handle.
+- **`id`**: Unique identifier for this step.
+- **`bucket`**: Target bucket name (`bbolt`, `badger`) or namespace key prefix (`redis`, `etcd`). Defaults to `"default"`.
+- **`op`**: Operation type: `get`, `put` / `set`, `delete` / `del`, or `scan` / `list`.
+- **`key`**: Target key name.
+- **`value`**: Value payload to store (for `put` / `set`).
+- **`output_var` / `var` / `variable`**: (Optional) Pipeline variable receiving the operation result or returned values.
+- *Inline DSL*: Operations, keys, and values may also be written inside the node body (e.g. `set mykey myval` or `get mykey`).
+
+### 4. `<kv_bulk>`
+Streams records directly from a SQL query source into a target Key-Value store bucket or namespace in high-throughput batches.
+- **`db` / `database`**: Name of the source SQL database connection executing the query.
+- **`target_db`**: Target Key-Value database connection handle.
+- **`target_bucket`**: Target bucket or key namespace prefix in the destination KV store.
+- **`batch_size`**: Number of records committed per chunk (defaults to `10000`).
+- **`output_var` / `var`**: (Optional) Pipeline variable receiving the total count of transferred records.
+- *Query Body*: The enclosed SQL query must project at least two columns: `key` (col 1) and `value` (col 2).
+
 
 ---
 
@@ -102,7 +144,8 @@ Optimized for streaming huge datasets directly from a source database query into
 Initialize a database table structure and load initial seed data.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
         <database name="analytics_db"
                   driver="sqlite"
@@ -136,7 +179,8 @@ Initialize a database table structure and load initial seed data.
 Filter database records dynamically utilizing pipeline environment variables.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
         <database name="production_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/prod" />
     </databases>
@@ -162,7 +206,8 @@ Filter database records dynamically utilizing pipeline environment variables.
 Bulk replicate records from a production database directly into a separate analytics cold storage target.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
         <database name="prod_db" driver="mysql" connection_string="root:secret@tcp(localhost:3306)/prod" />
         <database name="archive_db" driver="sqlite" connection_string="./archive.db" />
@@ -188,7 +233,8 @@ Bulk replicate records from a production database directly into a separate analy
 Consolidate multiple database reports into separate tabs inside a single `.xlsx` workbook using consecutive `<excel_write>` nodes.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
         <database name="retail_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/retail" />
     </databases>
@@ -223,7 +269,8 @@ Consolidate multiple database reports into separate tabs inside a single `.xlsx`
 Build a complete end-to-end data staging, bulk copy, and multi-tab Excel dashboard export workflow.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
         <database name="crm_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/crm" />
         <database name="reporting_warehouse" driver="sqlite" connection_string="./warehouse.db" />
@@ -279,7 +326,8 @@ Build a complete end-to-end data staging, bulk copy, and multi-tab Excel dashboa
 Extract data from a spreadsheet using `<excel_read>` and write it to a database using a Go interpreter script.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
         <database name="inventory_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/inventory" />
     </databases>
@@ -342,7 +390,8 @@ Extract data from a spreadsheet using `<excel_read>` and write it to a database 
 Use `<group>` with `transaction="true"` to wrap multiple SQL operations inside an atomic transaction, ensuring automatic rollback on any failure.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
         <database name="finance_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/finance" />
     </databases>
@@ -377,7 +426,8 @@ If your database engine supports native JSON processing functions, you can pass 
 
 #### Method A: PostgreSQL (Using `json_populate_recordset`)
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
         <database name="store_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/store" />
     </databases>
@@ -397,7 +447,8 @@ If your database engine supports native JSON processing functions, you can pass 
 
 #### Method B: SQLite (Using `json_each`)
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
         <database name="local_db" driver="sqlite" connection_string="./local.db" />
     </databases>
@@ -419,7 +470,8 @@ If your database engine supports native JSON processing functions, you can pass 
 
 #### Method C: Microsoft SQL Server / MSSQL (Using `OPENJSON`)
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
         <database name="mssql_db" driver="sqlserver" connection_string="sqlserver://sa:secret@localhost:1433?database=store" />
     </databases>
@@ -441,6 +493,79 @@ If your database engine supports native JSON processing functions, you can pass 
     </flow>
 </pipeline>
 ```
+
+---
+
+### Example 6: Key-Value Single Operations (`<kv>`)
+Demonstrates interacting with embedded stores (`bbolt`, `badger`) and server instances (`redis`, `etcd`) using both XML attributes and inline DSL syntax.
+
+```xml
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
+    <databases>
+        <database name="local_cache" driver="bbolt" connection_string="./data/cache.db" />
+        <database name="redis_pub" driver="redis" connection_string="redis://localhost:6379/0" />
+    </databases>
+    <flow>
+        <!-- Attribute syntax: write and read from bbolt -->
+        <kv id="set_cfg" db="local_cache" bucket="settings" op="put" key="max_workers" value="64" />
+        <kv id="get_cfg" db="local_cache" bucket="settings" op="get" key="max_workers" output_var="WORKER_COUNT" />
+
+        <!-- Inline DSL syntax: Redis commands -->
+        <kv id="redis_cache_session" db="redis_pub" bucket="sessions">
+            set sess:12345 user_session_payload
+        </kv>
+        <kv id="redis_get_session" db="redis_pub" bucket="sessions" output_var="SESSION_DATA">
+            get sess:12345
+        </kv>
+
+        <!-- Prefix Scan -->
+        <kv id="scan_sessions" db="redis_pub" bucket="sessions" op="scan" key="sess:" output_var="ACTIVE_SESSIONS" />
+
+        <!-- Key Deletion -->
+        <kv id="delete_session" db="redis_pub" bucket="sessions" op="del" key="sess:12345" />
+    </flow>
+</pipeline>
+```
+
+---
+
+### Example 7: SQL to Key-Value High-Throughput Bulk ETL (`<kv_bulk>`)
+Streams key-value projections from a relational SQL database straight into a Key-Value target bucket in high-speed batches.
+
+```xml
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
+    <databases>
+        <database name="sql_catalog" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/store" />
+        <database name="fast_redis" driver="redis" connection_string="redis://localhost:6379/0" />
+        <database name="embedded_badger" driver="badger" connection_string="./data/product_cache" />
+    </databases>
+    <flow>
+        <!-- Replicate product prices directly into Redis cache in chunks of 5000 -->
+        <kv_bulk id="bulk_cache_prices"
+                 db="sql_catalog"
+                 target_db="fast_redis"
+                 target_bucket="product_prices"
+                 batch_size="5000"
+                 output_var="RECORDS_CACHED">
+            SELECT sku, CAST(price AS TEXT) FROM store.products WHERE active = true
+        </kv_bulk>
+
+        <!-- Stream lookup values into an embedded BadgerDB LSM storage -->
+        <kv_bulk id="bulk_seed_badger"
+                 db="sql_catalog"
+                 target_db="embedded_badger"
+                 target_bucket="sku_inventory"
+                 batch_size="10000">
+            SELECT sku, CAST(quantity AS TEXT) FROM store.inventory
+        </kv_bulk>
+    </flow>
+</pipeline>
+```
+
+For dedicated details, driver characteristics, and DSL syntax, refer to the [Key-Value Documentation](kv.md).
+
 
 
 

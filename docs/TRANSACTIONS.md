@@ -12,18 +12,19 @@ Transactions are declared at the `<group>` node level using two attributes:
 
 ### Basic Example
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
         <database name="sales_db" driver="postgres" connection_string="postgresql://..." />
     </databases>
     <flow>
         <group id="update_sales_txn" transaction="true" db="sales_db">
-            <script id="deduct_inventory" language="sql" db="sales_db">
+            <sql id="deduct_inventory" db="sales_db">
                 UPDATE inventory SET stock = stock - 1 WHERE item_id = 42;
-            </script>
-            <script id="record_sale" language="sql" db="sales_db">
+            </sql>
+            <sql id="record_sale" db="sales_db">
                 INSERT INTO sales (item_id, qty) VALUES (42, 1);
-            </script>
+            </sql>
         </group>
     </flow>
 </pipeline>
@@ -36,20 +37,21 @@ Transactions are declared at the `<group>` node level using two attributes:
 If a group with `transaction="true"` is placed inside a `<foreach>` loop, Flow begins, executes, and commits/rolls back a new transaction **per loop iteration**. 
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <flow>
         <!-- Loop driver gets item IDs -->
-        <foreach id="process_items" language="sql" db="sales_db">
+        <foreach id="process_items" db="sales_db">
             SELECT item_id, price FROM active_promotions;
             
             <!-- A transaction is started and finished for each promotion processed -->
             <group id="apply_promo_txn" transaction="true" db="sales_db">
-                <script id="update_price" language="sql" db="sales_db">
+                <sql id="update_price" db="sales_db">
                     UPDATE products SET price = {{price}} WHERE id = {{item_id}};
-                </script>
-                <script id="log_history" language="sql" db="sales_db">
+                </sql>
+                <sql id="log_history" db="sales_db">
                     INSERT INTO pricing_log (product_id, new_price) VALUES ({{item_id}}, {{price}});
-                </script>
+                </sql>
             </group>
         </foreach>
     </flow>
@@ -66,19 +68,20 @@ When running concurrent tasks in a `<parallel>` block:
 *   This prevents race conditions or shared transaction states across parallel threads.
 
 ```xml
-<pipeline>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <flow>
         <parallel max_threads="2">
             <!-- Branch 1: isolated txn on sales_db -->
             <group transaction="true" db="sales_db">
-                <script language="sql" db="sales_db">INSERT INTO logs VALUES ('Thread A started');</script>
-                <script language="sql" db="sales_db">UPDATE stats SET count = count + 1;</script>
+                <sql db="sales_db">INSERT INTO logs VALUES ('Thread A started');</sql>
+                <sql db="sales_db">UPDATE stats SET count = count + 1;</sql>
             </group>
 
             <!-- Branch 2: isolated txn on sales_db -->
             <group transaction="true" db="sales_db">
-                <script language="sql" db="sales_db">INSERT INTO logs VALUES ('Thread B started');</script>
-                <script language="sql" db="sales_db">UPDATE stats SET count = count + 1;</script>
+                <sql db="sales_db">INSERT INTO logs VALUES ('Thread B started');</sql>
+                <sql db="sales_db">UPDATE stats SET count = count + 1;</sql>
             </group>
         </parallel>
     </flow>
@@ -98,7 +101,7 @@ All transactions in Flow are fully contextualized using Go's `context.Context` A
 
 ## 4. Interaction with SQL Server Bulk Copy (`StreamETL`)
 
-Flow has high-performance support for Microsoft SQL Server native TDS bulk streaming copy via the `StreamETL` function (`<script target_table="...">` tag). 
+Flow has high-performance support for Microsoft SQL Server native TDS bulk streaming copy via the `StreamETL` function (`<sql_bulk target_table="...">` tag). 
 
 ### How Bulk Copy Works
 The MS SQL Server bulk copy utility loads data efficiently by writing data pages directly to the database without the overhead of standard row-by-row transaction logs. It utilizes the `mssql.CopyIn` interface.
@@ -111,7 +114,7 @@ Unlike standard sequential SQL scripts, **SQL Server bulk copy manages its own i
 
 ### Impact of Mixing Group Transactions and Bulk Copy
 > [!WARNING]
-> While a standard `<group transaction="true">` is excellent for atomic transactional integrity on conventional queries, you should avoid placing high-throughput bulk copy stream scripts (`<script target_table="...">`) inside a transaction-enabled group.
+> While a standard `<group transaction="true">` is excellent for atomic transactional integrity on conventional queries, you should avoid placing high-throughput bulk copy stream scripts (`<sql_bulk target_table="...">`) inside a transaction-enabled group.
 
 Here is how configuration options impact bulk copy:
 
