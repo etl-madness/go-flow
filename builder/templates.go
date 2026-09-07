@@ -16,6 +16,18 @@ const ScriptSelectorPartial = `{{define "script_selector"}}
         class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md text-xs font-semibold transition" title="Create New Script">
     ＋ New
 </button>
+<button onclick="openCopyScriptModal()" 
+        class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md text-xs font-semibold transition" title="Duplicate / Copy Active Pipeline">
+    📋 Copy
+</button>
+<button onclick="openImportScriptModal()" 
+        class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 rounded-md text-xs font-semibold transition" title="Import Pipeline from Filesystem">
+    📂 Import
+</button>
+<button onclick="confirmDeleteScript()" 
+        class="px-2.5 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 rounded-md text-xs font-semibold transition" title="Delete Active Pipeline">
+    🗑️ Delete
+</button>
 {{end}}`
 
 const CanvasNodesPartial = `{{define "canvas_nodes"}}

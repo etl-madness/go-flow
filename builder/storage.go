@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -427,4 +428,130 @@ func (s *Storage) SaveOptionsFile(name, content string) error {
 
 	_, err := s.db.Exec("INSERT OR REPLACE INTO options_files (name, content, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", name, content)
 	return err
+}
+
+// PurgeDatabase drops/clears all scripts, nodes, configs, and options drafts,
+// resets sequence counters, and re-initializes fresh default files and scripts.
+func (s *Storage) PurgeDatabase() (*Script, error) {
+	s.mu.Lock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		s.mu.Unlock()
+		return nil, fmt.Errorf("failed to start purge transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	tables := []string{"pipeline_nodes", "scripts", "config_files", "options_files"}
+	for _, tbl := range tables {
+		if _, err := tx.Exec("DELETE FROM " + tbl); err != nil {
+			s.mu.Unlock()
+			return nil, fmt.Errorf("failed to clear table %s: %w", tbl, err)
+		}
+	}
+	_, _ = tx.Exec("DELETE FROM sqlite_sequence WHERE name IN ('scripts', 'pipeline_nodes', 'config_files', 'options_files')")
+
+	if err := tx.Commit(); err != nil {
+		s.mu.Unlock()
+		return nil, fmt.Errorf("failed to commit purge: %w", err)
+	}
+	s.mu.Unlock()
+
+	s.GetOrCreateDefaultConfig()
+	s.GetOrCreateDefaultOptions()
+
+	sc, err := s.GetOrCreateDefaultScript()
+	if err != nil {
+		return nil, err
+	}
+	return &sc, nil
+}
+
+// DeleteScript deletes a script and all of its associated nodes.
+// If no scripts remain after deletion, a default script is automatically re-seeded.
+func (s *Storage) DeleteScript(id int64) error {
+	s.mu.Lock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		s.mu.Unlock()
+		return fmt.Errorf("failed to start delete transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("DELETE FROM pipeline_nodes WHERE script_id = ?", id); err != nil {
+		s.mu.Unlock()
+		return fmt.Errorf("failed to delete script nodes: %w", err)
+	}
+	if _, err := tx.Exec("DELETE FROM scripts WHERE id = ?", id); err != nil {
+		s.mu.Unlock()
+		return fmt.Errorf("failed to delete script: %w", err)
+	}
+
+	var count int
+	_ = tx.QueryRow("SELECT COUNT(*) FROM scripts").Scan(&count)
+
+	if err := tx.Commit(); err != nil {
+		s.mu.Unlock()
+		return fmt.Errorf("failed to commit delete: %w", err)
+	}
+	s.mu.Unlock()
+
+	if count == 0 {
+		_, _ = s.GetOrCreateDefaultScript()
+	}
+
+	return nil
+}
+
+// CopyScript duplicates an existing pipeline script and all its child nodes.
+func (s *Storage) CopyScript(sourceID int64, newName string) (*Script, error) {
+	sourceScript, err := s.GetScript(sourceID)
+	if err != nil {
+		return nil, fmt.Errorf("source script not found: %w", err)
+	}
+
+	baseName := strings.TrimSpace(newName)
+	if baseName == "" {
+		baseName = sourceScript.Name + " (Copy)"
+	}
+
+	// Ensure unique name
+	candidate := baseName
+	copyIndex := 2
+	for {
+		existingScripts, err := s.ListScripts()
+		if err != nil {
+			return nil, err
+		}
+		exists := false
+		for _, sc := range existingScripts {
+			if strings.EqualFold(sc.Name, candidate) {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			break
+		}
+		candidate = fmt.Sprintf("%s (%d)", baseName, copyIndex)
+		copyIndex++
+	}
+
+	newScript, err := s.CreateScript(candidate, sourceScript.Description)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cloned script record: %w", err)
+	}
+
+	nodes, err := s.GetNodes(sourceID, "")
+	if err != nil {
+		return newScript, nil
+	}
+
+	for _, node := range nodes {
+		_, err := s.AddNode(newScript.ID, node.Section, node.NodeType, node.Attributes, node.ContentText)
+		if err != nil {
+			return nil, fmt.Errorf("failed to duplicate node %d: %w", node.ID, err)
+		}
+	}
+
+	return newScript, nil
 }

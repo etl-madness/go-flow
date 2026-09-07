@@ -90,6 +90,9 @@ const IndexHTML = `<!DOCTYPE html>
                     <option value="light" class="bg-slate-900 text-slate-200">Clean Light</option>
                 </select>
             </div>
+            <button onclick="confirmPurgeDatabase()" class="px-2.5 py-1.5 text-xs font-semibold bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 rounded-md transition-all flex items-center space-x-1 shadow-sm" title="Purge SQLite database and reset to factory defaults">
+                <span>🧹 Purge DB</span>
+            </button>
             <button onclick="downloadActiveXML()" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md transition-all flex items-center space-x-1.5 shadow-sm">
                 <span>⬇️ Download XML</span>
             </button>
@@ -131,16 +134,16 @@ const IndexHTML = `<!DOCTYPE html>
             </aside>
             <section class="flex-1 flex flex-col bg-slate-950 overflow-hidden">
                 <div class="bg-slate-900 border-b border-slate-800 px-6 py-2.5 flex items-center justify-between">
-                    <div class="flex items-center space-x-3 text-xs">
-                        <span class="text-slate-400 font-medium">Pipeline Sections:</span>
-                        <a href="#section-variables" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">Variables</a>
-                        <a href="#section-databases" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">Databases</a>
-                        <a href="#section-preflight" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">Preflight</a>
-                        <a href="#section-flow" class="px-2.5 py-1 bg-blue-900/40 text-blue-300 rounded border border-blue-700/50 transition">Main Flow</a>
+                    <div class="flex items-center space-x-2 text-xs" id="pipeline-sections-nav">
+                        <span class="text-slate-400 font-medium mr-1">Pipeline Sections:</span>
+                        <a href="#section-variables" id="nav-section-variables" onclick="navigateToSection('variables', event)" class="section-nav-link px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">Variables</a>
+                        <a href="#section-databases" id="nav-section-databases" onclick="navigateToSection('databases', event)" class="section-nav-link px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">Databases</a>
+                        <a href="#section-preflight" id="nav-section-preflight" onclick="navigateToSection('preflight', event)" class="section-nav-link px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">Preflight</a>
+                        <a href="#section-flow" id="nav-section-flow" onclick="navigateToSection('flow', event)" class="section-nav-link px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">Main Flow</a>
                     </div>
                     <div class="text-xs text-slate-400">Drag cards or use ▲/▼ to re-order sequence</div>
                 </div>
-                <div class="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6" id="canvas-content"
+                <div class="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6 scroll-smooth" id="canvas-content"
                      hx-get="/api/canvas?script_id={{.ActiveScript.ID}}" hx-trigger="refreshCanvas from:body" hx-swap="innerHTML">
                     {{template "canvas_nodes" .}}
                 </div>
@@ -189,20 +192,71 @@ const IndexHTML = `<!DOCTYPE html>
         </div>
         <div id="tab-runner" class="hidden flex-1 flex flex-col bg-slate-950 p-6 overflow-hidden">
             <div class="max-w-6xl w-full mx-auto flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
-                <div class="px-6 py-4 border-b border-slate-800 bg-slate-900/70 flex flex-wrap items-center justify-between gap-4">
-                    <div>
-                        <h2 class="text-base font-bold text-white">🚀 Execute Pipeline</h2>
-                        <p class="text-xs text-slate-400">Stream execution events live to the webpage.</p>
+                <div class="px-6 py-4 border-b border-slate-800 bg-slate-900/70 flex flex-col gap-3">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-base font-bold text-white flex items-center space-x-2">
+                                <span>🚀 Execute Pipeline</span>
+                                <span class="text-[11px] font-normal px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Live Stream</span>
+                            </h2>
+                            <p class="text-xs text-slate-400">Select pipeline script, config, and options from the filesystem or execute active draft.</p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="bg-slate-950 border border-slate-800 rounded-lg p-0.5 flex items-center space-x-1">
+                                <button type="button" onclick="setRunnerSource('file')" id="source-btn-file" class="px-3 py-1 text-xs font-semibold rounded-md transition-colors bg-blue-600 text-white shadow">
+                                    📂 Filesystem Script
+                                </button>
+                                <button type="button" onclick="setRunnerSource('builder')" id="source-btn-builder" class="px-3 py-1 text-xs font-semibold rounded-md transition-colors text-slate-400 hover:text-white">
+                                    🎨 Builder Draft
+                                </button>
+                            </div>
+                            <button onclick="startPipelineExecution()" id="execute-btn" class="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition shadow flex items-center space-x-1.5 cursor-pointer">
+                                <span>▶ Run Execution</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="flex items-center space-x-3">
-                        <input type="text" id="runner-script-file" value="scripts.xml" placeholder="scripts.xml" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 w-32 focus:outline-none focus:border-blue-500">
-                        <input type="text" id="runner-config-file" value="" placeholder="CONFIG.xml (optional)" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 w-36 focus:outline-none focus:border-blue-500">
-                        <input type="text" id="runner-options-file" value="" placeholder="options.xml (optional)" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 w-36 focus:outline-none focus:border-blue-500">
-                        <button onclick="startPipelineExecution()" id="execute-btn" class="px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition shadow flex items-center space-x-1">
-                            <span>▶ Run Execution</span>
-                        </button>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                        <div class="flex flex-col space-y-1">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[11px] font-semibold text-slate-300">📜 Pipeline Script (<span class="text-amber-400">*</span>)</label>
+                                <span id="runner-source-label" class="text-[10px] text-cyan-400 font-mono">source: filesystem</span>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="text" id="runner-script-file" list="quick-xml-files" value="scripts.xml" placeholder="scripts.xml" class="bg-slate-950 border border-slate-700 rounded-l px-2.5 py-1.5 text-xs text-slate-200 w-full focus:outline-none focus:border-blue-500 font-mono">
+                                <button type="button" onclick="openFileBrowser('runner-script-file', '.xml')" title="Browse filesystem for script XML" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border-y border-r border-slate-700 rounded-r px-2.5 py-1.5 text-xs font-medium transition flex items-center space-x-1 whitespace-nowrap cursor-pointer">
+                                    <span>📂 Browse</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex flex-col space-y-1">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[11px] font-semibold text-slate-300">⚙️ Config Overrides (optional)</label>
+                                <span class="text-[10px] text-slate-500 font-mono">-config</span>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="text" id="runner-config-file" list="quick-xml-files" value="" placeholder="CONFIG.xml (optional)" class="bg-slate-950 border border-slate-700 rounded-l px-2.5 py-1.5 text-xs text-slate-200 w-full focus:outline-none focus:border-blue-500 font-mono">
+                                <button type="button" onclick="document.getElementById('runner-config-file').value=''" title="Clear config file" class="bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-y border-slate-700 px-2 py-1.5 text-xs transition cursor-pointer">✕</button>
+                                <button type="button" onclick="openFileBrowser('runner-config-file', '.xml')" title="Browse filesystem for CONFIG.xml" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border-y border-r border-slate-700 rounded-r px-2.5 py-1.5 text-xs font-medium transition flex items-center space-x-1 whitespace-nowrap cursor-pointer">
+                                    <span>📂 Browse</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex flex-col space-y-1">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[11px] font-semibold text-slate-300">🎛️ CLI Options (optional)</label>
+                                <span class="text-[10px] text-slate-500 font-mono">-options</span>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="text" id="runner-options-file" list="quick-xml-files" value="" placeholder="options.xml (optional)" class="bg-slate-950 border border-slate-700 rounded-l px-2.5 py-1.5 text-xs text-slate-200 w-full focus:outline-none focus:border-blue-500 font-mono">
+                                <button type="button" onclick="document.getElementById('runner-options-file').value=''" title="Clear options file" class="bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-y border-slate-700 px-2 py-1.5 text-xs transition cursor-pointer">✕</button>
+                                <button type="button" onclick="openFileBrowser('runner-options-file', '.xml')" title="Browse filesystem for options.xml" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border-y border-r border-slate-700 rounded-r px-2.5 py-1.5 text-xs font-medium transition flex items-center space-x-1 whitespace-nowrap cursor-pointer">
+                                    <span>📂 Browse</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
+                <datalist id="quick-xml-files"></datalist>
                 <div class="flex-1 flex flex-col overflow-hidden p-4 bg-slate-950 space-y-4">
                     <div id="execution-status-bar" class="px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-between text-xs">
                         <div class="flex items-center space-x-2">
@@ -300,6 +354,91 @@ const IndexHTML = `<!DOCTYPE html>
             </form>
         </div>
     </div>
+    <div id="copy-pipeline-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 shadow-2xl flex flex-col space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-base">📋</span>
+                    <h3 class="text-sm font-bold text-white">Duplicate Pipeline</h3>
+                </div>
+                <button onclick="document.getElementById('copy-pipeline-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">&times;</button>
+            </div>
+            <form onsubmit="submitCopyScript(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs text-slate-300 mb-1">New Pipeline Name</label>
+                    <input type="text" id="copy-script-name" required class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
+                </div>
+                <p class="text-[11px] text-slate-400">All variables, databases, preflight gates, and flow steps will be copied into the new pipeline draft.</p>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="document.getElementById('copy-pipeline-modal').classList.add('hidden')" class="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded">Cancel</button>
+                    <button type="submit" class="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded font-semibold shadow">Create Copy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="import-pipeline-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 shadow-2xl flex flex-col space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-base">📂</span>
+                    <h3 class="text-sm font-bold text-white">Import Pipeline from Filesystem</h3>
+                </div>
+                <button onclick="document.getElementById('import-pipeline-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">&times;</button>
+            </div>
+            <form onsubmit="submitImportScript(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs text-slate-300 mb-1">Pipeline File (.xml)</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="import-file-path" list="quick-xml-files" placeholder="examples/check_two_tables_in_parallel_take_action.xml" required class="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500 font-mono">
+                        <button type="button" onclick="browseForImportFile()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs rounded transition flex items-center space-x-1">
+                            <span>Browse...</span>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-300 mb-1">Custom Pipeline Name (Optional)</label>
+                    <input type="text" id="import-script-name" placeholder="Leave empty to use XML/file name" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
+                </div>
+                <p class="text-[11px] text-slate-400">The XML file will be parsed and imported into SQLite as an editable visual draft with all variables, databases, and flow nodes.</p>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="document.getElementById('import-pipeline-modal').classList.add('hidden')" class="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded">Cancel</button>
+                    <button type="submit" class="px-4 py-1.5 text-xs bg-cyan-600 hover:bg-cyan-500 text-white rounded font-semibold shadow">Import Pipeline</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="delete-pipeline-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-rose-900/40 rounded-xl max-w-md w-full p-6 shadow-2xl flex flex-col space-y-4">
+            <div class="flex items-center space-x-2 text-rose-400 border-b border-slate-800 pb-3">
+                <span class="text-xl">⚠️</span>
+                <h3 class="text-sm font-bold text-white">Delete Pipeline</h3>
+            </div>
+            <p class="text-xs text-slate-300">Are you sure you want to delete pipeline <span id="delete-pipeline-name" class="font-bold text-rose-400"></span>?</p>
+            <p class="text-[11px] text-slate-400">All canvas nodes and configuration for this pipeline will be permanently removed from SQLite.</p>
+            <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+                <button type="button" onclick="document.getElementById('delete-pipeline-modal').classList.add('hidden')" class="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded">Cancel</button>
+                <button type="button" onclick="submitDeleteScript()" class="px-4 py-1.5 text-xs bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded shadow">Delete Pipeline</button>
+            </div>
+        </div>
+    </div>
+    <div id="purge-db-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-red-800 rounded-xl max-w-md w-full p-6 shadow-2xl flex flex-col space-y-4">
+            <div class="flex items-center space-x-2 text-red-400 border-b border-slate-800 pb-3">
+                <span class="text-xl">🧹</span>
+                <h3 class="text-sm font-bold text-white">Purge SQLite Database</h3>
+            </div>
+            <div class="p-3 bg-red-950/30 border border-red-900/50 rounded-lg text-xs text-red-300 space-y-1">
+                <p class="font-bold">⚠️ DANGER: Permanent Reset</p>
+                <p>This will permanently erase ALL pipelines, canvas steps, config overrides, and CLI options drafts in the SQLite database.</p>
+                <p>The database will be re-initialized with fresh factory default drafts.</p>
+            </div>
+            <p class="text-xs text-slate-300">Are you absolutely sure you want to proceed?</p>
+            <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+                <button type="button" onclick="document.getElementById('purge-db-modal').classList.add('hidden')" class="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded">Cancel</button>
+                <button type="button" onclick="submitPurgeDatabase()" class="px-4 py-1.5 text-xs bg-red-600 hover:bg-red-500 text-white font-semibold rounded shadow">Yes, Purge Database</button>
+            </div>
+        </div>
+    </div>
     <div id="picker-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[85vh]">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -316,6 +455,44 @@ const IndexHTML = `<!DOCTYPE html>
             <div class="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1" id="picker-components-list"></div>
             <div class="flex items-center justify-end pt-3 border-t border-slate-800">
                 <button type="button" onclick="closeComponentPicker()" class="px-3.5 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition">Close</button>
+            </div>
+        </div>
+    </div>
+    <div id="file-browser-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full p-5 shadow-2xl flex flex-col space-y-3 max-h-[85vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <div class="flex items-center space-x-2">
+                    <span class="text-base">📂</span>
+                    <div>
+                        <h3 id="file-browser-title" class="text-sm font-bold text-white">Select File from Filesystem</h3>
+                        <p id="file-browser-subtitle" class="text-xs text-slate-400">Choose a file from disk</p>
+                    </div>
+                </div>
+                <button onclick="closeFileBrowser()" class="text-slate-400 hover:text-white text-lg leading-none cursor-pointer">&times;</button>
+            </div>
+            
+            <div class="flex items-center space-x-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300">
+                <span class="text-slate-500 font-mono">📁</span>
+                <span id="file-browser-current-path" class="font-mono text-cyan-400 truncate flex-1">.</span>
+                <button onclick="browseUp()" id="file-browser-up-btn" title="Go up to parent directory" class="px-2 py-0.5 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition cursor-pointer">
+                    ⬆ Up
+                </button>
+                <button onclick="refreshFileBrowser()" title="Refresh directory" class="px-2 py-0.5 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition cursor-pointer">
+                    🔄
+                </button>
+            </div>
+
+            <div>
+                <input type="text" id="file-browser-filter" oninput="filterBrowseResults(this.value)" placeholder="Filter files in this directory..."
+                       class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500">
+            </div>
+
+            <div class="flex-1 overflow-y-auto custom-scrollbar border border-slate-800/80 rounded-lg bg-slate-950/60 p-1 min-h-[260px] max-h-[360px]" id="file-browser-list">
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+                <div class="text-slate-400 text-[11px]" id="file-browser-count-text">0 items</div>
+                <button type="button" onclick="closeFileBrowser()" class="px-3.5 py-1.5 font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition cursor-pointer">Cancel</button>
             </div>
         </div>
     </div>
@@ -338,7 +515,11 @@ const IndexHTML = `<!DOCTYPE html>
                     btn.classList.add('text-slate-300');
                 }
             });
-            if (tab === 'pipeline') updatePreview();
+            if (tab === 'pipeline') {
+                updatePreview();
+                setTimeout(updateActiveSectionFromScroll, 50);
+            }
+            if (tab === 'runner') populateQuickFilesList();
         }
 
         function filterComponents(q) {
@@ -470,6 +651,7 @@ const IndexHTML = `<!DOCTYPE html>
             if (secSelect) secSelect.value = targetSec;
             document.getElementById('modal-title').textContent = 'Add <' + meta.tag + '> ' + meta.name;
             document.getElementById('modal-subtitle').textContent = meta.description;
+            document.getElementById('modal-content-text').value = '';
             renderModalFields(meta, {});
             document.getElementById('node-modal').classList.remove('hidden');
         }
@@ -590,6 +772,7 @@ const IndexHTML = `<!DOCTYPE html>
                 document.getElementById('modal-content-label').textContent = meta.content_help || 'Content Body';
             } else {
                 contentBox.classList.add('hidden');
+                document.getElementById('modal-content-text').value = '';
             }
         }
 
@@ -603,7 +786,11 @@ const IndexHTML = `<!DOCTYPE html>
             const nodeId = form.querySelector('#modal-node-id').value;
             const nodeType = form.querySelector('#modal-node-type').value;
             const section = form.querySelector('#modal-node-section').value;
-            const content = form.querySelector('#modal-content-text').value;
+            const contentBox = document.getElementById('modal-content-container');
+            const meta = catalogData.find(c => c.type === nodeType);
+            const content = (!contentBox.classList.contains('hidden') && meta && meta.has_content)
+                ? form.querySelector('#modal-content-text').value
+                : '';
             const attrs = {};
 
             // Allowed predefined catalog fields
@@ -722,11 +909,435 @@ const IndexHTML = `<!DOCTYPE html>
             });
         }
 
+        function openCopyScriptModal() {
+            const select = document.getElementById('active-script-select');
+            let currentName = 'pipeline';
+            if (select && select.selectedOptions && select.selectedOptions[0]) {
+                currentName = select.selectedOptions[0].text;
+            }
+            const nameInput = document.getElementById('copy-script-name');
+            if (nameInput) {
+                nameInput.value = currentName + ' (Copy)';
+            }
+            document.getElementById('copy-pipeline-modal').classList.remove('hidden');
+            setTimeout(function() { if (nameInput) nameInput.focus(); }, 50);
+        }
+
+        function submitCopyScript(e) {
+            e.preventDefault();
+            const newName = document.getElementById('copy-script-name').value.trim();
+            fetch('/api/scripts/copy', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: currentScriptId, new_name: newName})
+            }).then(function(r) {
+                if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+                return r.json();
+            }).then(function(res) {
+                if (res.script && res.script.id) {
+                    window.location.href = '/?script_id=' + res.script.id;
+                } else {
+                    window.location.reload();
+                }
+            }).catch(function(err) {
+                alert('Failed to copy pipeline: ' + err.message);
+            });
+        }
+
+        function openImportScriptModal() {
+            document.getElementById('import-file-path').value = '';
+            document.getElementById('import-script-name').value = '';
+            document.getElementById('import-pipeline-modal').classList.remove('hidden');
+        }
+
+        function browseForImportFile() {
+            openFileBrowser('import-file-path', '.xml');
+        }
+
+        function submitImportScript(e) {
+            e.preventDefault();
+            const filePath = document.getElementById('import-file-path').value.trim();
+            const customName = document.getElementById('import-script-name').value.trim();
+            if (!filePath) {
+                alert('Please select or enter an XML pipeline file path');
+                return;
+            }
+            fetch('/api/scripts/import', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({file_path: filePath, name: customName})
+            }).then(function(r) {
+                if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+                return r.json();
+            }).then(function(res) {
+                if (res.script && res.script.id) {
+                    window.location.href = '/?script_id=' + res.script.id;
+                } else {
+                    window.location.reload();
+                }
+            }).catch(function(err) {
+                alert('Import failed: ' + err.message);
+            });
+        }
+
+        function confirmDeleteScript() {
+            const select = document.getElementById('active-script-select');
+            let currentName = 'Active Pipeline';
+            if (select && select.selectedOptions && select.selectedOptions[0]) {
+                currentName = select.selectedOptions[0].text;
+            }
+            const nameEl = document.getElementById('delete-pipeline-name');
+            if (nameEl) {
+                nameEl.textContent = '"' + currentName + '"';
+            }
+            document.getElementById('delete-pipeline-modal').classList.remove('hidden');
+        }
+
+        function submitDeleteScript() {
+            fetch('/api/scripts/delete?id=' + currentScriptId, {
+                method: 'POST'
+            }).then(function(r) {
+                if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+                return r.json();
+            }).then(function(res) {
+                if (res.next_script_id) {
+                    window.location.href = '/?script_id=' + res.next_script_id;
+                } else {
+                    window.location.href = '/';
+                }
+            }).catch(function(err) {
+                alert('Failed to delete pipeline: ' + err.message);
+            });
+        }
+
+        function confirmPurgeDatabase() {
+            document.getElementById('purge-db-modal').classList.remove('hidden');
+        }
+
+        function submitPurgeDatabase() {
+            fetch('/api/db/purge', {
+                method: 'POST'
+            }).then(function(r) {
+                if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+                return r.json();
+            }).then(function(res) {
+                alert(res.message || 'Database purged successfully!');
+                window.location.href = '/';
+            }).catch(function(err) {
+                alert('Purge failed: ' + err.message);
+            });
+        }
+
+        let runnerSource = 'file'; // 'file' or 'builder'
+        function setRunnerSource(src) {
+            runnerSource = src;
+            const btnFile = document.getElementById('source-btn-file');
+            const btnBuilder = document.getElementById('source-btn-builder');
+            const sourceLabel = document.getElementById('runner-source-label');
+            const scriptInput = document.getElementById('runner-script-file');
+
+            if (src === 'builder') {
+                btnBuilder.className = 'px-3 py-1 text-xs font-semibold rounded-md transition-colors bg-blue-600 text-white shadow';
+                btnFile.className = 'px-3 py-1 text-xs font-semibold rounded-md transition-colors text-slate-400 hover:text-white';
+                sourceLabel.textContent = 'source: builder draft';
+                sourceLabel.className = 'text-[10px] text-amber-400 font-mono';
+                if (!scriptInput.value || scriptInput.value === 'scripts.xml') {
+                    scriptInput.value = 'temp_run_script.xml';
+                }
+            } else {
+                btnFile.className = 'px-3 py-1 text-xs font-semibold rounded-md transition-colors bg-blue-600 text-white shadow';
+                btnBuilder.className = 'px-3 py-1 text-xs font-semibold rounded-md transition-colors text-slate-400 hover:text-white';
+                sourceLabel.textContent = 'source: filesystem';
+                sourceLabel.className = 'text-[10px] text-cyan-400 font-mono';
+                if (scriptInput.value === 'temp_run_script.xml') {
+                    scriptInput.value = 'scripts.xml';
+                }
+            }
+        }
+
+        let browserTargetInputId = '';
+        let browserFilterExt = '.xml';
+        let browserCurrentDir = '.';
+        let browserParentDir = '';
+        let browseCacheEntries = [];
+
+        function openFileBrowser(targetId, ext) {
+            browserTargetInputId = targetId;
+            browserFilterExt = ext || '';
+            const modal = document.getElementById('file-browser-modal');
+            const title = document.getElementById('file-browser-title');
+            const subtitle = document.getElementById('file-browser-subtitle');
+
+            if (targetId === 'runner-script-file') {
+                title.textContent = 'Select Pipeline Script XML';
+                subtitle.textContent = 'Choose an executable pipeline definition (.xml) from the filesystem';
+            } else if (targetId === 'runner-config-file') {
+                title.textContent = 'Select Config Overrides XML';
+                subtitle.textContent = 'Choose a variable / database overrides file (CONFIG.xml)';
+            } else if (targetId === 'runner-options-file') {
+                title.textContent = 'Select CLI Options XML';
+                subtitle.textContent = 'Choose CLI options XML file (options.xml)';
+            } else {
+                title.textContent = 'Select File';
+                subtitle.textContent = 'Choose a file from the filesystem';
+            }
+
+            modal.classList.remove('hidden');
+            loadDirectory(browserCurrentDir);
+        }
+
+        function closeFileBrowser() {
+            const modal = document.getElementById('file-browser-modal');
+            if (modal) modal.classList.add('hidden');
+            const filterInput = document.getElementById('file-browser-filter');
+            if (filterInput) filterInput.value = '';
+        }
+
+        function loadDirectory(dir) {
+            browserCurrentDir = dir;
+            const url = '/api/files/browse?dir=' + encodeURIComponent(dir) + '&ext=' + encodeURIComponent(browserFilterExt);
+            fetch(url)
+                .then(r => {
+                    if (!r.ok) throw new Error('Failed to read directory');
+                    return r.json();
+                })
+                .then(data => {
+                    browserCurrentDir = data.current_dir;
+                    browserParentDir = data.parent_dir;
+                    document.getElementById('file-browser-current-path').textContent = data.current_dir || '.';
+                    const upBtn = document.getElementById('file-browser-up-btn');
+                    if (data.parent_dir && data.parent_dir !== data.current_dir) {
+                        upBtn.disabled = false;
+                        upBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+                    } else {
+                        upBtn.disabled = true;
+                        upBtn.classList.add('opacity-40', 'cursor-not-allowed');
+                    }
+                    browseCacheEntries = data.entries || [];
+                    renderBrowseEntries(browseCacheEntries);
+                })
+                .catch(err => {
+                    document.getElementById('file-browser-list').innerHTML =
+                        '<div class="p-4 text-center text-red-400 text-xs">Error reading directory: ' + err.message + '</div>';
+                });
+        }
+
+        function browseUp() {
+            if (browserParentDir) {
+                loadDirectory(browserParentDir);
+            }
+        }
+
+        function refreshFileBrowser() {
+            loadDirectory(browserCurrentDir);
+        }
+
+        function filterBrowseResults(query) {
+            const q = query.trim().toLowerCase();
+            if (!q) {
+                renderBrowseEntries(browseCacheEntries);
+                return;
+            }
+            const filtered = browseCacheEntries.filter(e => e.name.toLowerCase().includes(q));
+            renderBrowseEntries(filtered);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function renderBrowseEntries(entries) {
+            const listEl = document.getElementById('file-browser-list');
+            const countEl = document.getElementById('file-browser-count-text');
+            countEl.textContent = entries.length + ' item' + (entries.length === 1 ? '' : 's');
+
+            if (entries.length === 0) {
+                listEl.innerHTML = '<div class="p-8 text-center text-slate-500 text-xs">No files or subdirectories found</div>';
+                return;
+            }
+
+            let html = '<div class="divide-y divide-slate-800/60">';
+            entries.forEach(e => {
+                const safePath = e.path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                if (e.is_dir) {
+                    html += '<div onclick="loadDirectory(\'' + safePath + '\')" class="p-2 hover:bg-slate-800/70 rounded cursor-pointer flex items-center justify-between text-xs transition group">' +
+                        '<div class="flex items-center space-x-2 text-amber-300 font-medium truncate">' +
+                            '<span>📁</span>' +
+                            '<span class="group-hover:text-amber-200">' + e.name + '</span>' +
+                        '</div>' +
+                        '<span class="text-[10px] text-slate-500 font-mono">DIR</span>' +
+                    '</div>';
+                } else {
+                    html += '<div onclick="selectFileFromBrowser(\'' + safePath + '\')" class="p-2 hover:bg-blue-600/20 hover:border-blue-500/40 border border-transparent rounded cursor-pointer flex items-center justify-between text-xs transition group">' +
+                        '<div class="flex items-center space-x-2 text-slate-200 font-mono truncate">' +
+                            '<span class="text-emerald-400">📄</span>' +
+                            '<span class="group-hover:text-cyan-300 font-medium">' + e.name + '</span>' +
+                        '</div>' +
+                        '<div class="flex items-center space-x-3 text-[10px] text-slate-400 font-mono">' +
+                            '<span>' + formatBytes(e.size) + '</span>' +
+                            '<button type="button" class="px-2 py-0.5 rounded bg-blue-600/70 text-white group-hover:bg-blue-500 text-[10px]">Select</button>' +
+                        '</div>' +
+                    '</div>';
+                }
+            });
+            html += '</div>';
+            listEl.innerHTML = html;
+        }
+
+        function selectFileFromBrowser(filePath) {
+            if (browserTargetInputId) {
+                const target = document.getElementById(browserTargetInputId);
+                if (target) {
+                    target.value = filePath;
+                    if (browserTargetInputId === 'runner-script-file') {
+                        setRunnerSource('file');
+                    }
+                    if (browserTargetInputId === 'import-file-path') {
+                        const nameInput = document.getElementById('import-script-name');
+                        if (nameInput && !nameInput.value.trim()) {
+                            const parts = filePath.replace(/\\/g, '/').split('/');
+                            const fileName = parts[parts.length - 1];
+                            const baseName = fileName.replace(/\.[^/.]+$/, '');
+                            nameInput.placeholder = baseName;
+                        }
+                    }
+                }
+            }
+            closeFileBrowser();
+        }
+
+        function populateQuickFilesList() {
+            fetch('/api/files/quick?ext=.xml')
+                .then(r => r.json())
+                .then(files => {
+                    const dl = document.getElementById('quick-xml-files');
+                    if (dl && Array.isArray(files)) {
+                        dl.innerHTML = '';
+                        files.forEach(f => {
+                            const opt = document.createElement('option');
+                            opt.value = f;
+                            dl.appendChild(opt);
+                        });
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function handleNodeEvent(evt, nodeStartTimes, tbody) {
+            const evtType = (evt.event_type || '').toLowerCase().replace(/_/g, '.');
+            if (evtType === 'run.started' || evtType === 'run.finished') {
+                return;
+            }
+            const nodeId = evt.node_id || evt.execution_id || 'unknown';
+            const rowId = 'node-row-' + nodeId.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+            if (evtType === 'node.started') {
+                nodeStartTimes[nodeId] = Date.now();
+                let row = document.getElementById(rowId);
+                if (!row) {
+                    row = document.createElement('tr');
+                    row.id = rowId;
+                    row.className = 'hover:bg-slate-800/40 transition-colors';
+                    tbody.appendChild(row);
+                }
+                row.innerHTML =
+                    '<td class="p-2.5 font-bold text-white flex items-center space-x-1.5">' +
+                        '<span class="text-xs">⚡</span>' +
+                        '<span>' + escapeHtml(nodeId) + '</span>' +
+                    '</td>' +
+                    '<td class="p-2.5 text-slate-400">' +
+                        '<span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 border border-slate-700 uppercase font-mono">' + escapeHtml(evt.kind || 'node') + '</span>' +
+                    '</td>' +
+                    '<td class="p-2.5" id="' + rowId + '-status">' +
+                        '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse font-semibold">RUNNING</span>' +
+                    '</td>' +
+                    '<td class="p-2.5 text-slate-500" id="' + rowId + '-rc">-</td>' +
+                    '<td class="p-2.5 text-slate-400 font-mono" id="' + rowId + '-dur">running...</td>' +
+                    '<td class="p-2.5 text-slate-400 truncate max-w-xs font-mono text-[10px]" id="' + rowId + '-out">Executing operation...</td>';
+                return;
+            }
+
+            if (evtType === 'node.finished') {
+                let row = document.getElementById(rowId);
+                if (!row) {
+                    row = document.createElement('tr');
+                    row.id = rowId;
+                    row.className = 'hover:bg-slate-800/40 transition-colors';
+                    tbody.appendChild(row);
+                    row.innerHTML =
+                        '<td class="p-2.5 font-bold text-white flex items-center space-x-1.5">' +
+                            '<span class="text-xs">⚡</span>' +
+                            '<span>' + escapeHtml(nodeId) + '</span>' +
+                        '</td>' +
+                        '<td class="p-2.5 text-slate-400">' +
+                            '<span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 border border-slate-700 uppercase font-mono">' + escapeHtml(evt.kind || 'node') + '</span>' +
+                        '</td>' +
+                        '<td class="p-2.5" id="' + rowId + '-status"></td>' +
+                        '<td class="p-2.5" id="' + rowId + '-rc"></td>' +
+                        '<td class="p-2.5 font-mono" id="' + rowId + '-dur"></td>' +
+                        '<td class="p-2.5 truncate max-w-xs font-mono text-[10px]" id="' + rowId + '-out"></td>';
+                }
+                const isSuccess = evt.status === 'succeeded' || evt.status === 'success';
+                const statusCell = document.getElementById(rowId + '-status');
+                const rcCell = document.getElementById(rowId + '-rc');
+                const durCell = document.getElementById(rowId + '-dur');
+                const outCell = document.getElementById(rowId + '-out');
+
+                if (statusCell) {
+                    statusCell.innerHTML = isSuccess
+                        ? '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold">SUCCEEDED</span>'
+                        : '<span class="px-2 py-0.5 rounded text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 font-semibold">FAILED</span>';
+                }
+                if (rcCell) {
+                    rcCell.className = isSuccess ? 'p-2.5 text-emerald-400 font-bold' : 'p-2.5 text-red-400 font-bold';
+                    rcCell.textContent = isSuccess ? '0' : '1';
+                }
+                if (durCell) {
+                    const sTime = nodeStartTimes[nodeId];
+                    if (sTime) {
+                        const durMs = Date.now() - sTime;
+                        durCell.textContent = durMs < 1000 ? durMs + 'ms' : (durMs / 1000).toFixed(2) + 's';
+                    } else {
+                        durCell.textContent = '0ms';
+                    }
+                }
+                if (outCell) {
+                    if (!isSuccess && evt.error) {
+                        outCell.className = 'p-2.5 text-red-400 truncate max-w-xs font-mono text-[10px]';
+                        outCell.title = evt.error;
+                        outCell.textContent = evt.error;
+                    } else {
+                        outCell.className = 'p-2.5 text-slate-300 truncate max-w-xs font-mono text-[10px]';
+                        const parts = [];
+                        if (evt.rows_read) parts.push('Read: ' + Number(evt.rows_read).toLocaleString());
+                        if (evt.rows_written) parts.push('Written: ' + Number(evt.rows_written).toLocaleString());
+                        if (evt.rows_affected) parts.push('Affected: ' + Number(evt.rows_affected).toLocaleString());
+                        const summary = parts.length > 0 ? parts.join(' | ') : 'Completed successfully';
+                        outCell.textContent = summary;
+                        outCell.title = summary;
+                    }
+                }
+            }
+        }
+
         let eventSource = null;
         function startPipelineExecution() {
-            const scriptFile = document.getElementById('runner-script-file').value;
-            const configFile = document.getElementById('runner-config-file').value;
-            const optionsFile = document.getElementById('runner-options-file').value;
+            const scriptFile = document.getElementById('runner-script-file').value.trim();
+            const configFile = document.getElementById('runner-config-file').value.trim();
+            const optionsFile = document.getElementById('runner-options-file').value.trim();
             const term = document.getElementById('terminal-log');
             const tbody = document.getElementById('execution-results-body');
             const statusInd = document.getElementById('status-indicator');
@@ -738,13 +1349,18 @@ const IndexHTML = `<!DOCTYPE html>
             statusInd.className = 'h-2.5 w-2.5 rounded-full bg-amber-400 animate-ping';
             statusText.textContent = 'Execution in progress...';
             const startTime = Date.now();
+            const nodeStartTimes = {};
             const timerInterval = setInterval(() => {
                 const diff = (Date.now() - startTime) / 1000;
                 timerEl.textContent = diff.toFixed(3) + 's';
             }, 100);
 
             if (eventSource) eventSource.close();
-            const url = '/api/execute/stream?script_id=' + currentScriptId + '&file=' + encodeURIComponent(scriptFile) + '&config=' + encodeURIComponent(configFile) + '&options=' + encodeURIComponent(optionsFile);
+            const url = '/api/execute/stream?source=' + encodeURIComponent(runnerSource) +
+                        '&script_id=' + currentScriptId +
+                        '&file=' + encodeURIComponent(scriptFile) +
+                        '&config=' + encodeURIComponent(configFile) +
+                        '&options=' + encodeURIComponent(optionsFile);
             eventSource = new EventSource(url);
 
             eventSource.onmessage = function(e) {
@@ -752,9 +1368,16 @@ const IndexHTML = `<!DOCTYPE html>
                 if (data.type === 'log') {
                     term.textContent += data.message + '\n';
                     term.scrollTop = term.scrollHeight;
+                } else if (data.type === 'node_event') {
+                    handleNodeEvent(data, nodeStartTimes, tbody);
                 } else if (data.type === 'done') {
                     clearInterval(timerInterval);
                     eventSource.close();
+                    if (tbody.children.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">' +
+                            (data.error ? ('Execution stopped: ' + escapeHtml(data.error)) : 'Execution completed with no node events.') +
+                            '</td></tr>';
+                    }
                     if (data.status === 'SUCCESS') {
                         statusInd.className = 'h-2.5 w-2.5 rounded-full bg-emerald-500';
                         statusText.textContent = 'Execution Finished Successfully (' + data.duration + ')';
@@ -784,14 +1407,126 @@ const IndexHTML = `<!DOCTYPE html>
             setTheme(saved);
         }
 
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeFileBrowser();
+                closeNodeModal();
+                closeComponentPicker();
+            }
+        });
+
+        function highlightSectionNav(secKey) {
+            const sections = ['variables', 'databases', 'preflight', 'flow'];
+            sections.forEach(function(s) {
+                const link = document.getElementById('nav-section-' + s);
+                if (!link) return;
+                if (s === secKey) {
+                    link.className = 'section-nav-link px-2.5 py-1 bg-blue-900/60 text-blue-300 font-semibold rounded border border-blue-500/80 shadow-sm transition';
+                } else {
+                    link.className = 'section-nav-link px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition';
+                }
+            });
+        }
+
+        let isProgrammaticScroll = false;
+        let programmaticScrollTimer = null;
+
+        function navigateToSection(secKey, e) {
+            if (e && e.preventDefault) e.preventDefault();
+            const target = document.getElementById('section-' + secKey);
+            const canvas = document.getElementById('canvas-content');
+            if (target && canvas) {
+                isProgrammaticScroll = true;
+                clearTimeout(programmaticScrollTimer);
+                const targetRect = target.getBoundingClientRect();
+                const canvasRect = canvas.getBoundingClientRect();
+                const scrollDelta = targetRect.top - canvasRect.top - 16;
+                canvas.scrollBy({ top: scrollDelta, behavior: 'smooth' });
+                programmaticScrollTimer = setTimeout(function() {
+                    isProgrammaticScroll = false;
+                }, 600);
+            }
+            if (window.history && window.history.pushState) {
+                window.history.pushState(null, null, '#section-' + secKey);
+            } else {
+                window.location.hash = '#section-' + secKey;
+            }
+            highlightSectionNav(secKey);
+        }
+
+        function updateActiveSectionFromScroll() {
+            if (isProgrammaticScroll) return;
+            const canvas = document.getElementById('canvas-content');
+            if (!canvas) return;
+
+            const sections = ['variables', 'databases', 'preflight', 'flow'];
+            const canvasRect = canvas.getBoundingClientRect();
+
+            // If scrolled near bottom of canvas, activate the last section (flow)
+            if (canvas.scrollHeight - canvas.scrollTop - canvas.clientHeight < 40) {
+                highlightSectionNav('flow');
+                return;
+            }
+
+            let active = 'variables';
+            for (let i = 0; i < sections.length; i++) {
+                const s = sections[i];
+                const el = document.getElementById('section-' + s);
+                if (el) {
+                    const elRect = el.getBoundingClientRect();
+                    if (elRect.top - canvasRect.top <= 140) {
+                        active = s;
+                    }
+                }
+            }
+            highlightSectionNav(active);
+        }
+
+        let sectionScrollDebounceTimer = null;
+        function handleCanvasScroll() {
+            if (sectionScrollDebounceTimer) return;
+            sectionScrollDebounceTimer = setTimeout(function() {
+                sectionScrollDebounceTimer = null;
+                updateActiveSectionFromScroll();
+            }, 50);
+        }
+
+        function initSectionNavigation() {
+            const canvas = document.getElementById('canvas-content');
+            if (canvas) {
+                canvas.removeEventListener('scroll', handleCanvasScroll);
+                canvas.addEventListener('scroll', handleCanvasScroll, { passive: true });
+            }
+
+            const rawHash = (window.location.hash || '').replace('#section-', '').replace('#', '');
+            if (rawHash && ['variables', 'databases', 'preflight', 'flow'].includes(rawHash)) {
+                highlightSectionNav(rawHash);
+                setTimeout(function() {
+                    navigateToSection(rawHash);
+                }, 100);
+            } else {
+                updateActiveSectionFromScroll();
+            }
+        }
+
+        window.addEventListener('hashchange', function() {
+            const rawHash = (window.location.hash || '').replace('#section-', '').replace('#', '');
+            if (rawHash && ['variables', 'databases', 'preflight', 'flow'].includes(rawHash)) {
+                navigateToSection(rawHash);
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', () => {
             loadSavedTheme();
             initSortables();
             updatePreview();
+            populateQuickFilesList();
+            initSectionNavigation();
         });
         document.body.addEventListener('htmx:afterSwap', () => {
             initSortables();
             updatePreview();
+            initSectionNavigation();
         });
     </script>
 </body>

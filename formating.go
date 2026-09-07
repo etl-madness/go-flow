@@ -4,13 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	cryptorand "crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/etl-madness/flow"
@@ -31,6 +34,11 @@ type DatabaseSink struct {
 	DB          *sql.DB
 	Driver      string
 	insertQuery string
+	mu          sync.RWMutex
+	runID       string
+	status      string
+	errorClass  string
+	errorMsg    string
 }
 
 // MultiSink fans out execution events to multiple sinks (e.g., Database + Stdout)
@@ -91,6 +99,17 @@ func NewDatabaseSink(db *sql.DB, driver string) *DatabaseSink {
 
 // Emit satisfies the flow.EventSink interface and persists execution events to the database
 func (s *DatabaseSink) Emit(ctx context.Context, event flow.ExecutionEvent) error {
+	s.mu.Lock()
+	if event.RunID != "" {
+		s.runID = event.RunID
+	}
+	if event.Type == flow.EventRunFinished {
+		s.status = string(event.Status)
+		s.errorClass = string(event.ErrorClass)
+		s.errorMsg = event.ErrorMessage
+	}
+	s.mu.Unlock()
+
 	query := s.insertQuery
 	if query == "" {
 		cols := []string{
@@ -116,6 +135,29 @@ func (s *DatabaseSink) Emit(ctx context.Context, event flow.ExecutionEvent) erro
 		event.RowCounts.Affected,
 	)
 	return err
+}
+
+// RunID returns the run ID captured from execution events
+func (s *DatabaseSink) RunID() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.runID
+}
+
+// RunDetails returns run ID, status, error class, and error message captured from execution events
+func (s *DatabaseSink) RunDetails() (runID, status, errorClass, errorMsg string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.runID, s.status, s.errorClass, s.errorMsg
+}
+
+// generateRunID creates a cryptographically random 32-character hex ID (matching flow's internal run IDs)
+func generateRunID() string {
+	bytes := make([]byte, 16)
+	if _, err := cryptorand.Read(bytes); err != nil {
+		return fmt.Sprintf("run-%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(bytes)
 }
 
 func (s TextSink) Emit(_ context.Context, event flow.ExecutionEvent) error {
@@ -248,6 +290,10 @@ type RunSummaryRecord struct {
 
 // LogRunSummaryToDB executes dynamic insert into pipeline_runs table
 func LogRunSummaryToDB(ctx context.Context, db *sql.DB, driverType string, rec RunSummaryRecord) error {
+	if rec.RunID == "" {
+		rec.RunID = generateRunID()
+	}
+
 	cols := []string{
 		"run_id", "file_path", "config_path", "status", "started_at",
 		"finished_at", "duration_ms", "task_count", "error_class", "error_message",

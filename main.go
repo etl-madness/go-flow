@@ -20,6 +20,10 @@ import (
 func main() {
 	builderFlag := flag.Bool("builder", false, "Start the local HTMX pipeline builder web server")
 	builderPort := flag.Int("builder-port", 8080, "Port for the builder web server")
+	builderDb := flag.String("builder-db", "flow_builder.db", "SQLite database file path for the visual builder")
+	purgeDb := flag.Bool("purge-db", false, "Purge all data from the SQLite visual builder database and exit")
+	importFile := flag.String("import-file", "", "Import a pipeline XML file into the SQLite builder database")
+	importName := flag.String("import-name", "", "Custom name for imported pipeline (used with -import-file)")
 	optionsPath := flag.String("options", "", "Path to XML file containing CLI option defaults")
 	filePath := flag.String("file", "scripts.xml", "Path to XML file containing scripts and databases")
 	format := flag.String("format", "csv", "Output format (json,jsonpretty, text, or markdown, csv)")
@@ -34,9 +38,43 @@ func main() {
 	outFile := flag.String("out", "", "Path to output file for transformed XML (optional)")
 	flag.Parse()
 
+	// Handle -purge-db flag: wipes all data from the SQLite visual builder database
+	if *purgeDb {
+		storage, err := builder.NewStorage(*builderDb)
+		if err != nil {
+			log.Fatalf("Failed to open builder database %s: %v", *builderDb, err)
+		}
+		defer storage.Close()
+
+		defaultScript, err := storage.PurgeDatabase()
+		if err != nil {
+			log.Fatalf("Failed to purge database: %v", err)
+		}
+		fmt.Printf("Database %s successfully purged. Re-initialized default pipeline %q (ID: %d).\n", *builderDb, defaultScript.Name, defaultScript.ID)
+		return
+	}
+
+	// Handle -import-file flag: imports a pipeline XML file into SQLite
+	if *importFile != "" {
+		storage, err := builder.NewStorage(*builderDb)
+		if err != nil {
+			log.Fatalf("Failed to open builder database %s: %v", *builderDb, err)
+		}
+		defer storage.Close()
+
+		script, err := builder.ImportPipelineFromXML(*importFile, *importName, storage)
+		if err != nil {
+			log.Fatalf("Failed to import %s: %v", *importFile, err)
+		}
+		fmt.Printf("Successfully imported pipeline %q (ID: %d) from %s into %s.\n", script.Name, script.ID, *importFile, *builderDb)
+		if !*builderFlag {
+			return
+		}
+	}
+
 	// Handle -builder flag: starts the interactive web UI
 	if *builderFlag {
-		if err := builder.StartServer(*builderPort, "flow_builder.db"); err != nil {
+		if err := builder.StartServer(*builderPort, *builderDb); err != nil {
 			log.Fatalf("Failed to start builder: %v", err)
 		}
 		return
@@ -224,6 +262,7 @@ func main() {
 	var sinks []flow.EventSink
 	var logDB *sql.DB
 	var driverType string
+	var dbSink *DatabaseSink
 
 	// Search dbConfigs in reverse order so -config database overrides take precedence
 	var selectedLogDBCfg *flow.DatabaseConfig
@@ -270,7 +309,8 @@ func main() {
 				}
 			}
 
-			sinks = append(sinks, NewDatabaseSink(logDB, driverType))
+			dbSink = NewDatabaseSink(logDB, driverType)
+			sinks = append(sinks, dbSink)
 			defer logDB.Close()
 		}
 	}
@@ -293,8 +333,15 @@ func main() {
 		results, execErr := executor.ExecuteRun(ctx, nodes)
 
 		if logDB != nil {
+			runID := results.RunID
+			if runID == "" && dbSink != nil {
+				runID = dbSink.RunID()
+			}
+			if runID == "" {
+				runID = generateRunID()
+			}
 			summary := RunSummaryRecord{
-				RunID:        results.RunID,
+				RunID:        runID,
 				FilePath:     *filePath,
 				ConfigPath:   *configPath,
 				Status:       string(results.Status),
@@ -322,17 +369,30 @@ func main() {
 
 		// Record run summary if log_db connection exists
 		if logDB != nil {
-			status := "SUCCESS"
-			errClass := ""
-			errMsg := ""
+			runID, status, errClass, errMsg := "", "succeeded", "", ""
+			if dbSink != nil {
+				runID, status, errClass, errMsg = dbSink.RunDetails()
+			}
 			if execErr != nil {
-				status = "FAILED"
-				errClass = "ExecutionError"
-				errMsg = execErr.Error()
+				if status == "" || status == "succeeded" {
+					status = "failed"
+				}
+				if errClass == "" {
+					errClass = "ExecutionError"
+				}
+				if errMsg == "" {
+					errMsg = execErr.Error()
+				}
+			}
+			if runID == "" {
+				runID = generateRunID()
+			}
+			if status == "" {
+				status = "succeeded"
 			}
 
 			summary := RunSummaryRecord{
-				RunID:        "",
+				RunID:        runID,
 				FilePath:     *filePath,
 				ConfigPath:   *configPath,
 				Status:       status,

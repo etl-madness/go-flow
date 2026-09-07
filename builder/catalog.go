@@ -173,10 +173,9 @@ func GetCatalog() *ComponentCatalog {
 			Fields: []ComponentField{
 				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
 				{Name: "db", Label: "Target Database", Type: "text", Mandatory: true, Description: "Connection name declared in <databases>"},
-				{Name: "action", Label: "Action", Type: "select", Mandatory: false, Default: "exec", Options: []string{"exec", "query", "query_row"}},
 				{Name: "into", Label: "Into Variable", Type: "text", Mandatory: false, Description: "Variable name to store query result"},
 			},
-			DefaultXML: `<sql id="LoadSummary" db="local_sqlite" action="exec">
+			DefaultXML: `<sql id="LoadSummary" db="local_sqlite">
 SELECT count(*) FROM raw_records;
 </sql>`,
 		},
@@ -210,13 +209,13 @@ SELECT count(*) FROM raw_records;
 			Fields: []ComponentField{
 				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
 				{Name: "db", Label: "KV Connection", Type: "text", Mandatory: true, Description: "KV database connection handle"},
-				{Name: "action", Label: "Action", Type: "select", Mandatory: true, Default: "get", Options: []string{"get", "set", "delete", "exists"}},
+				{Name: "op", Label: "Operation", Type: "select", Mandatory: false, Default: "get", Options: []string{"get", "put", "delete", "scan"}},
 				{Name: "bucket", Label: "Bucket / Keyspace", Type: "text", Mandatory: false, Default: "default"},
 				{Name: "key", Label: "Key", Type: "text", Mandatory: true, Description: "Target key name"},
-				{Name: "value", Label: "Value", Type: "text", Mandatory: false, Description: "Value to write (for set action)"},
+				{Name: "value", Label: "Value", Type: "text", Mandatory: false, Description: "Value to write (for put operation)"},
 				{Name: "into", Label: "Store Result Into", Type: "text", Mandatory: false, Description: "Variable name to capture retrieved value"},
 			},
-			DefaultXML: `<kv id="CacheToken" db="kv_store" action="set" bucket="auth" key="jwt" value="{{NewToken}}" />`,
+			DefaultXML: `<kv id="CacheToken" db="kv_store" op="put" bucket="auth" key="jwt" value="{{NewToken}}" />`,
 		},
 		{
 			Type:        "kv_bulk",
@@ -229,11 +228,10 @@ SELECT count(*) FROM raw_records;
 			Fields: []ComponentField{
 				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
 				{Name: "db", Label: "KV Connection", Type: "text", Mandatory: true, Description: "KV database connection handle"},
-				{Name: "action", Label: "Action", Type: "select", Mandatory: true, Default: "batch_set", Options: []string{"batch_set", "scan_prefix"}},
 				{Name: "bucket", Label: "Bucket", Type: "text", Mandatory: false, Default: "default"},
 				{Name: "source", Label: "Source Dataset", Type: "text", Mandatory: true, Description: "Dataset containing key/value map"},
 			},
-			DefaultXML: `<kv_bulk id="BulkCache" db="kv_store" action="batch_set" bucket="lookup" source="{{LookupMap}}" />`,
+			DefaultXML: `<kv_bulk id="BulkCache" db="kv_store" bucket="lookup" source="{{LookupMap}}" />`,
 		},
 
 		// 5. Template & Transformation
