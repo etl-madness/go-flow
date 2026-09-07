@@ -13,10 +13,13 @@ import (
 	"time"
 
 	"github.com/etl-madness/flow"
+	"github.com/etl-madness/go-flow/builder"
 	"github.com/traefik/yaegi/interp"
 )
 
 func main() {
+	builderFlag := flag.Bool("builder", false, "Start the local HTMX pipeline builder web server")
+	builderPort := flag.Int("builder-port", 8080, "Port for the builder web server")
 	optionsPath := flag.String("options", "", "Path to XML file containing CLI option defaults")
 	filePath := flag.String("file", "scripts.xml", "Path to XML file containing scripts and databases")
 	format := flag.String("format", "csv", "Output format (json,jsonpretty, text, or markdown, csv)")
@@ -30,6 +33,15 @@ func main() {
 	xsltPath := flag.String("xslt", "", "Path to custom XSLT stylesheet (optional)")
 	outFile := flag.String("out", "", "Path to output file for transformed XML (optional)")
 	flag.Parse()
+
+	// Handle -builder flag: starts the interactive web UI
+	if *builderFlag {
+		if err := builder.StartServer(*builderPort, "flow_builder.db"); err != nil {
+			log.Fatalf("Failed to start builder: %v", err)
+		}
+		return
+	}
+
 
 	// Apply XML load file options if specified
 	if *optionsPath != "" {

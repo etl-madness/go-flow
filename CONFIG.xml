@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+    <variables>
+        <variable name="Environment" value="development" />
+        <variable name="LogLevel" value="DEBUG" />
+    </variables>
+    <databases>
+        <database name="local_sqlite" driver="sqlite" connection_string="./pipeline_dev.db" />
+    </databases>
+</config>
