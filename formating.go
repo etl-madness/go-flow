@@ -215,7 +215,7 @@ func outputCSV(res *[]flow.ScriptResult) {
 	}
 }
 
-func outputSummary(run flow.RunResult, file *string, config *string) {
+func outputStreamSummary(run flow.RunResult, file *string, config *string) {
 	var configStr string
 	if config != nil {
 		configStr = *config

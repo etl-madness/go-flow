@@ -24,8 +24,8 @@ type FlowCLIOptions struct {
 
 // applyXMLOptions parses the specified XML file wrapped in <flow_cli_options><options>
 // and sets any flags that were not explicitly passed on the command line.
-func applyXMLOptions(loadPath string) error {
-	data, err := os.ReadFile(loadPath)
+func applyXMLOptions(optionsPath string) error {
+	data, err := os.ReadFile(optionsPath)
 	if err != nil {
 		return fmt.Errorf("error reading load file: %w", err)
 	}
@@ -57,7 +57,7 @@ func applyXMLOptions(loadPath string) error {
 					return fmt.Errorf("failed setting flag -%s to %q from load XML: %w", flagName, flagVal, err)
 				}
 			} else {
-				return fmt.Errorf("unknown CLI flag -%s found in %s", flagName, loadPath)
+				return fmt.Errorf("unknown CLI flag -%s found in %s", flagName, optionsPath)
 			}
 		}
 	}

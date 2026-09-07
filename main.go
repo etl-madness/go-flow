@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	loadPath := flag.String("load", "", "Path to XML file containing CLI option defaults")
+	optionsPath := flag.String("options", "", "Path to XML file containing CLI option defaults")
 	filePath := flag.String("file", "scripts.xml", "Path to XML file containing scripts and databases")
 	format := flag.String("format", "csv", "Output format (json,jsonpretty, text, or markdown, csv)")
 	xsdPath := flag.String("xsd", "", "Path to XSD file for schema validation (optional)")
@@ -32,8 +32,8 @@ func main() {
 	flag.Parse()
 
 	// Apply XML load file options if specified
-	if *loadPath != "" {
-		if err := applyXMLOptions(*loadPath); err != nil {
+	if *optionsPath != "" {
+		if err := applyXMLOptions(*optionsPath); err != nil {
 			outputJSON(&[]flow.ScriptResult{{
 				ScriptID:      "system",
 				ReturnCode:    1,
@@ -263,8 +263,8 @@ func main() {
 		}
 	}
 
-	// Attach console streaming sink if output format is summary
-	if strings.ToLower(*format) == "summary" {
+	// Attach console streaming sink if output format is stream
+	if strings.ToLower(*format) == "stream" {
 		fmt.Println("\n\nutc_runtime,run_id,execution_id,sequence,type,kind,id,status,error,row_counts_read,row_counts_written,row_counts_affected")
 		sinks = append(sinks, &TextSink{Writer: os.Stdout})
 	}
@@ -277,7 +277,7 @@ func main() {
 	}
 	// =========================================================================
 
-	if strings.ToLower(*format) == "summary" {
+	if strings.ToLower(*format) == "stream" {
 		results, execErr := executor.ExecuteRun(ctx, nodes)
 
 		if logDB != nil {
@@ -303,7 +303,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		outputSummary(results, filePath, configPath)
+		outputStreamSummary(results, filePath, configPath)
 
 	} else {
 		results, execErr := executor.Execute(ctx, nodes)
@@ -352,7 +352,7 @@ func main() {
 		case "csv":
 			outputCSV(&results)
 		default:
-			outputCSV(&results)
+			outputText(&results)
 		}
 	}
 
