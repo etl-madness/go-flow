@@ -13,7 +13,7 @@ With built-in support for environment-specific configuration overrides, strongly
 | **Architecture & Footprint** | Lightweight, cross-platform compiled Go CLI binary. Zero server installation overhead. | Heavy, server-based ETL runtime (tied to Windows/SQL Server ecosystem and SSIS Catalog). |
 | **Interface / Authoring** | Code-first declarative XML configuration (`scripts.xml`) validated against XSD schemas. | Visual GUI drag-and-drop interface via Visual Studio / SSDT. |
 | **Cross-Platform Support** | Native Linux, macOS, and Windows support with zero dependencies. | Windows-centric runtime environment (Linux supported via SQL Server on Linux with limitations). |
-| **Database Drivers & Cross-DB ETL** | Native pure Go drivers for MSSQL, PostgreSQL, MySQL, SQLite, and Oracle built-in. Direct cross-DB streaming. | Uses OLE DB, ADO.NET, and ODBC driver managers. Cross-DB setup requires explicit connection manager setups. |
+| **Database Drivers & Cross-DB ETL** | Native pure Go drivers for MSSQL, PostgreSQL, MySQL, SQLite, Oracle, and Key-Value stores built-in. Direct cross-DB streaming. | Uses OLE DB, ADO.NET, and ODBC driver managers. Cross-DB setup requires explicit connection manager setups. |
 | **Control Flow: Looping** | Supported via `<foreach>` (SQL dataset iteration) and `<while>` (condition-based loops with `max_iterations` caps). | Supported via *Foreach Loop Containers* (files, objects) and *For Loop Containers*. |
 | **Control Flow: Logic & Branching** | `<if>` / `<then>` / `<else>` blocks and `<group>` blocks with variable condition evaluation. | Precedence Constraints (Success, Failure, Completion) with optional SSIS Expressions. |
 | **Control Flow: Parallelism** | `<parallel max_threads="N">` concurrency control with thread-pool workers. | Engine-level parallel execution of disconnected tasks or `EngineThreads` settings in Data Flow. |
@@ -68,6 +68,7 @@ The engine natively registers and supports multiple database drivers. You can co
 | `mysql` | MySQL | `github.com/go-sql-driver/mysql` | `?, ?, ...` |
 | `sqlite`, `sqlite3` | SQLite | `modernc.org/sqlite` | `?, ?, ...` |
 | `oracle` | Oracle Database | `github.com/sijms/go-ora/v2` | `:1, :2, ...` |
+| `kv` | Key-Value Store | Internal | `KV DSL` |
 
 > [!NOTE]
 > If the `driver` attribute is omitted on a `<database>` definition, it defaults to **`sqlserver`** for backward compatibility.
@@ -89,7 +90,7 @@ The engine natively registers and supports multiple database drivers. You can co
 
 ## Feature Highlights
 
-* 🚀 **Heterogeneous Dual-Engine Pipeline**: Run interpreted **Go scripts** dynamically in-memory via Yaegi alongside native **multi-database SQL queries** (Postgres, MySQL, SQLite, Oracle, MSSQL) within a single, unified orchestration.
+* 🚀 **Heterogeneous Dual-Engine Pipeline**: Run interpreted **Go scripts** dynamically in-memory via Yaegi alongside native **multi-database SQL queries** (Postgres, MySQL, SQLite, Oracle, MSSQL, and K/V stores) within a single, unified orchestration.
 * 🎛️ **Advanced Control Flow**:
   * **`<if>`/`<then>`/`<else>`**: Robust logical branching based on dynamic variable values.
   * **`<parallel>`**: Execute tasks concurrently with thread-pool size limits (`max_threads`), complete with automatic propagation of errors.
@@ -135,7 +136,7 @@ See the package-specific [**`github.com/etl-madness/flow`**](https://github.com/
 ```bash
 # Verify & clean dependencies
 go mod tidy
-go build -ldflags="-s -w" -trimpath -o go-flow.exe .
+go build -ldflags="-s -w" -trimpath -o flow.exe .
 ```
 ---
 
@@ -174,38 +175,38 @@ Run the engine using command line flags to specify your scripts file, schema fil
 Before running any commands, ensure that you have built the CLI executable:
 
 ```bash
-go build -ldflags="-s -w" -trimpath -o go-flow.exe .
+go build -ldflags="-s -w" -trimpath -o flow.exe .
 ```
 
-You can then replace `go run main.go` with `./go-flow.exe` in the examples below.
+You can then replace `go run main.go` with `./flow.exe` in the examples below.
 
 ```bash
 # Basic Execution
-./go-flow.exe --file pipeline.xml
+./flow.exe --file pipeline.xml
 
 # Execution with Variable Overrides via Config File
-./go-flow.exe --file pipeline.xml --config production_config.xml
+./flow.exe --file pipeline.xml --config production_config.xml
 
 # Full Execution with Variable Overrides via Command Line
-./go-flow.exe --file pipeline.xml --vars "BulkSize=1000"
+./flow.exe --file pipeline.xml --vars "BulkSize=1000"
 
 # Pipeline Validation Only (Does not execute scripts)
-./go-flow.exe --file pipeline.xml --validate
+./flow.exe --file pipeline.xml --validate
 
 # Execute Preflight Validation Nodes Only (does not run main flow)
-./go-flow.exe --file pipeline.xml --preflight
+./flow.exe --file pipeline.xml --preflight
 
 # Console Logging (Additional verbose output to stdout)
-./go-flow.exe --file pipeline.xml --debug
+./flow.exe --file pipeline.xml --debug
 
 # Full Schema Validation and Execution
-./go-flow.exe --file pipeline.xml --xsd schema.xsd --config CONFIG.xml
+./flow.exe --file pipeline.xml --xsd schema.xsd --config CONFIG.xml
 
 # Generate Interactive HTML Documentation with Flowchart
-./go-flow.exe --file pipeline.xml --xslt autodoc.xslt --out pipeline.html
+./flow.exe --file pipeline.xml --xslt autodoc.xslt --out pipeline.html
 
 # Generate GitHub-Native Markdown Documentation with Flowchart
-./go-flow.exe --file pipeline.xml --xslt autodoc_md.xslt --out pipeline.md
+./flow.exe --file pipeline.xml --xslt autodoc_md.xslt --out pipeline.md
 ```
 
 ### CLI Flag Reference
@@ -239,8 +240,8 @@ Generates a styled, single-file HTML document featuring:
 * Formatted source code blocks displaying SQL/Go step values.
 
 ```bash
-go build -ldflags="-s -w" -trimpath -o go-flow.exe .
-./go-flow.exe --file pipeline.xml --xslt autodoc.xslt --out pipeline.html
+go build -ldflags="-s -w" -trimpath -o flow.exe .
+./flow.exe --file pipeline.xml --xslt autodoc.xslt --out pipeline.html
 ```
 
 #### 2. GitHub-Native Markdown Output (`autodoc_md.xslt`)
@@ -250,7 +251,7 @@ Generates a plain Markdown (`.md`) file optimized for version control, GitHub/Gi
 * Escaped multiline script content wrapped inside HTML `<code>` blocks to preserve line formatting without breaking table alignment.
 
 ```bash
-./go-flow.exe --file pipeline.xml --xslt autodoc_md.xslt --out pipeline.md
+./flow.exe --file pipeline.xml --xslt autodoc_md.xslt --out pipeline.md
 ```
 
 ---
@@ -315,7 +316,7 @@ Defines typed global variables. Can be placed under `<pipeline>` in both the mai
 #### `<database>`
 Defines a database connection pool.
 * `name` (Required): Unique connection alias used in script blocks.
-* `driver` (Optional, defaults to `"sqlserver"`): Database driver to use. Supported values are: `sqlserver` (or `mssql`), `postgres` (or `postgresql`), `mysql`, `sqlite` (or `sqlite3`), `oracle`.
+* `driver` (Optional, defaults to `"sqlserver"`): Database driver to use. Supported values are: `sqlserver` (or `mssql`), `postgres` (or `postgresql`), `mysql`, `sqlite` (or `sqlite3`), `oracle`, and `kv`.
 * `connection_string` (Required): Database-specific connection string (supports `{{VarName}}` variable expansion; `&` must be escaped as `&amp;`).
 
 #### `<script>`

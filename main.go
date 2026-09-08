@@ -17,6 +17,20 @@ import (
 	"github.com/traefik/yaegi/interp"
 )
 
+const (
+	// Table names for pipeline events and runs in the database.
+	// if resident schema needs to be other than default schema, set it here.
+	// eg if the schema is "custom_schema", you could set:
+	// pipeline_events = "custom_schema.pipeline_events"
+	// pipeline_runs = "custom_schema.pipeline_runs"
+	// --------------------------------------------------------------
+	// note: if you change the schema, make sure to update all references
+	// to these tables the SQL create table statements.
+
+	pipeline_events = "pipeline_events"
+	pipeline_runs   = "pipeline_runs"
+)
+
 func main() {
 	builderFlag := flag.Bool("builder", false, "Start the local HTMX pipeline builder web server")
 	builderPort := flag.Int("builder-port", 8080, "Port for the builder web server")
@@ -79,7 +93,6 @@ func main() {
 		}
 		return
 	}
-
 
 	// Apply XML load file options if specified
 	if *optionsPath != "" {

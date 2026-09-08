@@ -93,7 +93,7 @@ func NewDatabaseSink(db *sql.DB, driver string) *DatabaseSink {
 	return &DatabaseSink{
 		DB:          db,
 		Driver:      driver,
-		insertQuery: buildInsertQuery(driver, "pipeline_events", cols),
+		insertQuery: buildInsertQuery(driver, pipeline_events, cols),
 	}
 }
 
@@ -117,7 +117,7 @@ func (s *DatabaseSink) Emit(ctx context.Context, event flow.ExecutionEvent) erro
 			"event_type", "node_kind", "node_id", "status",
 			"error_message", "rows_read", "rows_written", "rows_affected",
 		}
-		query = buildInsertQuery(s.Driver, "pipeline_events", cols)
+		query = buildInsertQuery(s.Driver, pipeline_events, cols)
 	}
 
 	_, err := s.DB.ExecContext(ctx, query,
@@ -299,7 +299,7 @@ func LogRunSummaryToDB(ctx context.Context, db *sql.DB, driverType string, rec R
 		"finished_at", "duration_ms", "task_count", "error_class", "error_message",
 	}
 
-	query := buildInsertQuery(driverType, "pipeline_runs", cols)
+	query := buildInsertQuery(driverType, pipeline_runs, cols)
 
 	_, err := db.ExecContext(ctx, query,
 		rec.RunID,

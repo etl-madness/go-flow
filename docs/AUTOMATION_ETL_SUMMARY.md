@@ -8,36 +8,16 @@ The application functions as a zero-dependency binary CLI runner and interactive
 
 | Flag / Parameter | Type | Default | Automation & ETL Purpose |
 | --- | --- | --- | --- |
-| `-builder` | `bool` | `false` | Launches the interactive HTMX web server backed by `flow_builder.db` for visual pipeline design.
-
- |
-| `-builder-port` | `int` | `8080` | Specifies the listening port for the visual builder web server.
-
- |
-| `-file` | `string` | `scripts.xml` | Specifies the primary XML configuration file containing pipeline nodes, variables, and DB definitions.
-
- |
-| `-config` | `string` | `""` | Secondary XML configuration file path for environment-specific overrides (DBs, variables, preflight nodes).
-
- |
-| `-vars` | `string` | `""` | Comma-separated `key=value` runtime variable overrides (e.g., `-vars "TargetTable=foo,Limit=100"`).
-
- |
-| `-options` | `string` | `""` | XML file containing pre-configured default CLI flag options (applies options only if not explicitly set on CLI).
-
- |
-| `-validate` | `bool` | `false` | Runs non-executing validation passes (XSD schema validation and semantic AST check).
-
- |
-| `-preflight` | `bool` | `false` | Executes preflight validation nodes only (e.g., source file checks, staging table verification) without running main flow.
-
- |
-| `-format` | `string` | `csv` | Execution result output renderer (`json`, `jsonpretty`, `text`, `markdown`, `csv`, `stream`).
-
- |
-| `-xslt` / `-out` | `string` | `""` | Path to XSLT stylesheet and output file to transform pipeline XML and inject generated Mermaid diagrams.
-
- |
+| `-builder` | `bool` | `false` | Launches the interactive HTMX web server backed by `flow_builder.db` for visual pipeline design. |
+| `-builder-port` | `int` | `8080` | Specifies the listening port for the visual builder web server. |
+| `-file` | `string` | `scripts.xml` | Specifies the primary XML configuration file containing pipeline nodes, variables, and DB definitions. |
+| `-config` | `string` | `""` | Secondary XML configuration file path for environment-specific overrides (DBs, variables, preflight nodes). |
+| `-vars` | `string` | `""` | Comma-separated `key=value` runtime variable overrides (e.g., `-vars "TargetTable=foo,Limit=100"`). |
+| `-options` | `string` | `""` | XML file containing pre-configured default CLI flag options (applies options only if not explicitly set on CLI). |
+| `-validate` | `bool` | `false` | Runs non-executing validation passes (XSD schema validation and semantic AST check). |
+| `-preflight` | `bool` | `false` | Executes preflight validation nodes only (e.g., source file checks, staging table verification) without running main flow. |
+| `-format` | `string` | `csv` | Execution result output renderer (`json`, `jsonpretty`, `text`, `markdown`, `csv`, `stream`). |
+| `-xslt` / `-out` | `string` | `""` | Path to XSLT stylesheet and output file to transform pipeline XML and inject generated Mermaid diagrams. |
 
 ---
 
@@ -47,27 +27,13 @@ Flow builds an Abstract Syntax Tree (AST) from XML definitions, supporting compl
 
 | AST Element | Execution Semantics & Capabilities |
 | --- | --- |
-| `<script>` | Executes script logic in specified languages (e.g., Go via Yaegi, SQL) with optional target database row-streaming (`target_db`).
-
- |
-| `<sql>` / `<sql_bulk>` | Executes single or bulk SQL operations against registered relational or K/V database connections.
-
- |
-| `<group>` | Groups related execution steps into a logical sequential unit.
-
- |
-| `<parallel>` | Executes child pipeline nodes concurrently across threads and joins them at completion.
-
- |
-| `<if>` | Evaluates dynamic conditions (`condition` string or `var == equals`) to branch into `<then>` or `<else>` blocks.
-
- |
-| `<foreach>` / `<loop>` / `<while>` | Iterates over dataset records or variable criteria, executing child nodes per row until completion.
-
- |
-| `<preflight>` | Dedicated execution phase intended for schema sanity checks, target table truncations, and prerequisite validation.
-
- |
+| `<script>` | Executes script logic in specified languages (e.g., Go via Yaegi, SQL) with optional target database row-streaming (`target_db`). |
+| `<sql>` / `<sql_bulk>` | Executes single or bulk SQL operations against registered relational or K/V database connections. |
+| `<group>` | Groups related execution steps into a logical sequential unit. |
+| `<parallel>` | Executes child pipeline nodes concurrently across threads and joins them at completion. |
+| `<if>` | Evaluates dynamic conditions (`condition` string or `var == equals`) to branch into `<then>` or `<else>` blocks. |
+| `<foreach>` / `<loop>` / `<while>` | Iterates over dataset records or variable criteria, executing child nodes per row until completion. |
+| `<preflight>` | Dedicated execution phase intended for schema sanity checks, target table truncations, and prerequisite validation. |
 
 ---
 
@@ -77,18 +43,10 @@ Flow provides abstract database handling across both traditional relational engi
 
 | Storage Engine / Dialect | Parameter Placeholder | Special SQL Dialect Handling |
 | --- | --- | --- |
-| **PostgreSQL** | `$1, $2, $3` | Auto-detected from `postgres://` or `dbname=` connection strings.
-
- |
-| **Microsoft SQL Server** | `@p1, @p2, @p3` | Auto-detects driver; prepends `dbo.` to table names if schema is omitted.
-
- |
-| **Oracle** | `:1, :2, :3` | Auto-detected via `oracle://` or driver reflection (`godror`, `oracle`).
-
- |
-| **MySQL / SQLite / K/V** | `?, ?, ?` | Standard positional binding; handles K/V lookup state and SQL dialects.
-
- |
+| **PostgreSQL** | `$1, $2, $3` | Auto-detected from `postgres://` or `dbname=` connection strings. |
+| **Microsoft SQL Server** | `@p1, @p2, @p3` | Auto-detects driver; prepends `dbo.` to table names if schema is omitted. |
+| **Oracle** | `:1, :2, :3` | Auto-detected via `oracle://` or driver reflection (`godror`, `oracle`). |
+| **MySQL / SQLite / K/V** | `?, ?, ?` | Standard positional binding; handles K/V lookup state and SQL dialects. |
 
 #### Operational Logging & Audit Schemas
 
