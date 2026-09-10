@@ -14,6 +14,8 @@
         <!-- Initial value for ProcessDate -->
         <variable name="ProcessDate" description="Process date in format YYYY-MM-DD" type="string"
             value="" />
+             <variable name="BATCH_SIZE" description="Bulk copy batch size" type="string"
+            value="25000" />
     </variables>
 
     <databases>
@@ -51,7 +53,7 @@
         <sql_bulk id="MSSQL_BLK_STREAM_to_xfr_cross_db_objects"
             description="Stream data in bulk from cross_db_objects in database1 to staging table in database2"
             db="database1" target_db="database2" target_table="[dbo].[xfr_cross_db_objects]"
-            batch_size="25000" tablock="true" check_constraints="true" fire_triggers="false"
+            batch_size="{{BATCH_SIZE}}" tablock="true" check_constraints="true" fire_triggers="false"
             keep_nulls="true">
             <![CDATA[
                     SELECT [object_servername],[object_servicename],[object_database],[object_id],[object_schema],[object_name],[object_type],[object_desc],[LoadDate] FROM [dbo].[cross_db_objects] (NOLOCK);

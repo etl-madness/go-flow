@@ -80,34 +80,12 @@ By combining traditional relational database support with high-performance Key-V
 
 | Functional Area | Business Capability | Operational Benefit |
 | --- | --- | --- |
-| **Pipeline Builder** | Embedded HTMX web UI (`-builder`) backed by `flow_builder.db`<br> | Speeds up pipeline construction and lowers technical barriers for non-developer teams.
-
- |
-| **Multi-Engine Storage** | Native support for Relational DBs (Postgres, SQL Server, Oracle, etc.) and Key-Value stores
-
- | Combines structured SQL processing with high-speed key-value state lookups.
-
- |
-| **Pipeline Execution** | Parallel processing, conditional branching, loops (`parallel`, `if`, `foreach`)
-
- | Minimizes batch execution windows and streamlines complex dependency handling.
-
- |
-| **Audit & Logging** | Real-time event tracking (`pipeline_events`) with row-level metrics
-
- | Ensures enterprise compliance readiness and provides instant root-cause failure diagnostics.
-
- |
-| **Configuration** | Variable inheritance and runtime parameter overrides (`-vars`)
-
- | Simplifies CI/CD integration and multi-environment deployment.
-
- |
-| **Governance** | Auto-generated Mermaid.js visual diagrams & XSLT transformation engine
-
- | Keeps pipeline architecture self-documenting and auditable.
-
- |
+| **Pipeline Builder** | Embedded HTMX web UI (`-builder`) backed by `flow_builder.db`<br> | Speeds up pipeline construction and lowers technical barriers for non-developer teams.|
+| **Multi-Engine Storage** | Native support for Relational DBs (Postgres, SQL Server, Oracle, etc.) and Key-Value stores| Combines structured SQL processing with high-speed key-value state lookups.|
+| **Pipeline Execution** | Parallel processing, conditional branching, loops (`parallel`, `if`, `foreach`)| Minimizes batch execution windows and streamlines complex dependency handling.
+| **Audit & Logging** | Real-time event tracking (`pipeline_events`) with row-level metrics| Ensures enterprise compliance readiness and provides instant root-cause failure diagnostics.|
+| **Configuration** | Variable inheritance and runtime parameter overrides (`-vars`)| Simplifies CI/CD integration and multi-environment deployment.|
+| **Governance** | Auto-generated Mermaid.js visual diagrams & XSLT transformation engine| Keeps pipeline architecture self-documenting and auditable.|
 
 ---
 
