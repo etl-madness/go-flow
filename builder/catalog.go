@@ -63,9 +63,10 @@ func GetCatalog() *ComponentCatalog {
 				{Name: "name", Label: "Connection Name", Type: "text", Mandatory: true, Description: "Unique connection name referenced by db attribute"},
 				{Name: "driver", Label: "Driver", Type: "select", Mandatory: true, Default: "sqlite", Options: []string{"sqlite", "sqlserver", "postgres", "mysql", "oracle", "bbolt", "badger", "redis", "etcd"}},
 				{Name: "connection_string", Label: "Connection String / DSN", Type: "text", Mandatory: true, Description: "Driver-specific connection string or path. Supports {{Variables}}"},
+				{Name: "workload", Label: "Workload Profile", Type: "select", Mandatory: false, Default: "", Options: []string{"", "oltp", "bulk", "analytics", "batch"}, Description: "Workload tuning profile for connection pool defaults (oltp, bulk, analytics, batch)"},
 				{Name: "max_open_conns", Label: "Max Open Conns", Type: "int", Mandatory: false, Default: "25"},
 				{Name: "max_idle_conns", Label: "Max Idle Conns", Type: "int", Mandatory: false, Default: "10"},
-				{Name: "conn_max_lifetime_seconds", Label: "Max Lifetime (sec)", Type: "text", Mandatory: false, Default: "300"},
+				{Name: "conn_max_lifetime_seconds", Label: "Max Lifetime (sec or duration)", Type: "text", Mandatory: false, Default: "300", Description: "Maximum duration a connection is recycled (e.g. 300 or 5m)"},
 			},
 			DefaultXML: `<database name="local_sqlite" driver="sqlite" connection_string="./pipeline_data.db" />`,
 		},
@@ -85,6 +86,27 @@ func GetCatalog() *ComponentCatalog {
 
 		// 2. Control Flow & Orchestration
 		{
+			Type:        "script",
+			Tag:         "script",
+			Name:        "Script Execution",
+			Category:    "Control Flow",
+			Description: "Executes dynamic code in Go, Shell, PowerShell, Bash, Cmd, or .NET Script (CSX).",
+			Section:     "flow",
+			HasContent:  true,
+			ContentHelp: "Inline script code executed by the chosen interpreter runtime.",
+			Fields: []ComponentField{
+				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
+				{Name: "language", Label: "Script Language / Runtime", Type: "select", Mandatory: true, Default: "powershell", Options: []string{"powershell", "pwsh", "shell", "bash", "cmd", "go", "git-bash", "zsh", "dotnet-script", "csx"}, Description: "Target interpreter runtime"},
+				{Name: "output_var", Label: "Output Variable", Type: "text", Mandatory: false, Description: "Variable name receiving script stdout/stderr output"},
+				{Name: "var", Label: "Script Body Variable", Type: "text", Mandatory: false, Description: "Optional variable containing script code if not in body"},
+				{Name: "timeout", Label: "Timeout Duration", Type: "text", Mandatory: false, Description: "Execution timeout duration (e.g. 30s, 5m)"},
+				{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Description of script action"},
+			},
+			DefaultXML: `<script id="RunScript" language="powershell" output_var="ScriptOutput">
+Write-Host "Running pipeline script..."
+</script>`,
+		},
+		{
 			Type:        "group",
 			Tag:         "group",
 			Name:        "Execution Group",
@@ -94,7 +116,10 @@ func GetCatalog() *ComponentCatalog {
 			HasContent:  false,
 			Fields: []ComponentField{
 				{Name: "id", Label: "Group ID", Type: "text", Mandatory: true, Description: "Unique group step identifier"},
-				{Name: "transaction", Label: "Transactional", Type: "bool", Mandatory: false, Default: "false", Options: []string{"true", "false"}},
+				{Name: "transaction", Label: "Transactional", Type: "bool", Mandatory: false, Default: "false", Options: []string{"true", "false"}, Description: "Wraps child steps in an atomic database transaction with savepoint nesting"},
+				{Name: "db", Label: "Database Connection", Type: "text", Mandatory: false, Description: "Database connection name for transaction group and savepoint scoping"},
+				{Name: "timeout", Label: "Timeout Duration", Type: "text", Mandatory: false, Description: "Transaction execution deadline duration (e.g. 30s, 5m)"},
+				{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Description of the group block"},
 				{Name: "on_error", Label: "On Error", Type: "select", Mandatory: false, Default: "stop", Options: []string{"stop", "continue", "retry"}},
 				{Name: "retry_count", Label: "Retry Count", Type: "int", Mandatory: false, Default: "0"},
 			},
@@ -119,16 +144,21 @@ func GetCatalog() *ComponentCatalog {
 			Tag:         "foreach",
 			Name:        "Foreach Loop",
 			Category:    "Control Flow",
-			Description: "Iterates over a dataset, CSV list, or slice variable, exposing each item inside the loop.",
+			Description: "Iterates over rows returned by a SQL query with constant-memory streaming or optional buffering.",
 			Section:     "flow",
-			HasContent:  false,
+			HasContent:  true,
+			ContentHelp: "SQL driver query that returns rows to iterate over (e.g. SELECT id, name FROM items).",
 			Fields: []ComponentField{
 				{Name: "id", Label: "Loop ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
-				{Name: "collection", Label: "Collection Variable", Type: "text", Mandatory: true, Description: "Variable holding collection or comma-separated string"},
-				{Name: "item", Label: "Current Item Variable", Type: "text", Mandatory: true, Default: "item", Description: "Variable name assigned to current element"},
-				{Name: "parallel", Label: "Parallel", Type: "bool", Mandatory: false, Default: "false", Options: []string{"true", "false"}},
+				{Name: "db", Label: "Database Connection", Type: "text", Mandatory: true, Description: "Database connection name executing driver query"},
+				{Name: "stream", Label: "Streaming Mode", Type: "bool", Mandatory: false, Default: "true", Options: []string{"true", "false"}, Description: "Constant-memory streaming cursor mode (default true)"},
+				{Name: "buffer", Label: "Buffer In-Memory", Type: "bool", Mandatory: false, Default: "false", Options: []string{"true", "false"}, Description: "Opt-in in-memory buffering to read rows upfront (capped at 100k) and release DB cursor early"},
+				{Name: "mode", Label: "Execution Mode", Type: "select", Mandatory: false, Default: "stream", Options: []string{"stream", "buffer"}, Description: "Loop execution mode: 'stream' (default, O(1) RAM) or 'buffer'"},
+				{Name: "var", Label: "Query Variable", Type: "text", Mandatory: false, Description: "Optional variable containing driver query (if not provided in body)"},
 			},
-			DefaultXML: `<foreach id="ProcessFiles" collection="{{FileList}}" item="currentFile"></foreach>`,
+			DefaultXML: `<foreach id="ProcessRecords" db="local_sqlite" stream="true">
+SELECT id, name FROM raw_items WHERE status = 'pending';
+</foreach>`,
 		},
 		{
 			Type:        "while",
@@ -172,8 +202,10 @@ func GetCatalog() *ComponentCatalog {
 			ContentHelp: "Raw SQL query or DDL command. Variable interpolation e.g. {{.TableName}} supported.",
 			Fields: []ComponentField{
 				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
-				{Name: "db", Label: "Target Database", Type: "text", Mandatory: true, Description: "Connection name declared in <databases>"},
-				{Name: "into", Label: "Into Variable", Type: "text", Mandatory: false, Description: "Variable name to store query result"},
+				{Name: "db", Label: "Database Connection", Type: "text", Mandatory: true, Description: "Connection name declared in <databases>"},
+				{Name: "output_var", Label: "Output Variable", Type: "text", Mandatory: false, Description: "Variable name to capture query result set or affected row count"},
+				{Name: "timeout", Label: "Timeout Duration", Type: "text", Mandatory: false, Description: "Statement execution timeout duration (e.g. 30s, 45m)"},
+				{Name: "into", Label: "Into Variable (Alias)", Type: "text", Mandatory: false, Description: "Legacy alias for output_var"},
 			},
 			DefaultXML: `<sql id="LoadSummary" db="local_sqlite">
 SELECT count(*) FROM raw_records;
@@ -184,17 +216,26 @@ SELECT count(*) FROM raw_records;
 			Tag:         "sql_bulk",
 			Name:        "SQL Bulk Insert / Copy",
 			Category:    "Database & SQL",
-			Description: "High-performance bulk stream copy of rows from memory or file into target database tables.",
+			Description: "High-performance bulk stream copy of rows from a source SQL query directly into a destination table.",
 			Section:     "flow",
-			HasContent:  false,
+			HasContent:  true,
+			ContentHelp: "Source extraction SQL query that pipes rows directly into the destination table.",
 			Fields: []ComponentField{
 				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
-				{Name: "db", Label: "Target Database", Type: "text", Mandatory: true, Description: "Connection name declared in <databases>"},
-				{Name: "table", Label: "Target Table", Type: "text", Mandatory: true, Description: "Target destination table name"},
-				{Name: "source", Label: "Source Dataset / File", Type: "text", Mandatory: true, Description: "Source dataset variable or file path"},
-				{Name: "batch_size", Label: "Batch Size", Type: "int", Mandatory: false, Default: "5000"},
+				{Name: "db", Label: "Source Database", Type: "text", Mandatory: true, Description: "Source database connection handle declared in <databases>"},
+				{Name: "target_table", Label: "Target Table", Type: "text", Mandatory: true, Description: "Destination table name receiving bulk inserts"},
+				{Name: "target_db", Label: "Target Database", Type: "text", Mandatory: false, Description: "Destination database connection handle (defaults to source db)"},
+				{Name: "batch_size", Label: "Batch Size", Type: "int", Mandatory: false, Default: "10000", Description: "Number of rows committed per network chunk"},
+				{Name: "tablock", Label: "Table Lock (MSSQL)", Type: "bool", Mandatory: false, Default: "true", Options: []string{"true", "false"}, Description: "(SQL Server) Acquires table-level lock for minimal transaction logging"},
+				{Name: "check_constraints", Label: "Check Constraints", Type: "bool", Mandatory: false, Default: "false", Options: []string{"true", "false"}, Description: "(SQL Server) Validates foreign keys/check constraints during bulk load"},
+				{Name: "fire_triggers", Label: "Fire Triggers", Type: "bool", Mandatory: false, Default: "false", Options: []string{"true", "false"}, Description: "(SQL Server) Fires insert triggers on target table during bulk load"},
+				{Name: "keep_nulls", Label: "Keep Nulls", Type: "bool", Mandatory: false, Default: "false", Options: []string{"true", "false"}, Description: "(SQL Server) Preserves incoming NULLs instead of applying default constraints"},
+				{Name: "timeout", Label: "Timeout Duration", Type: "text", Mandatory: false, Description: "Bulk copy operation timeout duration (e.g. 10m, 1h)"},
+				{Name: "output_var", Label: "Output Variable", Type: "text", Mandatory: false, Description: "Stores total number of rows streamed to destination"},
 			},
-			DefaultXML: `<sql_bulk id="BulkInsertRecords" db="local_sqlite" table="customers" source="{{CustomerData}}" batch_size="5000" />`,
+			DefaultXML: `<sql_bulk id="BulkInsertRecords" db="source_db" target_db="dest_db" target_table="customers" batch_size="10000" tablock="true">
+SELECT id, name, email FROM raw_customers;
+</sql_bulk>`,
 		},
 
 		// 4. Key-Value & Cache Operations
@@ -278,6 +319,29 @@ Status: {{.Status}}
 </html>
 </template_html>`,
 		},
+		{
+			Type:        "html_template",
+			Tag:         "html_template",
+			Name:        "HTML Template (Alias)",
+			Category:    "Template & Transform",
+			Description: "Safely renders contextual HTML templates with automatic escaping for reports and emails (alias for template_html).",
+			Section:     "flow",
+			HasContent:  true,
+			ContentHelp: "HTML template body with Go html/template syntax.",
+			Fields: []ComponentField{
+				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
+				{Name: "into", Label: "Into Variable", Type: "text", Mandatory: false, Description: "Variable name to receive rendered HTML"},
+				{Name: "file", Label: "Output HTML File", Type: "text", Mandatory: false, Description: "File path for HTML output"},
+			},
+			DefaultXML: `<html_template id="GenerateReportHTML" file="report.html">
+<html>
+<body>
+    <h1>ETL Execution Report</h1>
+    <p>Run Time: {{.Timestamp}}</p>
+</body>
+</html>
+</html_template>`,
+		},
 
 		// 6. File & Storage Operations
 		{
@@ -321,27 +385,35 @@ Status: {{.Status}}
 			HasContent:  false,
 			Fields: []ComponentField{
 				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
-				{Name: "path", Label: "Excel Path", Type: "text", Mandatory: true, Description: "Path to .xlsx file"},
-				{Name: "sheet", Label: "Sheet Name", Type: "text", Mandatory: false, Default: "Sheet1"},
-				{Name: "into", Label: "Target Variable", Type: "text", Mandatory: true, Description: "Variable to store extracted dataset"},
+				{Name: "file", Label: "Excel File Path", Type: "text", Mandatory: true, Description: "Path to .xlsx file"},
+				{Name: "sheet", Label: "Sheet Name", Type: "text", Mandatory: false, Default: "Sheet1", Description: "Target worksheet name"},
+				{Name: "header", Label: "Has Header Row", Type: "bool", Mandatory: false, Default: "true", Options: []string{"true", "false"}, Description: "Whether first row contains column headers"},
+				{Name: "output_var", Label: "Output Variable", Type: "text", Mandatory: true, Description: "Variable to store extracted dataset as JSON string"},
+				{Name: "path", Label: "Path (Legacy Alias)", Type: "text", Mandatory: false, Description: "Legacy alias for file"},
+				{Name: "into", Label: "Into (Legacy Alias)", Type: "text", Mandatory: false, Description: "Legacy alias for output_var"},
 			},
-			DefaultXML: `<excel_read id="ReadAccounts" path="./spreadsheets/Accounts.xlsx" sheet="Active" into="AccountList" />`,
+			DefaultXML: `<excel_read id="ReadAccounts" file="./spreadsheets/Accounts.xlsx" sheet="Active" header="true" output_var="AccountList" />`,
 		},
 		{
 			Type:        "excel_write",
 			Tag:         "excel_write",
 			Name:        "Excel Write (.xlsx)",
 			Category:    "File & Storage",
-			Description: "Exports tabular dataset variables into styled Excel spreadsheets.",
+			Description: "Exports SQL query results into styled multi-tab Excel spreadsheets.",
 			Section:     "flow",
-			HasContent:  false,
+			HasContent:  true,
+			ContentHelp: "SQL query to extract rows for the worksheet (e.g. SELECT * FROM customers).",
 			Fields: []ComponentField{
 				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
-				{Name: "path", Label: "Target Excel Path", Type: "text", Mandatory: true, Description: "Path to write .xlsx file"},
-				{Name: "source", Label: "Source Variable", Type: "text", Mandatory: true, Description: "Dataset variable to export"},
-				{Name: "sheet", Label: "Sheet Name", Type: "text", Mandatory: false, Default: "Sheet1"},
+				{Name: "file", Label: "Target Excel File", Type: "text", Mandatory: true, Description: "Path to write .xlsx file"},
+				{Name: "sheet", Label: "Sheet Name", Type: "text", Mandatory: false, Default: "Sheet1", Description: "Target worksheet name"},
+				{Name: "db", Label: "Database Connection", Type: "text", Mandatory: true, Description: "Database connection name executing source export query"},
+				{Name: "var", Label: "Query Variable", Type: "text", Mandatory: false, Description: "Optional variable containing SQL query if not in body"},
+				{Name: "path", Label: "Path (Legacy Alias)", Type: "text", Mandatory: false, Description: "Legacy alias for file"},
 			},
-			DefaultXML: `<excel_write id="WriteSummary" path="./output/Summary.xlsx" source="{{CustomerData}}" sheet="Summary" />`,
+			DefaultXML: `<excel_write id="ExportSales" file="./reports/Sales.xlsx" sheet="Summary" db="local_sqlite">
+SELECT date, product, revenue FROM sales_data;
+</excel_write>`,
 		},
 
 		// 7. Structured Data Extraction

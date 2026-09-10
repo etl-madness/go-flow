@@ -54,7 +54,7 @@
                 </template>
             </on_failure>
         </assert>
-        <template id="log_user_connected_as" output_var="LOG_RESULT">
+        <template id="template_log_user_connected_as" output_var="LOG_RESULT">
                    [PASSED] Expected connection as dbo. Found connected to database as user = {{.PRELIGHT_CHECK_2_RESULT}}
           </template>
     </preflight>

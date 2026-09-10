@@ -64,7 +64,19 @@ func renderNodeXML(node PipelineNode, indent string) string {
 	sort.Strings(keys)
 
 	var orderedKeys []string
-	for _, preferred := range []string{"id", "name", "driver", "connection_string", "db", "table", "source", "into"} {
+	preferredOrder := []string{
+		"id", "name", "driver", "connection_string", "workload",
+		"db", "database", "target_db", "target_database", "target_table", "table",
+		"file", "path", "sheet", "source",
+		"into", "output_var", "var", "variable",
+		"transaction", "tx", "timeout",
+		"stream", "buffer", "mode", "language",
+		"batch_size", "tablock", "check_constraints", "fire_triggers", "keep_nulls",
+		"header", "op", "bucket", "key", "value",
+		"condition", "max_iterations", "max_concurrency",
+		"on_error", "retry_count", "description",
+	}
+	for _, preferred := range preferredOrder {
 		for _, k := range keys {
 			if k == preferred {
 				orderedKeys = append(orderedKeys, k)

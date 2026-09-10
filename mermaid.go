@@ -47,17 +47,20 @@ type DiagramBlock struct {
 }
 
 type DiagramNode struct {
-	XMLName   xml.Name
-	ID        string        `xml:"id,attr"`
-	Language  string        `xml:"language,attr"`
-	Lang      string        `xml:"lang,attr"`
-	TargetDB  string        `xml:"target_db,attr"`
-	Var       string        `xml:"var,attr"`
-	Equals    string        `xml:"equals,attr"`
-	Condition string        `xml:"condition,attr"`
-	Children  []DiagramNode `xml:",any"`
-	Then      *DiagramBlock `xml:"then"`
-	Else      *DiagramBlock `xml:"else"`
+	XMLName     xml.Name
+	ID          string        `xml:"id,attr"`
+	Language    string        `xml:"language,attr"`
+	Lang        string        `xml:"lang,attr"`
+	DB          string        `xml:"db,attr"`
+	TargetDB    string        `xml:"target_db,attr"`
+	TargetTable string        `xml:"target_table,attr"`
+	File        string        `xml:"file,attr"`
+	Var         string        `xml:"var,attr"`
+	Equals      string        `xml:"equals,attr"`
+	Condition   string        `xml:"condition,attr"`
+	Children    []DiagramNode `xml:",any"`
+	Then        *DiagramBlock `xml:"then"`
+	Else        *DiagramBlock `xml:"else"`
 }
 
 // ============================================================================
@@ -201,6 +204,20 @@ func (g *MermaidGenerator) ProcessNode(node DiagramNode) (string, string) {
 		label := fmt.Sprintf("%s<br/>(%s)", id, strings.ToUpper(nodeName))
 		if node.TargetDB != "" {
 			label += fmt.Sprintf("<br/>➔ Stream to %s", node.TargetDB)
+		} else if node.TargetTable != "" {
+			label += fmt.Sprintf("<br/>➔ %s", node.TargetTable)
+		}
+		g.builder.WriteString(fmt.Sprintf("    %s[\"%s\"]\n", id, label))
+		return id, id
+
+	case "excel_write", "excel_read":
+		id := node.ID
+		if id == "" {
+			id = g.nextID(nodeName)
+		}
+		label := fmt.Sprintf("%s<br/>(%s)", id, strings.ToUpper(nodeName))
+		if node.File != "" {
+			label += fmt.Sprintf("<br/>📄 %s", node.File)
 		}
 		g.builder.WriteString(fmt.Sprintf("    %s[\"%s\"]\n", id, label))
 		return id, id
@@ -289,9 +306,19 @@ func (g *MermaidGenerator) ProcessNode(node DiagramNode) (string, string) {
 
 		g.builder.WriteString(fmt.Sprintf("    %s -- \"Done\" --> %s\n", loopStart, loopEnd))
 		return loopStart, loopEnd
-	}
 
-	return "", ""
+	default:
+		if nodeName == "" {
+			return "", ""
+		}
+		id := node.ID
+		if id == "" {
+			id = g.nextID(nodeName)
+		}
+		label := fmt.Sprintf("%s<br/>(%s)", id, strings.ToUpper(nodeName))
+		g.builder.WriteString(fmt.Sprintf("    %s[\"%s\"]\n", id, label))
+		return id, id
+	}
 }
 
 func applyVariableOverrides(r *flow.Registry, overrideStr string) {

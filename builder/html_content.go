@@ -435,7 +435,7 @@ const IndexHTML = `<!DOCTYPE html>
                 <div class="pt-2 border-t border-slate-800">
                     <div class="flex items-center justify-between mb-2">
                         <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Custom / Extra Attributes</label>
-                        <button type="button" onclick="addCustomAttributeRow('', '', getAllowedCustomAttributeNames(window.currentNodeMeta || getCurrentNodeMeta()))" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium">＋ Add Attribute</button>
+                        <button type="button" onclick="addCustomAttributeRow('', '', getAvailableAttributesForNode(window.currentNodeMeta || getCurrentNodeMeta()))" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium">＋ Add Attribute</button>
                     </div>
                     <div id="modal-custom-attrs" class="space-y-2"></div>
                 </div>
@@ -811,47 +811,174 @@ const IndexHTML = `<!DOCTYPE html>
             openEditNode(nodeId);
         }
 
+        const FLOW_COMMON_ATTRIBUTES = [
+            'id', 'description', 'timeout', 'condition', 'cond', 'on_error', 'retry_count', 'retry_interval', 'disabled'
+        ];
+
+        const FLOW_NODE_ATTRIBUTES = {
+            'script': ['id', 'language', 'lang', 'output_var', 'output_variable', 'out_var', 'var', 'variable', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count', 'retry_interval'],
+            'sql': ['id', 'db', 'database', 'output_var', 'into', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count', 'retry_interval'],
+            'sql_bulk': ['id', 'db', 'database', 'target_table', 'table', 'target_db', 'target_database', 'batch_size', 'tablock', 'check_constraints', 'fire_triggers', 'keep_nulls', 'timeout', 'output_var', 'description', 'condition', 'cond', 'on_error', 'retry_count'],
+            'group': ['id', 'transaction', 'tx', 'db', 'database', 'timeout', 'on_error', 'retry_count', 'retry_interval', 'condition', 'cond', 'description'],
+            'foreach': ['id', 'db', 'database', 'var', 'variable', 'stream', 'buffer', 'mode', 'language', 'lang', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count'],
+            'loop': ['id', 'db', 'database', 'var', 'variable', 'stream', 'buffer', 'mode', 'language', 'lang', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count'],
+            'while': ['id', 'condition', 'cond', 'var', 'equals', 'val', 'value', 'max_iterations', 'max_loops', 'timeout', 'description', 'on_error', 'retry_count'],
+            'parallel': ['id', 'max_concurrency', 'timeout', 'description', 'on_error'],
+            'if': ['id', 'condition', 'cond', 'var', 'if_var', 'equals', 'val', 'value', 'if_val', 'if_equals', 'description'],
+            'http_client': ['id', 'url', 'method', 'headers', 'into', 'status_into', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count', 'retry_interval'],
+            'kv': ['id', 'db', 'op', 'bucket', 'key', 'value', 'into', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count'],
+            'kv_bulk': ['id', 'db', 'bucket', 'source', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count'],
+            'excel_read': ['id', 'file', 'path', 'sheet', 'header', 'output_var', 'into', 'timeout', 'description', 'condition', 'cond', 'on_error'],
+            'excel_write': ['id', 'file', 'path', 'sheet', 'db', 'database', 'var', 'timeout', 'description', 'condition', 'cond', 'on_error'],
+            'template': ['id', 'file', 'engine', 'var', 'into', 'output_var', 'mode', 'name', 'timeout', 'description', 'condition', 'cond'],
+            'template_html': ['id', 'file', 'engine', 'var', 'into', 'output_var', 'mode', 'name', 'timeout', 'description', 'condition', 'cond'],
+            'html_template': ['id', 'file', 'engine', 'var', 'into', 'output_var', 'mode', 'name', 'timeout', 'description', 'condition', 'cond'],
+            'file_read': ['id', 'path', 'into', 'timeout', 'description', 'condition', 'cond', 'on_error'],
+            'file_save': ['id', 'path', 'source', 'mode', 'timeout', 'description', 'condition', 'cond', 'on_error'],
+            'json_path': ['id', 'source', 'query', 'into', 'timeout', 'description', 'condition', 'cond'],
+            'yaml_path': ['id', 'source', 'query', 'into', 'timeout', 'description', 'condition', 'cond'],
+            'xml_xpath': ['id', 'source', 'query', 'into', 'timeout', 'description', 'condition', 'cond'],
+            'assert': ['id', 'condition', 'cond', 'message', 'description'],
+            'database': ['name', 'driver', 'connection_string', 'workload', 'max_open_conns', 'max_idle_conns', 'conn_max_lifetime_seconds', 'description'],
+            'variable': ['name', 'value', 'type', 'description']
+        };
+
+        const FLOW_ATTR_VALUE_PRESETS = {
+            'language': ['powershell', 'pwsh', 'shell', 'bash', 'cmd', 'go', 'git-bash', 'zsh', 'dotnet-script', 'csx'],
+            'lang': ['powershell', 'pwsh', 'shell', 'bash', 'cmd', 'go', 'git-bash', 'zsh', 'dotnet-script', 'csx'],
+            'on_error': ['stop', 'continue', 'retry'],
+            'stream': ['true', 'false'],
+            'buffer': ['true', 'false'],
+            'tablock': ['true', 'false'],
+            'check_constraints': ['true', 'false'],
+            'fire_triggers': ['true', 'false'],
+            'keep_nulls': ['true', 'false'],
+            'transaction': ['true', 'false'],
+            'tx': ['true', 'false'],
+            'header': ['true', 'false'],
+            'disabled': ['true', 'false'],
+            'workload': ['oltp', 'bulk', 'analytics', 'batch'],
+            'mode': ['stream', 'buffer', 'overwrite', 'append'],
+            'method': ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD'],
+            'timeout': ['10s', '30s', '1m', '5m', '10m', '1h'],
+            'retry_interval': ['1s', '2s', '5s', '10s', '30s'],
+            'op': ['get', 'put', 'delete', 'scan']
+        };
+
         function getCurrentNodeMeta() {
             const nodeType = document.getElementById('modal-node-type')?.value;
             return catalogData.find(c => c.type === nodeType) || { type: nodeType, fields: [] };
         }
 
         function getAllowedCustomAttributeNames(meta) {
-            if (!meta || !Array.isArray(meta.fields)) return [];
-            return (meta.fields || []).map(f => f.name).filter(Boolean).sort();
+            const nodeType = (meta?.type || meta?.tag || document.getElementById('modal-node-type')?.value || '').toLowerCase();
+            const set = new Set();
+            if (meta && Array.isArray(meta.fields)) {
+                meta.fields.forEach(f => { if (f.name) set.add(f.name); });
+            }
+            if (FLOW_NODE_ATTRIBUTES[nodeType]) {
+                FLOW_NODE_ATTRIBUTES[nodeType].forEach(a => set.add(a));
+            }
+            FLOW_COMMON_ATTRIBUTES.forEach(a => set.add(a));
+            return Array.from(set).sort();
         }
 
-        function addCustomAttributeRow(name, value, allowedNames) {
+        function getAvailableAttributesForNode(meta) {
+            const allAllowed = getAllowedCustomAttributeNames(meta);
+            const inUse = new Set();
+            if (meta && Array.isArray(meta.fields)) {
+                meta.fields.forEach(f => { if (f.name) inUse.add(f.name); });
+            }
+            const customContainer = document.getElementById('modal-custom-attrs');
+            if (customContainer) {
+                customContainer.querySelectorAll('.custom-attr-key-select').forEach(el => {
+                    if (el.value && el.value !== '__custom__') inUse.add(el.value);
+                });
+                customContainer.querySelectorAll('.custom-attr-key-input').forEach(el => {
+                    if (el.value && el.value.trim()) inUse.add(el.value.trim());
+                });
+            }
+            return allAllowed.filter(attr => !inUse.has(attr));
+        }
+
+        function addCustomAttributeRow(name, value, availableNames) {
             const container = document.getElementById('modal-custom-attrs');
             if (!container) return;
 
             const row = document.createElement('div');
             row.className = 'flex items-center space-x-2 custom-attr-row';
             const safeVal = (value || '').replace(/"/g, '&quot;');
-            const attrList = Array.isArray(allowedNames) && allowedNames.length > 0 ? allowedNames : [];
             const currentName = (name || '').trim();
-            const currentIsAllowed = attrList.includes(currentName);
 
-            let keyHtml = '';
-            if (attrList.length > 0) {
-                const opts = attrList.map(attr => {
-                    const selected = attr === currentName ? ' selected' : '';
-                    return '<option value="' + attr + '"' + selected + '>' + attr + '</option>';
-                }).join('');
-                keyHtml = '<select class="custom-attr-key w-1/3 bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
-                    '<option value="" ' + (currentName ? '' : 'selected') + '>Select...</option>' +
-                    opts +
-                    '</select>';
+            const meta = window.currentNodeMeta || getCurrentNodeMeta();
+            const allowed = getAllowedCustomAttributeNames(meta);
+
+            const optionList = Array.isArray(availableNames) ? [...availableNames] : [];
+            if (currentName && !optionList.includes(currentName) && allowed.includes(currentName)) {
+                optionList.unshift(currentName);
+            }
+            optionList.sort();
+
+            const isCustom = currentName !== '' && !allowed.includes(currentName);
+            const selectVal = isCustom ? '__custom__' : currentName;
+
+            let optsHtml = '<option value="">-- Select Attribute --</option>';
+            optionList.forEach(attr => {
+                const sel = attr === selectVal ? ' selected' : '';
+                optsHtml += '<option value="' + attr + '"' + sel + '>' + attr + '</option>';
+            });
+            optsHtml += '<option value="__custom__"' + (isCustom ? ' selected' : '') + '>Custom Attribute...</option>';
+
+            const selectClass = 'custom-attr-key-select ' + (isCustom ? 'w-1/4' : 'w-1/3') + ' bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500';
+            const inputClass = 'custom-attr-key-input ' + (isCustom ? 'w-1/4' : 'hidden') + ' bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500';
+
+            const datalistId = 'dl-attr-' + Math.random().toString(36).substr(2, 9);
+            const presets = FLOW_ATTR_VALUE_PRESETS[currentName] || [];
+            let datalistHtml = '<datalist id="' + datalistId + '">';
+            presets.forEach(p => {
+                datalistHtml += '<option value="' + p + '">';
+            });
+            datalistHtml += '</datalist>';
+
+            row.innerHTML = 
+                '<select class="' + selectClass + '" onchange="onCustomAttrKeyChanged(this, \'' + datalistId + '\')">' +
+                    optsHtml +
+                '</select>' +
+                '<input type="text" placeholder="attribute_name" value="' + (isCustom ? currentName.replace(/"/g, '&quot;') : '') + '" class="' + inputClass + '">' +
+                '<input type="text" list="' + datalistId + '" placeholder="value" value="' + safeVal + '" class="custom-attr-val flex-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">' +
+                datalistHtml +
+                '<button type="button" onclick="this.closest(\'.custom-attr-row\').remove()" class="p-1.5 hover:bg-red-950/60 text-slate-400 hover:text-red-400 rounded text-xs" title="Remove attribute">&times;</button>';
+
+            container.appendChild(row);
+        }
+
+        function onCustomAttrKeyChanged(selectEl, datalistId) {
+            const row = selectEl.closest('.custom-attr-row');
+            if (!row) return;
+            const customInput = row.querySelector('.custom-attr-key-input');
+            const valInput = row.querySelector('.custom-attr-val');
+            const datalist = row.querySelector('#' + datalistId);
+
+            if (selectEl.value === '__custom__') {
+                selectEl.className = 'custom-attr-key-select w-1/4 bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500';
+                customInput.classList.remove('hidden');
+                customInput.focus();
             } else {
-                const safeName = currentName.replace(/"/g, '&quot;');
-                keyHtml = '<input type="text" placeholder="attribute_name" value="' + safeName + '" class="custom-attr-key w-1/3 bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">';
+                selectEl.className = 'custom-attr-key-select w-1/3 bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500';
+                customInput.classList.add('hidden');
+                customInput.value = '';
             }
 
-            const inputValue = currentIsAllowed || attrList.length === 0 ? safeVal : '';
-            row.innerHTML = keyHtml +
-                '<input type="text" placeholder="value" value="' + inputValue + '" class="custom-attr-val flex-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">' +
-                '<button type="button" onclick="this.closest(\'.custom-attr-row\').remove()" class="p-1.5 hover:bg-red-950/60 text-slate-400 hover:text-red-400 rounded text-xs" title="Remove attribute">&times;</button>';
-            container.appendChild(row);
+            const attrKey = selectEl.value;
+            const presets = FLOW_ATTR_VALUE_PRESETS[attrKey] || [];
+            if (datalist) {
+                datalist.innerHTML = presets.map(p => '<option value="' + p + '">').join('');
+            }
+            if (presets.length > 0 && !valInput.value) {
+                valInput.placeholder = 'e.g. ' + presets[0];
+            } else {
+                valInput.placeholder = 'value';
+            }
         }
 
         function getDefinedDatabases() {
@@ -907,10 +1034,10 @@ const IndexHTML = `<!DOCTYPE html>
             // Populate custom/extra attributes not explicitly defined in meta.fields
             const customContainer = document.getElementById('modal-custom-attrs');
             customContainer.innerHTML = '';
-            const allowedCustomAttrs = getAllowedCustomAttributeNames(meta);
+            const availableAttrs = getAvailableAttributesForNode(meta);
             Object.keys(currentValues).forEach(k => {
-                if (!recognized.has(k) && allowedCustomAttrs.includes(k)) {
-                    addCustomAttributeRow(k, currentValues[k], allowedCustomAttrs);
+                if (!recognized.has(k)) {
+                    addCustomAttributeRow(k, currentValues[k], availableAttrs);
                 }
             });
 
@@ -949,14 +1076,19 @@ const IndexHTML = `<!DOCTYPE html>
                 }
             });
 
-            const allowedCustomAttrs = getAllowedCustomAttributeNames(meta || getCurrentNodeMeta());
             form.querySelectorAll('.custom-attr-row').forEach(row => {
-                const keyEl = row.querySelector('.custom-attr-key');
+                const selectEl = row.querySelector('.custom-attr-key-select');
+                const customInput = row.querySelector('.custom-attr-key-input');
                 const valEl = row.querySelector('.custom-attr-val');
-                if (!keyEl || !valEl) return;
-                const k = keyEl.value.trim();
+                if (!selectEl || !valEl) return;
+                let k = selectEl.value;
+                if (k === '__custom__' && customInput) {
+                    k = customInput.value.trim();
+                } else {
+                    k = k.trim();
+                }
                 const v = valEl.value;
-                if (k !== '' && allowedCustomAttrs.includes(k)) {
+                if (k !== '') {
                     attrs[k] = v;
                 }
             });
