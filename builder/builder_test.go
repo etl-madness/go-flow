@@ -164,6 +164,227 @@ func TestGenerateXML(t *testing.T) {
 	}
 }
 
+func TestCatalogUpdatedFlowFeatures(t *testing.T) {
+	cat := GetCatalog()
+
+	// 1. database workload
+	dbMeta := cat.GetComponentByType("database")
+	if dbMeta == nil {
+		t.Fatal("missing database component in catalog")
+	}
+	var hasWorkload bool
+	for _, f := range dbMeta.Fields {
+		if f.Name == "workload" {
+			hasWorkload = true
+			if len(f.Options) < 4 {
+				t.Fatalf("expected workload options, got: %+v", f.Options)
+			}
+		}
+	}
+	if !hasWorkload {
+		t.Errorf("expected database component to have workload field")
+	}
+
+	// 2. group db and timeout
+	grpMeta := cat.GetComponentByType("group")
+	if grpMeta == nil {
+		t.Fatal("missing group component in catalog")
+	}
+	var grpHasDB, grpHasTimeout bool
+	for _, f := range grpMeta.Fields {
+		if f.Name == "db" {
+			grpHasDB = true
+		}
+		if f.Name == "timeout" {
+			grpHasTimeout = true
+		}
+	}
+	if !grpHasDB || !grpHasTimeout {
+		t.Errorf("expected group to have db and timeout fields, got db=%v timeout=%v", grpHasDB, grpHasTimeout)
+	}
+
+	// 3. foreach streaming / query content
+	feMeta := cat.GetComponentByType("foreach")
+	if feMeta == nil {
+		t.Fatal("missing foreach component in catalog")
+	}
+	if !feMeta.HasContent {
+		t.Errorf("expected foreach to have HasContent: true for query body")
+	}
+	var feHasDB, feHasStream, feHasBuffer, feHasMode bool
+	for _, f := range feMeta.Fields {
+		switch f.Name {
+		case "db":
+			feHasDB = true
+		case "stream":
+			feHasStream = true
+		case "buffer":
+			feHasBuffer = true
+		case "mode":
+			feHasMode = true
+		}
+	}
+	if !feHasDB || !feHasStream || !feHasBuffer || !feHasMode {
+		t.Errorf("foreach missing required fields: db=%v stream=%v buffer=%v mode=%v", feHasDB, feHasStream, feHasBuffer, feHasMode)
+	}
+
+	// 4. sql timeout and output_var
+	sqlMeta := cat.GetComponentByType("sql")
+	if sqlMeta == nil {
+		t.Fatal("missing sql component in catalog")
+	}
+	var sqlHasTimeout, sqlHasOutputVar bool
+	for _, f := range sqlMeta.Fields {
+		if f.Name == "timeout" {
+			sqlHasTimeout = true
+		}
+		if f.Name == "output_var" {
+			sqlHasOutputVar = true
+		}
+	}
+	if !sqlHasTimeout || !sqlHasOutputVar {
+		t.Errorf("expected sql to have timeout and output_var, got timeout=%v output_var=%v", sqlHasTimeout, sqlHasOutputVar)
+	}
+
+	// 5. sql_bulk target_table, target_db, tablock, timeout
+	bulkMeta := cat.GetComponentByType("sql_bulk")
+	if bulkMeta == nil {
+		t.Fatal("missing sql_bulk component in catalog")
+	}
+	if !bulkMeta.HasContent {
+		t.Errorf("expected sql_bulk to have HasContent: true for source query")
+	}
+	var bulkHasTargetTable, bulkHasTargetDB, bulkHasTablock, bulkHasTimeout bool
+	for _, f := range bulkMeta.Fields {
+		switch f.Name {
+		case "target_table":
+			bulkHasTargetTable = true
+		case "target_db":
+			bulkHasTargetDB = true
+		case "tablock":
+			bulkHasTablock = true
+		case "timeout":
+			bulkHasTimeout = true
+		}
+	}
+	if !bulkHasTargetTable || !bulkHasTargetDB || !bulkHasTablock || !bulkHasTimeout {
+		t.Errorf("sql_bulk missing fields: target_table=%v target_db=%v tablock=%v timeout=%v",
+			bulkHasTargetTable, bulkHasTargetDB, bulkHasTablock, bulkHasTimeout)
+	}
+
+	// 6. excel_write
+	ewMeta := cat.GetComponentByType("excel_write")
+	if ewMeta == nil {
+		t.Fatal("missing excel_write component in catalog")
+	}
+	if !ewMeta.HasContent {
+		t.Errorf("expected excel_write to have HasContent: true for export query")
+	}
+	var ewHasFile, ewHasDB bool
+	for _, f := range ewMeta.Fields {
+		if f.Name == "file" {
+			ewHasFile = true
+		}
+		if f.Name == "db" {
+			ewHasDB = true
+		}
+	}
+	if !ewHasFile || !ewHasDB {
+		t.Errorf("excel_write missing file or db: file=%v db=%v", ewHasFile, ewHasDB)
+	}
+
+	// 7. excel_read
+	erMeta := cat.GetComponentByType("excel_read")
+	if erMeta == nil {
+		t.Fatal("missing excel_read component in catalog")
+	}
+	var erHasFile, erHasHeader, erHasOutVar bool
+	for _, f := range erMeta.Fields {
+		if f.Name == "file" {
+			erHasFile = true
+		}
+		if f.Name == "header" {
+			erHasHeader = true
+		}
+		if f.Name == "output_var" {
+			erHasOutVar = true
+		}
+	}
+	if !erHasFile || !erHasHeader || !erHasOutVar {
+		t.Errorf("excel_read missing file/header/output_var: file=%v header=%v output_var=%v", erHasFile, erHasHeader, erHasOutVar)
+	}
+
+	// 8. html_template alias
+	htmlMeta := cat.GetComponentByType("html_template")
+	if htmlMeta == nil {
+		t.Fatal("missing html_template component in catalog")
+	}
+}
+
+func TestGenerateXMLWithNewFeatures(t *testing.T) {
+	dbNodes := []PipelineNode{
+		{
+			NodeType: "database",
+			Attributes: map[string]string{
+				"name":              "dw_mssql",
+				"driver":            "sqlserver",
+				"connection_string": "sqlserver://sa:secret@localhost:1433",
+				"workload":          "bulk",
+			},
+		},
+	}
+	flowNodes := []PipelineNode{
+		{
+			NodeType: "sql_bulk",
+			Attributes: map[string]string{
+				"id":           "CopyTxs",
+				"db":           "source_pg",
+				"target_db":    "dw_mssql",
+				"target_table": "raw_txs",
+				"batch_size":   "25000",
+				"tablock":      "true",
+				"timeout":      "30m",
+				"output_var":   "COPIED_COUNT",
+			},
+			ContentText: "SELECT * FROM transactions WHERE created_at >= '2026-01-01';",
+		},
+		{
+			NodeType: "foreach",
+			Attributes: map[string]string{
+				"id":     "ProcessBatches",
+				"db":     "dw_mssql",
+				"stream": "true",
+			},
+			ContentText: "SELECT batch_id FROM batches WHERE status = 'pending';",
+		},
+		{
+			NodeType: "excel_write",
+			Attributes: map[string]string{
+				"id":    "ExportSummary",
+				"file":  "./reports/summary.xlsx",
+				"sheet": "Summary",
+				"db":    "dw_mssql",
+			},
+			ContentText: "SELECT * FROM summary_metrics;",
+		},
+	}
+
+	xml := GenerateXML("bulk_pipeline", nil, dbNodes, nil, flowNodes)
+
+	if !strings.Contains(xml, `workload="bulk"`) {
+		t.Errorf("expected workload attribute in xml: %s", xml)
+	}
+	if !strings.Contains(xml, `<sql_bulk`) || !strings.Contains(xml, `target_table="raw_txs"`) || !strings.Contains(xml, `tablock="true"`) {
+		t.Errorf("expected sql_bulk attributes in xml: %s", xml)
+	}
+	if !strings.Contains(xml, `<foreach`) || !strings.Contains(xml, `stream="true"`) {
+		t.Errorf("expected foreach in xml: %s", xml)
+	}
+	if !strings.Contains(xml, `<excel_write`) || !strings.Contains(xml, `file="./reports/summary.xlsx"`) {
+		t.Errorf("expected excel_write in xml: %s", xml)
+	}
+}
+
 func TestConfigAndOptionsDrafts(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_config.db")
