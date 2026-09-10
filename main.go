@@ -266,7 +266,7 @@ func main() {
 	executor.SetVerbose(*debug)
 	executor.SetGoPath(*goPath)
 	executor.SetInterpHook(func(opts *interp.Options) {
-		opts.Unrestricted = true
+		opts.Unrestricted = false
 	})
 
 	// =========================================================================

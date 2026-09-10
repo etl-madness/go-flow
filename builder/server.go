@@ -3,6 +3,8 @@ package builder
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -17,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/etl-madness/flow"
 )
 
 type Server struct {
@@ -24,6 +28,15 @@ type Server struct {
 	catalog  *ComponentCatalog
 	template *template.Template
 	port     int
+	csrfToken string
+}
+
+func (s *Server) generateCSRFToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "fallback-token-error"
+	}
+	return base64.StdEncoding.EncodeToString(b)
 }
 
 func NewServer(storage *Storage, port int) (*Server, error) {
@@ -32,12 +45,14 @@ func NewServer(storage *Storage, port int) (*Server, error) {
 		return nil, fmt.Errorf("failed to build templates: %w", err)
 	}
 
-	return &Server{
+	s := &Server{
 		storage:  storage,
 		catalog:  GetCatalog(),
 		template: tmpl,
 		port:     port,
-	}, nil
+	}
+	s.csrfToken = s.generateCSRFToken()
+	return s, nil
 }
 
 type PageData struct {
@@ -52,6 +67,7 @@ type PageData struct {
 	FlowNodes             []PipelineNode
 	DefaultConfigContent  string
 	DefaultOptionsContent string
+	CSRFToken             string
 }
 
 func (s *Server) getActiveScript(r *http.Request) (Script, error) {
@@ -102,6 +118,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		FlowNodes:             flowNodes,
 		DefaultConfigContent:  configContent,
 		DefaultOptionsContent: optionsContent,
+		CSRFToken:             s.csrfToken,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -145,7 +162,54 @@ type NodeRequest struct {
 	Content    string            `json:"content"`
 }
 
+func (s *Server) validateCSRF(r *http.Request) bool {
+	if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
+		return true
+	}
+	token := r.Header.Get("X-CSRF-Token")
+	if token == "" {
+		token = r.FormValue("csrf_token")
+	}
+	return token == s.csrfToken
+}
+
+func (s *Server) sanitizePath(path string) (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get cwd: %w", err)
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("invalid path: %w", err)
+	}
+
+	if !strings.HasPrefix(absPath, cwd) {
+		return "", fmt.Errorf("access denied: path %s is outside the working directory", path)
+	}
+
+	return absPath, nil
+}
+
+func (s *Server) sanitizeWritePath(filename string) (string, error) {
+	sandboxDir := "exports"
+	if err := os.MkdirAll(sandboxDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create sandbox directory: %w", err)
+	}
+
+	baseName := filepath.Base(filename)
+	if baseName == "." || baseName == ".." {
+		return "", fmt.Errorf("invalid filename")
+	}
+
+	return filepath.Join(sandboxDir, baseName), nil
+}
+
 func (s *Server) handleAddNode(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -171,6 +235,10 @@ func (s *Server) handleAddNode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdateNode(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -210,6 +278,10 @@ func (s *Server) handleGetNode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteNode(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -231,6 +303,10 @@ func (s *Server) handleDeleteNode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMoveNode(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -260,6 +336,10 @@ type ReorderRequest struct {
 }
 
 func (s *Server) handleReorderNodes(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -298,6 +378,10 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleNewScript(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -323,6 +407,10 @@ func (s *Server) handleNewScript(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCopyScript(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -351,6 +439,10 @@ func (s *Server) handleCopyScript(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteScript(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -396,6 +488,10 @@ func (s *Server) handleDeleteScript(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleImportScript(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -416,7 +512,48 @@ func (s *Server) handleImportScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	imported, err := ImportPipelineFromXML(filePath, req.Name, s.storage)
+	// Restrict to current working directory and subdirectories
+	cwd, err := os.Getwd()
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
+
+	if !strings.HasPrefix(absPath, cwd) {
+		http.Error(w, "Access denied: file must be within the current working directory", http.StatusForbidden)
+		return
+	}
+
+	if strings.ToLower(filepath.Ext(absPath)) != ".xml" {
+		http.Error(w, "Invalid file type: only .xml files are allowed", http.StatusBadRequest)
+		return
+	}
+
+	// Validate against flow.ValidateAST
+	fileBytes, err := os.ReadFile(absPath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to read file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	cfg, err := flow.ParseXMLConfig(fileBytes)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("XML parsing error: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if err := flow.ValidateAST(cfg.PreflightNodes, cfg.FlowNodes, cfg.Databases); err != nil {
+		http.Error(w, fmt.Sprintf("AST Validation failed: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	imported, err := ImportPipelineFromXML(absPath, req.Name, s.storage)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Import failed: %v", err), http.StatusBadRequest)
 		return
@@ -430,6 +567,10 @@ func (s *Server) handleImportScript(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePurgeDatabase(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -450,6 +591,10 @@ func (s *Server) handlePurgeDatabase(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSaveFile(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -468,6 +613,12 @@ func (s *Server) handleSaveFile(w http.ResponseWriter, r *http.Request) {
 		req.Filename = "scripts.xml"
 	}
 
+	writePath, err := s.sanitizeWritePath(req.Filename)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	script, err := s.storage.GetScript(req.ScriptID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -481,15 +632,19 @@ func (s *Server) handleSaveFile(w http.ResponseWriter, r *http.Request) {
 
 	xmlContent := GenerateXML(script.Name, varNodes, dbNodes, preNodes, flowNodes)
 
-	if err := os.WriteFile(req.Filename, []byte(xmlContent), 0644); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to write file %s: %v", req.Filename, err), http.StatusInternalServerError)
+	if err := os.WriteFile(writePath, []byte(xmlContent), 0644); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to write file %s: %v", writePath, err), http.StatusInternalServerError)
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("Successfully saved pipeline to %s", req.Filename)))
+	w.Write([]byte(fmt.Sprintf("Successfully saved pipeline to %s", writePath)))
 }
 
 func (s *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -500,6 +655,12 @@ func (s *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 		Content string `json:"content"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	writePath, err := s.sanitizeWritePath(req.Name)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -509,12 +670,16 @@ func (s *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = os.WriteFile(req.Name, []byte(req.Content), 0644)
+	_ = os.WriteFile(writePath, []byte(req.Content), 0644)
 
 	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) handleSaveOptions(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -529,12 +694,18 @@ func (s *Server) handleSaveOptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	writePath, err := s.sanitizeWritePath(req.Name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if err := s.storage.SaveOptionsFile(req.Name, req.Content); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	_ = os.WriteFile(req.Name, []byte(req.Content), 0644)
+	_ = os.WriteFile(writePath, []byte(req.Content), 0644)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -558,7 +729,12 @@ func (s *Server) handleBrowseFiles(w http.ResponseWriter, r *http.Request) {
 	if dir == "" {
 		dir = "."
 	}
-	cleanDir := filepath.Clean(dir)
+
+	cleanDir, err := s.sanitizePath(dir)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	entries, err := os.ReadDir(cleanDir)
 	if err != nil {
@@ -636,14 +812,20 @@ func (s *Server) handleQuickFiles(w http.ResponseWriter, r *http.Request) {
 		root = "."
 	}
 
+	cleanRoot, err := s.sanitizePath(root)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	files := []string{}
-	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	_ = filepath.WalkDir(cleanRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 		name := d.Name()
 		if d.IsDir() {
-			if path != root && (strings.HasPrefix(name, ".") || name == "bin" || name == "obj" || name == "node_modules" || name == "dist") {
+			if path != cleanRoot && (strings.HasPrefix(name, ".") || name == "bin" || name == "obj" || name == "node_modules" || name == "dist") {
 				return filepath.SkipDir
 			}
 			return nil
@@ -662,6 +844,10 @@ func (s *Server) handleQuickFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
