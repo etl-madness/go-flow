@@ -277,6 +277,86 @@ func TestFileBrowsingEndpoints(t *testing.T) {
 	}
 }
 
+func TestFileBrowsingIncludesHiddenDirectories(t *testing.T) {
+	tmpDir := t.TempDir()
+	hiddenDir := filepath.Join(tmpDir, ".config")
+	if err := os.MkdirAll(hiddenDir, 0755); err != nil {
+		t.Fatalf("failed to create hidden directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(hiddenDir, "settings.xml"), []byte("<settings></settings>"), 0644); err != nil {
+		t.Fatalf("failed to create hidden xml file: %v", err)
+	}
+
+	storage, err := NewStorage(filepath.Join(tmpDir, "test_hidden.db"))
+	if err != nil {
+		t.Fatalf("failed to open storage: %v", err)
+	}
+	defer storage.Close()
+
+	server, err := NewServer(storage, 0)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/files/browse?dir="+tmpDir+"&ext=.xml", nil)
+	rec := httptest.NewRecorder()
+	server.handleBrowseFiles(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var browseResp BrowseResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &browseResp); err != nil {
+		t.Fatalf("failed to unmarshal browse response: %v", err)
+	}
+
+	foundHiddenDir := false
+	for _, entry := range browseResp.Entries {
+		if entry.Name == ".config" && entry.IsDir {
+			foundHiddenDir = true
+			break
+		}
+	}
+	if !foundHiddenDir {
+		t.Fatalf("expected hidden directory .config to appear in browse results: %+v", browseResp.Entries)
+	}
+}
+
+func TestExecuteStreamOptionsWithoutScript(t *testing.T) {
+	tmpDir := t.TempDir()
+	optionsPath := filepath.Join(tmpDir, "options.xml")
+	if err := os.WriteFile(optionsPath, []byte("<options><option name='example' value='true'/></options>"), 0644); err != nil {
+		t.Fatalf("failed to write options file: %v", err)
+	}
+
+	storage, err := NewStorage(filepath.Join(tmpDir, "runner_options.db"))
+	if err != nil {
+		t.Fatalf("failed to init storage: %v", err)
+	}
+	defer storage.Close()
+
+	server, err := NewServer(storage, 0)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/execute/stream?source=file&file=&config=&options="+optionsPath, nil)
+	rec := httptest.NewRecorder()
+	server.handleExecuteStream(rec, req)
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "[FLOW] Running: ") {
+		t.Fatalf("expected execution log output, got: %s", body)
+	}
+	if strings.Contains(body, "-file") && strings.Contains(body, "scripts.xml") {
+		t.Fatalf("expected no default script argument when options are set, got: %s", body)
+	}
+	if !strings.Contains(body, "-options") || !strings.Contains(body, filepath.Base(optionsPath)) {
+		t.Fatalf("expected options argument in execution log, got: %s", body)
+	}
+}
+
 func TestExecuteStreamNodeEvents(t *testing.T) {
 	storage, err := NewStorage(":memory:")
 	if err != nil {

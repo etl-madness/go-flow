@@ -1,0 +1,37 @@
+{{define "node_card"}}
+<div class="node-card bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-lg p-3 flex items-center justify-between transition shadow-sm"
+     data-node-id="{{.ID}}" data-section="{{.Section}}" data-type="{{.NodeType}}" {{if .Attributes.name}}data-name="{{.Attributes.name}}"{{end}}>
+    <div class="flex items-center space-x-3 overflow-hidden">
+        <div class="drag-handle cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-300 px-1 py-1 text-sm select-none" title="Drag to re-order sequence">
+            ⋮⋮
+        </div>
+        <div class="flex flex-col min-w-0">
+            <div class="flex items-center space-x-2">
+                <span class="text-xs font-mono font-bold text-cyan-400">&lt;{{.NodeType}}&gt;</span>
+                {{if .Attributes.name}}
+                    <span class="text-xs font-semibold text-white truncate">{{.Attributes.name}}</span>
+                {{else if .Attributes.id}}
+                    <span class="text-xs font-semibold text-white truncate">{{.Attributes.id}}</span>
+                {{end}}
+            </div>
+            <div class="text-[11px] font-mono text-slate-400 truncate max-w-md">
+                {{range $k, $v := .Attributes}}
+                    {{if and (ne $k "id") (ne $k "name")}}
+                        <span class="text-slate-400">{{$k}}:</span> <span class="text-slate-300">{{$v}}</span> 
+                    {{end}}
+                {{end}}
+                {{if .ContentText}}
+                    <span class="text-cyan-500">[body]</span>
+                {{end}}
+            </div>
+        </div>
+    </div>
+    <div class="flex items-center space-x-1.5 shrink-0 ml-3">
+        <button onclick="moveNode({{.ID}}, 'up')" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded text-xs" title="Move Up">▲</button>
+        <button onclick="moveNode({{.ID}}, 'down')" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded text-xs" title="Move Down">▼</button>
+        <button onclick="openEditNode({{.ID}})" 
+                class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded text-xs font-medium">Edit</button>
+        <button onclick="deleteNode({{.ID}})" class="p-1 hover:bg-red-950/50 text-slate-400 hover:text-red-400 rounded text-xs" title="Delete">✕</button>
+    </div>
+</div>
+{{end}}
