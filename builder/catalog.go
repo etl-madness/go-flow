@@ -86,6 +86,27 @@ func GetCatalog() *ComponentCatalog {
 
 		// 2. Control Flow & Orchestration
 		{
+			Type:        "script",
+			Tag:         "script",
+			Name:        "Script Execution",
+			Category:    "Control Flow",
+			Description: "Executes dynamic code in Go, Shell, PowerShell, Bash, Cmd, or .NET Script (CSX).",
+			Section:     "flow",
+			HasContent:  true,
+			ContentHelp: "Inline script code executed by the chosen interpreter runtime.",
+			Fields: []ComponentField{
+				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
+				{Name: "language", Label: "Script Language / Runtime", Type: "select", Mandatory: true, Default: "powershell", Options: []string{"powershell", "pwsh", "shell", "bash", "cmd", "go", "git-bash", "zsh", "dotnet-script", "csx"}, Description: "Target interpreter runtime"},
+				{Name: "output_var", Label: "Output Variable", Type: "text", Mandatory: false, Description: "Variable name receiving script stdout/stderr output"},
+				{Name: "var", Label: "Script Body Variable", Type: "text", Mandatory: false, Description: "Optional variable containing script code if not in body"},
+				{Name: "timeout", Label: "Timeout Duration", Type: "text", Mandatory: false, Description: "Execution timeout duration (e.g. 30s, 5m)"},
+				{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Description of script action"},
+			},
+			DefaultXML: `<script id="RunScript" language="powershell" output_var="ScriptOutput">
+Write-Host "Running pipeline script..."
+</script>`,
+		},
+		{
 			Type:        "group",
 			Tag:         "group",
 			Name:        "Execution Group",

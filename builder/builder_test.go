@@ -385,6 +385,97 @@ func TestGenerateXMLWithNewFeatures(t *testing.T) {
 	}
 }
 
+func TestCatalogScriptComponent(t *testing.T) {
+	cat := GetCatalog()
+	scMeta := cat.GetComponentByType("script")
+	if scMeta == nil {
+		t.Fatal("missing script component in catalog")
+	}
+
+	if scMeta.Tag != "script" || scMeta.Category != "Control Flow" {
+		t.Errorf("unexpected script metadata: tag=%s, category=%s", scMeta.Tag, scMeta.Category)
+	}
+
+	if !scMeta.HasContent {
+		t.Errorf("expected script to have HasContent: true")
+	}
+
+	var hasID, hasLang, hasOutVar, hasTimeout, hasVar, hasDesc bool
+	var langOptions []string
+	for _, f := range scMeta.Fields {
+		switch f.Name {
+		case "id":
+			hasID = true
+			if !f.Mandatory {
+				t.Errorf("expected script id to be mandatory")
+			}
+		case "language":
+			hasLang = true
+			if !f.Mandatory {
+				t.Errorf("expected script language to be mandatory")
+			}
+			langOptions = f.Options
+		case "output_var":
+			hasOutVar = true
+		case "timeout":
+			hasTimeout = true
+		case "var":
+			hasVar = true
+		case "description":
+			hasDesc = true
+		}
+	}
+
+	if !hasID || !hasLang || !hasOutVar || !hasTimeout || !hasVar || !hasDesc {
+		t.Errorf("script component missing expected fields: id=%v lang=%v outVar=%v timeout=%v var=%v desc=%v",
+			hasID, hasLang, hasOutVar, hasTimeout, hasVar, hasDesc)
+	}
+
+	if len(langOptions) == 0 {
+		t.Errorf("expected script language to have runtime options")
+	}
+}
+
+func TestScriptNodeXMLSerialization(t *testing.T) {
+	flowNodes := []PipelineNode{
+		{
+			NodeType: "script",
+			Attributes: map[string]string{
+				"id":         "RunPowerShellTask",
+				"language":   "powershell",
+				"output_var": "ScriptOutput",
+				"timeout":    "45s",
+				"on_error":   "continue",
+			},
+			ContentText: `Write-Host "Running custom step"`,
+		},
+	}
+
+	xml := GenerateXML("script_pipeline", nil, nil, nil, flowNodes)
+
+	if !strings.Contains(xml, `<script`) {
+		t.Fatalf("expected <script tag in xml: %s", xml)
+	}
+	if !strings.Contains(xml, `id="RunPowerShellTask"`) {
+		t.Errorf("expected id in script tag: %s", xml)
+	}
+	if !strings.Contains(xml, `language="powershell"`) {
+		t.Errorf("expected language in script tag: %s", xml)
+	}
+	if !strings.Contains(xml, `output_var="ScriptOutput"`) {
+		t.Errorf("expected output_var in script tag: %s", xml)
+	}
+	if !strings.Contains(xml, `timeout="45s"`) {
+		t.Errorf("expected timeout in script tag: %s", xml)
+	}
+	if !strings.Contains(xml, `on_error="continue"`) {
+		t.Errorf("expected on_error in script tag: %s", xml)
+	}
+	if !strings.Contains(xml, `Write-Host "Running custom step"`) {
+		t.Errorf("expected script body content in xml: %s", xml)
+	}
+}
+
 func TestConfigAndOptionsDrafts(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_config.db")
