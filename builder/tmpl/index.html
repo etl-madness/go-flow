@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow Pipeline Builder</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.4); border-radius: 3px; }
+        .sortable-ghost { opacity: 0.4; background-color: #0284c7 !important; border: 2px dashed #38bdf8; }
+
+        /* Themes */
+        html[data-theme="slate"] {
+            --bg-body: #020617;
+        }
+        html[data-theme="midnight"] {
+            --bg-body: #090d16;
+            filter: hue-rotate(15deg) contrast(105%);
+        }
+        html[data-theme="nord"] {
+            --bg-body: #2e3440;
+            filter: hue-rotate(190deg) saturate(90%);
+        }
+        html[data-theme="emerald"] {
+            --bg-body: #022c22;
+            filter: hue-rotate(110deg) saturate(95%);
+        }
+        html[data-theme="amber"] {
+            --bg-body: #1c1917;
+            filter: hue-rotate(345deg) saturate(110%);
+        }
+        html[data-theme="cyberpunk"] {
+            --bg-body: #180026;
+            filter: hue-rotate(270deg) saturate(140%) contrast(110%);
+        }
+        html[data-theme="vscode-dark-plus"] {
+            --bg-body: #1e1e1e;
+            filter: contrast(1.05) saturate(1.08);
+        }
+        html[data-theme="vscode-light-plus"] {
+            --bg-body: #f3f3f3;
+            filter: contrast(0.98) saturate(0.75) brightness(1.08);
+        }
+        html[data-theme="vscode-monokai"] {
+            --bg-body: #272822;
+            filter: sepia(0.18) hue-rotate(15deg) saturate(1.3) contrast(1.08);
+        }
+        html[data-theme="vscode-dracula"] {
+            --bg-body: #282a36;
+            filter: hue-rotate(245deg) saturate(1.4) brightness(0.92);
+        }
+        html[data-theme="visual-studio-dark"] {
+            --bg-body: #1e1e1e;
+            filter: contrast(1.12) saturate(1.1) brightness(0.97);
+        }
+        html[data-theme="visual-studio-light"] {
+            --bg-body: #edf3fb;
+            filter: contrast(1.02) saturate(0.8) brightness(1.03);
+        }
+        html[data-theme="visual-studio-blue"] {
+            --bg-body: #1d3354;
+            filter: none;
+        }
+        html[data-theme="light"] {
+            filter: invert(93%) hue-rotate(180deg) contrast(95%);
+        }
+
+        html[data-theme="visual-studio-light"] body,
+        html[data-theme="visual-studio-light"] .bg-slate-950,
+        html[data-theme="visual-studio-light"] .bg-slate-900,
+        html[data-theme="visual-studio-light"] .bg-slate-800,
+        html[data-theme="visual-studio-light"] .bg-slate-700,
+        html[data-theme="visual-studio-light"] .bg-slate-800\/70,
+        html[data-theme="visual-studio-light"] .bg-slate-950\/60 {
+            background-color: #edf3fb !important;
+        }
+        html[data-theme="visual-studio-light"] .border-slate-800,
+        html[data-theme="visual-studio-light"] .border-slate-700,
+        html[data-theme="visual-studio-light"] .border-slate-800\/80,
+        html[data-theme="visual-studio-light"] .border-slate-800\/60 {
+            border-color: #cfe0f3 !important;
+        }
+        html[data-theme="visual-studio-light"] .text-slate-200,
+        html[data-theme="visual-studio-light"] .text-slate-300,
+        html[data-theme="visual-studio-light"] .text-slate-400,
+        html[data-theme="visual-studio-light"] .text-slate-500 {
+            color: #1f2d3d !important;
+        }
+        html[data-theme="visual-studio-light"] .text-cyan-400,
+        html[data-theme="visual-studio-light"] .text-blue-400,
+        html[data-theme="visual-studio-light"] .text-blue-300 {
+            color: #0d5ea7 !important;
+        }
+
+        html[data-theme="visual-studio-blue"],
+        html[data-theme="visual-studio-blue"] body,
+        html[data-theme="visual-studio-blue"] .bg-slate-950,
+        html[data-theme="visual-studio-blue"] .bg-slate-900,
+        html[data-theme="visual-studio-blue"] .bg-slate-800,
+        html[data-theme="visual-studio-blue"] .bg-slate-700,
+        html[data-theme="visual-studio-blue"] .bg-slate-800\/70,
+        html[data-theme="visual-studio-blue"] .bg-slate-950\/60,
+        html[data-theme="visual-studio-blue"] .bg-slate-900\/80,
+        html[data-theme="visual-studio-blue"] .bg-slate-900\/70 {
+            background-color: #1b2d48 !important;
+        }
+        html[data-theme="visual-studio-blue"] .bg-slate-800 {
+            background-color: #2b446a !important;
+        }
+        html[data-theme="visual-studio-blue"] .bg-slate-700 {
+            background-color: #3b5f8e !important;
+        }
+        html[data-theme="visual-studio-blue"] .border-slate-800,
+        html[data-theme="visual-studio-blue"] .border-slate-700,
+        html[data-theme="visual-studio-blue"] .border-slate-800\/80,
+        html[data-theme="visual-studio-blue"] .border-slate-800\/60,
+        html[data-theme="visual-studio-blue"] .border-slate-700\/60 {
+            border-color: #4e729d !important;
+        }
+        html[data-theme="visual-studio-blue"] .text-slate-200,
+        html[data-theme="visual-studio-blue"] .text-slate-300,
+        html[data-theme="visual-studio-blue"] .text-slate-400,
+        html[data-theme="visual-studio-blue"] .text-slate-500,
+        html[data-theme="visual-studio-blue"] .text-white {
+            color: #edf4ff !important;
+        }
+        html[data-theme="visual-studio-blue"] .text-slate-400 {
+            color: #bdd3f3 !important;
+        }
+        html[data-theme="visual-studio-blue"] .text-cyan-400,
+        html[data-theme="visual-studio-blue"] .text-blue-400,
+        html[data-theme="visual-studio-blue"] .text-blue-300,
+        html[data-theme="visual-studio-blue"] .text-blue-200 {
+            color: #9ad0ff !important;
+        }
+        html[data-theme="visual-studio-blue"] .bg-blue-600,
+        html[data-theme="visual-studio-blue"] .bg-blue-500,
+        html[data-theme="visual-studio-blue"] .bg-blue-400 {
+            background-color: #3c7dd9 !important;
+        }
+        html[data-theme="visual-studio-blue"] .bg-blue-600,
+        html[data-theme="visual-studio-blue"] .bg-blue-500,
+        html[data-theme="visual-studio-blue"] .bg-blue-400,
+        html[data-theme="visual-studio-blue"] .text-blue-500 {
+            color: #dfeeff !important;
+        }
+        html[data-theme="light"] img, html[data-theme="light"] video {
+            filter: invert(100%) hue-rotate(180deg);
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans select-none overflow-hidden">
+
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between shadow-md">
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+                <span class="text-2xl">🌊</span>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">FLOW BUILDER</h1>
+                    <p class="text-xs text-slate-400">Visual Pipeline Designer</p>
+                </div>
+            </div>
+            <div class="h-6 w-px bg-slate-700 mx-2"></div>
+            <div class="flex items-center space-x-2" id="script-selector-container">
+                {{template "script_selector" .}}
+            </div>
+        </div>
+        <div class="flex items-center bg-slate-800 p-1 rounded-lg border border-slate-700">
+            <button onclick="switchTab('pipeline')" id="tab-btn-pipeline" class="tab-btn px-4 py-1.5 text-xs font-semibold rounded-md transition-colors bg-blue-600 text-white shadow">
+                📜 Pipeline (scripts.xml)
+            </button>
+            <button onclick="switchTab('config')" id="tab-btn-config" class="tab-btn px-4 py-1.5 text-xs font-semibold rounded-md transition-colors text-slate-300 hover:text-white">
+                ⚙️ Config Overrides
+            </button>
+            <button onclick="switchTab('options')" id="tab-btn-options" class="tab-btn px-4 py-1.5 text-xs font-semibold rounded-md transition-colors text-slate-300 hover:text-white">
+                🎛️ CLI Options
+            </button>
+            <button onclick="switchTab('runner')" id="tab-btn-runner" class="tab-btn px-4 py-1.5 text-xs font-semibold rounded-md transition-colors text-slate-300 hover:text-white">
+                🚀 Pipeline Runner
+            </button>
+        </div>
+        <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-1.5 bg-slate-800 border border-slate-700 rounded-md px-2 py-1">
+                <span class="text-xs text-slate-400">🎨</span>
+                <select id="theme-selector" onchange="setTheme(this.value)" class="bg-transparent text-xs text-slate-200 font-medium focus:outline-none cursor-pointer">
+                    <option value="slate" class="bg-slate-900 text-slate-200">Slate (Default)</option>
+                    <option value="midnight" class="bg-slate-900 text-slate-200">Midnight Blue</option>
+                    <option value="nord" class="bg-slate-900 text-slate-200">Nord Frost</option>
+                    <option value="emerald" class="bg-slate-900 text-slate-200">Emerald Matrix</option>
+                    <option value="amber" class="bg-slate-900 text-slate-200">Warm Amber</option>
+                    <option value="cyberpunk" class="bg-slate-900 text-slate-200">Cyberpunk Neon</option>
+                    <option value="vscode-dark-plus" class="bg-slate-900 text-slate-200">VS Code Dark+</option>
+                    <option value="vscode-light-plus" class="bg-slate-900 text-slate-200">VS Code Light+</option>
+                    <option value="vscode-monokai" class="bg-slate-900 text-slate-200">VS Code Monokai</option>
+                    <option value="vscode-dracula" class="bg-slate-900 text-slate-200">VS Code Dracula</option>
+                    <option value="visual-studio-dark" class="bg-slate-900 text-slate-200">Visual Studio Dark</option>
+                    <option value="visual-studio-light" class="bg-slate-900 text-slate-200">Visual Studio Light</option>
+                    <option value="visual-studio-blue" class="bg-slate-900 text-slate-200">Visual Studio Blue</option>
+                    <option value="light" class="bg-slate-900 text-slate-200">Clean Light</option>
+                </select>
+            </div>
+            <button onclick="confirmPurgeDatabase()" class="px-2.5 py-1.5 text-xs font-semibold bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 rounded-md transition-all flex items-center space-x-1 shadow-sm" title="Purge SQLite database and reset to factory defaults">
+                <span>🧹 Purge DB</span>
+            </button>
+            <button onclick="downloadActiveXML()" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md transition-all flex items-center space-x-1.5 shadow-sm">
+                <span>⬇️ Download XML</span>
+            </button>
+            <button onclick="saveToFileOnDisk()" class="px-3.5 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-md transition-all flex items-center space-x-1.5 shadow">
+                <span>💾 Save to File</span>
+            </button>
+        </div>
+
+    </header>
+    <main class="flex-1 flex overflow-hidden">
+        <div id="tab-pipeline" class="flex-1 flex w-full h-full">
+            <aside class="w-80 bg-slate-900 border-r border-slate-800 flex flex-col">
+                <div class="p-3 border-b border-slate-800">
+                    <input type="text" id="component-filter" oninput="filterComponents(this.value)" placeholder="Search components..." 
+                           class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-4" id="component-palette">
+                    {{range $cat := .Categories}}
+                    <div class="component-category" data-category="{{$cat}}">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">{{$cat}}</h3>
+                        <div class="space-y-1.5">
+                            {{range $.Components}}
+                            {{if eq .Category $cat}}
+                            <div class="component-card group bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 p-2.5 rounded-lg transition-all cursor-pointer shadow-sm"
+                                 onclick="openAddNodeModal('{{.Type}}', '{{.Name}}', '{{.Section}}')"
+                                 data-name="{{.Name}}" data-type="{{.Type}}" data-desc="{{.Description}}">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-semibold text-slate-200 group-hover:text-cyan-400 transition-colors">&lt;{{.Tag}}&gt; {{.Name}}</span>
+                                    <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">{{.Section}}</span>
+                                </div>
+                                <p class="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">{{.Description}}</p>
+                            </div>
+                            {{end}}
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+            </aside>
+            <section class="flex-1 flex flex-col bg-slate-950 overflow-hidden">
+                <div class="bg-slate-900 border-b border-slate-800 px-6 py-2.5 flex items-center justify-between">
+                    <div class="flex items-center space-x-2 text-xs" id="pipeline-sections-nav">
+                        <span class="text-slate-400 font-medium mr-1">Pipeline Sections:</span>
+                        <a href="#section-variables" id="nav-section-variables" onclick="navigateToSection('variables', event)" class="section-nav-link px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">Variables</a>
+                        <a href="#section-databases" id="nav-section-databases" onclick="navigateToSection('databases', event)" class="section-nav-link px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">Databases</a>
+                        <a href="#section-preflight" id="nav-section-preflight" onclick="navigateToSection('preflight', event)" class="section-nav-link px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">Preflight</a>
+                        <a href="#section-flow" id="nav-section-flow" onclick="navigateToSection('flow', event)" class="section-nav-link px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">Main Flow</a>
+                    </div>
+                    <div class="text-xs text-slate-400">Drag cards or use ▲/▼ to re-order sequence</div>
+                </div>
+                <div class="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6 scroll-smooth" id="canvas-content"
+                     hx-get="/api/canvas?script_id={{.ActiveScript.ID}}" hx-trigger="refreshCanvas from:body" hx-swap="innerHTML">
+                    {{template "canvas_nodes" .}}
+                </div>
+            </section>
+            <aside class="w-96 bg-slate-900 border-l border-slate-800 flex flex-col">
+                <div class="p-3 border-b border-slate-800 flex items-center justify-between">
+                    <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Live XML Preview</span>
+                    <button onclick="copyXMLPreview()" class="text-xs text-cyan-400 hover:text-cyan-300 font-medium">📋 Copy</button>
+                </div>
+                <div class="flex-1 overflow-auto custom-scrollbar p-3 bg-slate-950">
+                    <pre id="live-xml-preview" class="text-[11px] font-mono text-cyan-300/90 whitespace-pre leading-relaxed"></pre>
+                </div>
+            </aside>
+        </div>
+        <div id="tab-config" class="hidden flex-1 flex flex-col bg-slate-950 p-6 overflow-hidden">
+            <div class="max-w-5xl w-full mx-auto flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+                <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/70">
+                    <div>
+                        <h2 class="text-base font-bold text-white">Configuration Overrides (CONFIG.xml)</h2>
+                        <p class="text-xs text-slate-400">Environment variable & DB overrides loaded via the -config flag.</p>
+                    </div>
+                    <button onclick="saveConfigFile()" class="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-md transition shadow">
+                        Save Configuration
+                    </button>
+                </div>
+                <div class="flex-1 p-4 bg-slate-950">
+                    <textarea id="config-editor" class="w-full h-full bg-slate-950 text-cyan-300 font-mono text-xs p-4 rounded border border-slate-800 focus:outline-none focus:border-blue-500 resize-none leading-relaxed custom-scrollbar">{{.DefaultConfigContent}}</textarea>
+                </div>
+            </div>
+        </div>
+        <div id="tab-options" class="hidden flex-1 flex flex-col bg-slate-950 p-6 overflow-hidden">
+            <div class="max-w-5xl w-full mx-auto flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+                <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/70">
+                    <div>
+                        <h2 class="text-base font-bold text-white">CLI Options File (options.xml)</h2>
+                        <p class="text-xs text-slate-400">CLI parameter defaults loaded via the -options flag.</p>
+                    </div>
+                    <button onclick="saveOptionsFile()" class="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-md transition shadow">
+                        Save Options
+                    </button>
+                </div>
+                <div class="flex-1 p-4 bg-slate-950">
+                    <textarea id="options-editor" class="w-full h-full bg-slate-950 text-cyan-300 font-mono text-xs p-4 rounded border border-slate-800 focus:outline-none focus:border-blue-500 resize-none leading-relaxed custom-scrollbar">{{.DefaultOptionsContent}}</textarea>
+                </div>
+            </div>
+        </div>
+        <div id="tab-runner" class="hidden flex-1 flex flex-col bg-slate-950 p-6 overflow-hidden">
+            <div class="max-w-6xl w-full mx-auto flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+                <div class="px-6 py-4 border-b border-slate-800 bg-slate-900/70 flex flex-col gap-3">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-base font-bold text-white flex items-center space-x-2">
+                                <span>🚀 Execute Pipeline</span>
+                                <span class="text-[11px] font-normal px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Live Stream</span>
+                            </h2>
+                            <p class="text-xs text-slate-400">Select pipeline script, config, and options from the filesystem or execute active draft.</p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="bg-slate-950 border border-slate-800 rounded-lg p-0.5 flex items-center space-x-1">
+                                <button type="button" onclick="setRunnerSource('file')" id="source-btn-file" class="px-3 py-1 text-xs font-semibold rounded-md transition-colors bg-blue-600 text-white shadow">
+                                    📂 Filesystem Script
+                                </button>
+                                <button type="button" onclick="setRunnerSource('builder')" id="source-btn-builder" class="px-3 py-1 text-xs font-semibold rounded-md transition-colors text-slate-400 hover:text-white">
+                                    🎨 Builder Draft
+                                </button>
+                            </div>
+                            <button onclick="startPipelineExecution()" id="execute-btn" class="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition shadow flex items-center space-x-1.5 cursor-pointer">
+                                <span>▶ Run Execution</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                        <div class="flex flex-col space-y-1">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[11px] font-semibold text-slate-300">📜 Pipeline Script (<span class="text-amber-400">*</span>)</label>
+                                <span id="runner-source-label" class="text-[10px] text-cyan-400 font-mono">source: filesystem</span>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="text" id="runner-script-file" list="quick-xml-files" value="scripts.xml" placeholder="scripts.xml" class="bg-slate-950 border border-slate-700 rounded-l px-2.5 py-1.5 text-xs text-slate-200 w-full focus:outline-none focus:border-blue-500 font-mono">
+                                <button type="button" onclick="openFileBrowser('runner-script-file', '.xml')" title="Browse filesystem for script XML" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border-y border-r border-slate-700 rounded-r px-2.5 py-1.5 text-xs font-medium transition flex items-center space-x-1 whitespace-nowrap cursor-pointer">
+                                    <span>📂 Browse</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex flex-col space-y-1">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[11px] font-semibold text-slate-300">⚙️ Config Overrides (optional)</label>
+                                <span class="text-[10px] text-slate-500 font-mono">-config</span>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="text" id="runner-config-file" list="quick-xml-files" value="" placeholder="CONFIG.xml (optional)" class="bg-slate-950 border border-slate-700 rounded-l px-2.5 py-1.5 text-xs text-slate-200 w-full focus:outline-none focus:border-blue-500 font-mono">
+                                <button type="button" onclick="document.getElementById('runner-config-file').value=''" title="Clear config file" class="bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-y border-slate-700 px-2 py-1.5 text-xs transition cursor-pointer">✕</button>
+                                <button type="button" onclick="openFileBrowser('runner-config-file', '.xml')" title="Browse filesystem for CONFIG.xml" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border-y border-r border-slate-700 rounded-r px-2.5 py-1.5 text-xs font-medium transition flex items-center space-x-1 whitespace-nowrap cursor-pointer">
+                                    <span>📂 Browse</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex flex-col space-y-1">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[11px] font-semibold text-slate-300">🎛️ CLI Options (optional)</label>
+                                <span class="text-[10px] text-slate-500 font-mono">-options</span>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="text" id="runner-options-file" list="quick-xml-files" value="" placeholder="options.xml (optional)" class="bg-slate-950 border border-slate-700 rounded-l px-2.5 py-1.5 text-xs text-slate-200 w-full focus:outline-none focus:border-blue-500 font-mono">
+                                <button type="button" onclick="document.getElementById('runner-options-file').value=''" title="Clear options file" class="bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-y border-slate-700 px-2 py-1.5 text-xs transition cursor-pointer">✕</button>
+                                <button type="button" onclick="openFileBrowser('runner-options-file', '.xml')" title="Browse filesystem for options.xml" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border-y border-r border-slate-700 rounded-r px-2.5 py-1.5 text-xs font-medium transition flex items-center space-x-1 whitespace-nowrap cursor-pointer">
+                                    <span>📂 Browse</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <datalist id="quick-xml-files"></datalist>
+                <div class="flex-1 flex flex-col overflow-hidden p-4 bg-slate-950 space-y-4">
+                    <div id="execution-status-bar" class="px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-between text-xs">
+                        <div class="flex items-center space-x-2">
+                            <span id="status-indicator" class="h-2.5 w-2.5 rounded-full bg-slate-500"></span>
+                            <span id="status-text" class="font-medium text-slate-300">Ready to execute</span>
+                        </div>
+                        <div id="status-timer" class="text-slate-400 font-mono text-xs">00:00.000</div>
+                    </div>
+                    <div class="h-48 overflow-y-auto custom-scrollbar border border-slate-800 rounded-lg bg-slate-900/40">
+                        <table class="w-full text-left text-xs text-slate-300">
+                            <thead class="bg-slate-900 text-slate-400 border-b border-slate-800 sticky top-0 uppercase text-[10px]">
+                                <tr>
+                                    <th class="p-2.5">Step / Node ID</th>
+                                    <th class="p-2.5">Kind</th>
+                                    <th class="p-2.5">Status</th>
+                                    <th class="p-2.5">Return Code</th>
+                                    <th class="p-2.5">Duration</th>
+                                    <th class="p-2.5">Output Summary</th>
+                                </tr>
+                            </thead>
+                            <tbody id="execution-results-body" class="divide-y divide-slate-800/60 font-mono text-[11px]">
+                                <tr>
+                                    <td colspan="6" class="p-4 text-center text-slate-500">No execution active. Click "Run Execution" to begin.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+                        <div class="px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-[11px] font-mono text-slate-400 flex items-center justify-between">
+                            <span>Console Stream Logs</span>
+                            <button onclick="document.getElementById('terminal-log').textContent=''" class="hover:text-slate-200">Clear</button>
+                        </div>
+                        <pre id="terminal-log" class="flex-1 p-3 overflow-y-auto custom-scrollbar text-[11px] font-mono text-emerald-400 whitespace-pre-wrap leading-relaxed select-text bg-black/50"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <div id="node-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[90vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                    <h3 id="modal-title" class="text-sm font-bold text-white">Configure Component</h3>
+                    <p id="modal-subtitle" class="text-xs text-slate-400"></p>
+                </div>
+                <button onclick="closeNodeModal()" class="text-slate-400 hover:text-white">&times;</button>
+            </div>
+            <form id="node-form" onsubmit="submitNodeModal(event)" class="flex-1 overflow-y-auto custom-scrollbar space-y-3.5 pr-1">
+                <input type="hidden" id="modal-node-id" name="node_id">
+                <input type="hidden" id="modal-node-type" name="node_type">
+                <div class="space-y-1">
+                    <label class="text-xs font-medium text-slate-300">Target Section</label>
+                    <select id="modal-node-section" name="section" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
+                        <option value="flow">4. Pipeline Flow (&lt;flow&gt; sequential steps)</option>
+                        <option value="preflight">3. Preflight Checks (&lt;preflight&gt;)</option>
+                        <option value="variables">1. Pipeline Variables (&lt;variables&gt;)</option>
+                        <option value="databases">2. Database Connections (&lt;databases&gt;)</option>
+                    </select>
+                </div>
+                <div id="modal-fields-container" class="space-y-3"></div>
+                <div class="pt-2 border-t border-slate-800">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Custom / Extra Attributes</label>
+                        <button type="button" onclick="addCustomAttributeRow('', '')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium">＋ Add Attribute</button>
+                    </div>
+                    <div id="modal-custom-attrs" class="space-y-2"></div>
+                </div>
+                <div id="modal-content-container" class="hidden space-y-1.5">
+                    <label id="modal-content-label" class="block text-xs font-medium text-slate-300">Content / Script</label>
+                    <textarea id="modal-content-text" name="content" rows="6" class="w-full bg-slate-950 border border-slate-700 rounded-md p-2.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500 custom-scrollbar"></textarea>
+                </div>
+                <div class="flex items-center justify-end space-x-2.5 pt-4 border-t border-slate-800">
+                    <button type="button" onclick="closeNodeModal()" class="px-3.5 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition">Cancel</button>
+                    <button type="submit" class="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-md transition shadow">Save Component</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="new-script-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 shadow-2xl flex flex-col space-y-4">
+            <h3 class="text-sm font-bold text-white">Create New Pipeline</h3>
+            <form onsubmit="submitNewScript(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs text-slate-300 mb-1">Pipeline Name</label>
+                    <input type="text" id="new-script-name" required class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-300 mb-1">Description</label>
+                    <input type="text" id="new-script-desc" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="document.getElementById('new-script-modal').classList.add('hidden')" class="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded">Cancel</button>
+                    <button type="submit" class="px-4 py-1.5 text-xs bg-blue-600 text-white rounded">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="copy-pipeline-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 shadow-2xl flex flex-col space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-base">📋</span>
+                    <h3 class="text-sm font-bold text-white">Duplicate Pipeline</h3>
+                </div>
+                <button onclick="document.getElementById('copy-pipeline-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">&times;</button>
+            </div>
+            <form onsubmit="submitCopyScript(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs text-slate-300 mb-1">New Pipeline Name</label>
+                    <input type="text" id="copy-script-name" required class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
+                </div>
+                <p class="text-[11px] text-slate-400">All variables, databases, preflight gates, and flow steps will be copied into the new pipeline draft.</p>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="document.getElementById('copy-pipeline-modal').classList.add('hidden')" class="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded">Cancel</button>
+                    <button type="submit" class="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded font-semibold shadow">Create Copy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="import-pipeline-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 shadow-2xl flex flex-col space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-base">📂</span>
+                    <h3 class="text-sm font-bold text-white">Import Pipeline from Filesystem</h3>
+                </div>
+                <button onclick="document.getElementById('import-pipeline-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">&times;</button>
+            </div>
+            <form onsubmit="submitImportScript(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs text-slate-300 mb-1">Pipeline File (.xml)</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="import-file-path" list="quick-xml-files" placeholder="examples/check_two_tables_in_parallel_take_action.xml" required class="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500 font-mono">
+                        <button type="button" onclick="browseForImportFile()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs rounded transition flex items-center space-x-1">
+                            <span>Browse...</span>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-300 mb-1">Custom Pipeline Name (Optional)</label>
+                    <input type="text" id="import-script-name" placeholder="Leave empty to use XML/file name" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
+                </div>
+                <p class="text-[11px] text-slate-400">The XML file will be parsed and imported into SQLite as an editable visual draft with all variables, databases, and flow nodes.</p>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="document.getElementById('import-pipeline-modal').classList.add('hidden')" class="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded">Cancel</button>
+                    <button type="submit" class="px-4 py-1.5 text-xs bg-cyan-600 hover:bg-cyan-500 text-white rounded font-semibold shadow">Import Pipeline</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="delete-pipeline-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-rose-900/40 rounded-xl max-w-md w-full p-6 shadow-2xl flex flex-col space-y-4">
+            <div class="flex items-center space-x-2 text-rose-400 border-b border-slate-800 pb-3">
+                <span class="text-xl">⚠️</span>
+                <h3 class="text-sm font-bold text-white">Delete Pipeline</h3>
+            </div>
+            <p class="text-xs text-slate-300">Are you sure you want to delete pipeline <span id="delete-pipeline-name" class="font-bold text-rose-400"></span>?</p>
+            <p class="text-[11px] text-slate-400">All canvas nodes and configuration for this pipeline will be permanently removed from SQLite.</p>
+            <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+                <button type="button" onclick="document.getElementById('delete-pipeline-modal').classList.add('hidden')" class="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded">Cancel</button>
+                <button type="button" onclick="submitDeleteScript()" class="px-4 py-1.5 text-xs bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded shadow">Delete Pipeline</button>
+            </div>
+        </div>
+    </div>
+    <div id="purge-db-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-red-800 rounded-xl max-w-md w-full p-6 shadow-2xl flex flex-col space-y-4">
+            <div class="flex items-center space-x-2 text-red-400 border-b border-slate-800 pb-3">
+                <span class="text-xl">🧹</span>
+                <h3 class="text-sm font-bold text-white">Purge SQLite Database</h3>
+            </div>
+            <div class="p-3 bg-red-950/30 border border-red-900/50 rounded-lg text-xs text-red-300 space-y-1">
+                <p class="font-bold">⚠️ DANGER: Permanent Reset</p>
+                <p>This will permanently erase ALL pipelines, canvas steps, config overrides, and CLI options drafts in the SQLite database.</p>
+                <p>The database will be re-initialized with fresh factory default drafts.</p>
+            </div>
+            <p class="text-xs text-slate-300">Are you absolutely sure you want to proceed?</p>
+            <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+                <button type="button" onclick="document.getElementById('purge-db-modal').classList.add('hidden')" class="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded">Cancel</button>
+                <button type="button" onclick="submitPurgeDatabase()" class="px-4 py-1.5 text-xs bg-red-600 hover:bg-red-500 text-white font-semibold rounded shadow">Yes, Purge Database</button>
+            </div>
+        </div>
+    </div>
+    <div id="picker-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[85vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                    <h3 id="picker-modal-title" class="text-sm font-bold text-white">Select Component to Add</h3>
+                    <p id="picker-modal-subtitle" class="text-xs text-slate-400">Choose a step type for this section.</p>
+                </div>
+                <button onclick="closeComponentPicker()" class="text-slate-400 hover:text-white">&times;</button>
+            </div>
+            <div class="p-1">
+                <input type="text" id="picker-filter-input" oninput="filterPickerComponents(this.value)" placeholder="Filter components (e.g. assert, sql, http, template)..."
+                       class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500">
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1" id="picker-components-list"></div>
+            <div class="flex items-center justify-end pt-3 border-t border-slate-800">
+                <button type="button" onclick="closeComponentPicker()" class="px-3.5 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition">Close</button>
+            </div>
+        </div>
+    </div>
+    <div id="file-browser-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full p-5 shadow-2xl flex flex-col space-y-3 max-h-[85vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <div class="flex items-center space-x-2">
+                    <span class="text-base">📂</span>
+                    <div>
+                        <h3 id="file-browser-title" class="text-sm font-bold text-white">Select File from Filesystem</h3>
+                        <p id="file-browser-subtitle" class="text-xs text-slate-400">Choose a file from disk</p>
+                    </div>
+                </div>
+                <button onclick="closeFileBrowser()" class="text-slate-400 hover:text-white text-lg leading-none cursor-pointer">&times;</button>
+            </div>
+            
+            <div class="flex items-center space-x-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300">
+                <span class="text-slate-500 font-mono">📁</span>
+                <span id="file-browser-current-path" class="font-mono text-cyan-400 truncate flex-1">.</span>
+                <button onclick="browseUp()" id="file-browser-up-btn" title="Go up to parent directory" class="px-2 py-0.5 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition cursor-pointer">
+                    ⬆ Up
+                </button>
+                <button onclick="refreshFileBrowser()" title="Refresh directory" class="px-2 py-0.5 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition cursor-pointer">
+                    🔄
+                </button>
+            </div>
+
+            <div>
+                <input type="text" id="file-browser-filter" oninput="filterBrowseResults(this.value)" placeholder="Filter files in this directory..."
+                       class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500">
+            </div>
+
+            <div class="flex-1 overflow-y-auto custom-scrollbar border border-slate-800/80 rounded-lg bg-slate-950/60 p-1 min-h-[260px] max-h-[360px]" id="file-browser-list">
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+                <div class="text-slate-400 text-[11px]" id="file-browser-count-text">0 items</div>
+                <button type="button" onclick="closeFileBrowser()" class="px-3.5 py-1.5 font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition cursor-pointer">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        let rawCatalog = {{.CatalogJSON}};
+        const catalogData = Array.isArray(rawCatalog) ? rawCatalog : (typeof rawCatalog === 'string' ? JSON.parse(rawCatalog || '[]') : []);
+        let currentScriptId = {{.ActiveScript.ID}};
+
+        function switchTab(tab) {
+            ['pipeline', 'config', 'options', 'runner'].forEach(t => {
+                const el = document.getElementById('tab-' + t);
+                const btn = document.getElementById('tab-btn-' + t);
+                if (t === tab) {
+                    el.classList.remove('hidden');
+                    btn.classList.add('bg-blue-600', 'text-white', 'shadow');
+                    btn.classList.remove('text-slate-300');
+                } else {
+                    el.classList.add('hidden');
+                    btn.classList.remove('bg-blue-600', 'text-white', 'shadow');
+                    btn.classList.add('text-slate-300');
+                }
+            });
+            if (tab === 'pipeline') {
+                updatePreview();
+                setTimeout(updateActiveSectionFromScroll, 50);
+            }
+        }
+    </script>
+</body>
+</html>

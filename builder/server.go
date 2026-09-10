@@ -571,8 +571,7 @@ func (s *Server) handleBrowseFiles(w http.ResponseWriter, r *http.Request) {
 	fileEntries := []FileEntry{}
 	for _, entry := range entries {
 		name := entry.Name()
-		// Skip hidden dot-files/dirs (like .git)
-		if strings.HasPrefix(name, ".") {
+		if name == "." || name == ".." {
 			continue
 		}
 
@@ -707,14 +706,18 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 		sendSSE("log", map[string]any{"type": "log", "message": fmt.Sprintf("[FLOW] Exported builder draft to: %s", scriptFile)})
 	} else {
 		// Filesystem file mode
-		if scriptFile == "" {
+		if scriptFile == "" && optionsFile == "" {
 			scriptFile = "scripts.xml"
 		}
-		if _, err := os.Stat(scriptFile); os.IsNotExist(err) {
-			sendSSE("done", map[string]any{"type": "done", "status": "ERROR", "error": fmt.Sprintf("Script file not found: %s", scriptFile)})
-			return
+		if scriptFile != "" {
+			if _, err := os.Stat(scriptFile); os.IsNotExist(err) {
+				sendSSE("done", map[string]any{"type": "done", "status": "ERROR", "error": fmt.Sprintf("Script file not found: %s", scriptFile)})
+				return
+			}
+			sendSSE("log", map[string]any{"type": "log", "message": fmt.Sprintf("[FLOW] Using filesystem script: %s", scriptFile)})
+		} else if optionsFile != "" {
+			sendSSE("log", map[string]any{"type": "log", "message": "[FLOW] No script file selected; using runtime default script behavior with options override."})
 		}
-		sendSSE("log", map[string]any{"type": "log", "message": fmt.Sprintf("[FLOW] Using filesystem script: %s", scriptFile)})
 	}
 
 	if configFile != "" {

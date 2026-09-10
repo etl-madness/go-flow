@@ -39,8 +39,116 @@ const IndexHTML = `<!DOCTYPE html>
             --bg-body: #180026;
             filter: hue-rotate(270deg) saturate(140%) contrast(110%);
         }
+        html[data-theme="vscode-dark-plus"] {
+            --bg-body: #1e1e1e;
+            filter: contrast(1.05) saturate(1.08);
+        }
+        html[data-theme="vscode-light-plus"] {
+            --bg-body: #f3f3f3;
+            filter: contrast(0.98) saturate(0.75) brightness(1.08);
+        }
+        html[data-theme="vscode-monokai"] {
+            --bg-body: #272822;
+            filter: sepia(0.18) hue-rotate(15deg) saturate(1.3) contrast(1.08);
+        }
+        html[data-theme="vscode-dracula"] {
+            --bg-body: #282a36;
+            filter: hue-rotate(245deg) saturate(1.4) brightness(0.92);
+        }
+        html[data-theme="visual-studio-dark"] {
+            --bg-body: #1e1e1e;
+            filter: contrast(1.12) saturate(1.1) brightness(0.97);
+        }
+        html[data-theme="visual-studio-light"] {
+            --bg-body: #edf3fb;
+            filter: contrast(1.02) saturate(0.8) brightness(1.03);
+        }
+        html[data-theme="visual-studio-blue"] {
+            --bg-body: #1d3354;
+            filter: none;
+        }
         html[data-theme="light"] {
             filter: invert(93%) hue-rotate(180deg) contrast(95%);
+        }
+
+        html[data-theme="visual-studio-light"] body,
+        html[data-theme="visual-studio-light"] .bg-slate-950,
+        html[data-theme="visual-studio-light"] .bg-slate-900,
+        html[data-theme="visual-studio-light"] .bg-slate-800,
+        html[data-theme="visual-studio-light"] .bg-slate-700,
+        html[data-theme="visual-studio-light"] .bg-slate-800\/70,
+        html[data-theme="visual-studio-light"] .bg-slate-950\/60 {
+            background-color: #edf3fb !important;
+        }
+        html[data-theme="visual-studio-light"] .border-slate-800,
+        html[data-theme="visual-studio-light"] .border-slate-700,
+        html[data-theme="visual-studio-light"] .border-slate-800\/80,
+        html[data-theme="visual-studio-light"] .border-slate-800\/60 {
+            border-color: #cfe0f3 !important;
+        }
+        html[data-theme="visual-studio-light"] .text-slate-200,
+        html[data-theme="visual-studio-light"] .text-slate-300,
+        html[data-theme="visual-studio-light"] .text-slate-400,
+        html[data-theme="visual-studio-light"] .text-slate-500 {
+            color: #1f2d3d !important;
+        }
+        html[data-theme="visual-studio-light"] .text-cyan-400,
+        html[data-theme="visual-studio-light"] .text-blue-400,
+        html[data-theme="visual-studio-light"] .text-blue-300 {
+            color: #0d5ea7 !important;
+        }
+
+        html[data-theme="visual-studio-blue"],
+        html[data-theme="visual-studio-blue"] body,
+        html[data-theme="visual-studio-blue"] .bg-slate-950,
+        html[data-theme="visual-studio-blue"] .bg-slate-900,
+        html[data-theme="visual-studio-blue"] .bg-slate-800,
+        html[data-theme="visual-studio-blue"] .bg-slate-700,
+        html[data-theme="visual-studio-blue"] .bg-slate-800\/70,
+        html[data-theme="visual-studio-blue"] .bg-slate-950\/60,
+        html[data-theme="visual-studio-blue"] .bg-slate-900\/80,
+        html[data-theme="visual-studio-blue"] .bg-slate-900\/70 {
+            background-color: #1b2d48 !important;
+        }
+        html[data-theme="visual-studio-blue"] .bg-slate-800 {
+            background-color: #2b446a !important;
+        }
+        html[data-theme="visual-studio-blue"] .bg-slate-700 {
+            background-color: #3b5f8e !important;
+        }
+        html[data-theme="visual-studio-blue"] .border-slate-800,
+        html[data-theme="visual-studio-blue"] .border-slate-700,
+        html[data-theme="visual-studio-blue"] .border-slate-800\/80,
+        html[data-theme="visual-studio-blue"] .border-slate-800\/60,
+        html[data-theme="visual-studio-blue"] .border-slate-700\/60 {
+            border-color: #4e729d !important;
+        }
+        html[data-theme="visual-studio-blue"] .text-slate-200,
+        html[data-theme="visual-studio-blue"] .text-slate-300,
+        html[data-theme="visual-studio-blue"] .text-slate-400,
+        html[data-theme="visual-studio-blue"] .text-slate-500,
+        html[data-theme="visual-studio-blue"] .text-white {
+            color: #edf4ff !important;
+        }
+        html[data-theme="visual-studio-blue"] .text-slate-400 {
+            color: #bdd3f3 !important;
+        }
+        html[data-theme="visual-studio-blue"] .text-cyan-400,
+        html[data-theme="visual-studio-blue"] .text-blue-400,
+        html[data-theme="visual-studio-blue"] .text-blue-300,
+        html[data-theme="visual-studio-blue"] .text-blue-200 {
+            color: #9ad0ff !important;
+        }
+        html[data-theme="visual-studio-blue"] .bg-blue-600,
+        html[data-theme="visual-studio-blue"] .bg-blue-500,
+        html[data-theme="visual-studio-blue"] .bg-blue-400 {
+            background-color: #3c7dd9 !important;
+        }
+        html[data-theme="visual-studio-blue"] .bg-blue-600,
+        html[data-theme="visual-studio-blue"] .bg-blue-500,
+        html[data-theme="visual-studio-blue"] .bg-blue-400,
+        html[data-theme="visual-studio-blue"] .text-blue-500 {
+            color: #dfeeff !important;
         }
         html[data-theme="light"] img, html[data-theme="light"] video {
             filter: invert(100%) hue-rotate(180deg);
@@ -87,6 +195,13 @@ const IndexHTML = `<!DOCTYPE html>
                     <option value="emerald" class="bg-slate-900 text-slate-200">Emerald Matrix</option>
                     <option value="amber" class="bg-slate-900 text-slate-200">Warm Amber</option>
                     <option value="cyberpunk" class="bg-slate-900 text-slate-200">Cyberpunk Neon</option>
+                    <option value="vscode-dark-plus" class="bg-slate-900 text-slate-200">VS Code Dark+</option>
+                    <option value="vscode-light-plus" class="bg-slate-900 text-slate-200">VS Code Light+</option>
+                    <option value="vscode-monokai" class="bg-slate-900 text-slate-200">VS Code Monokai</option>
+                    <option value="vscode-dracula" class="bg-slate-900 text-slate-200">VS Code Dracula</option>
+                    <option value="visual-studio-dark" class="bg-slate-900 text-slate-200">Visual Studio Dark</option>
+                    <option value="visual-studio-light" class="bg-slate-900 text-slate-200">Visual Studio Light</option>
+                    <option value="visual-studio-blue" class="bg-slate-900 text-slate-200">Visual Studio Blue</option>
                     <option value="light" class="bg-slate-900 text-slate-200">Clean Light</option>
                 </select>
             </div>
@@ -320,7 +435,7 @@ const IndexHTML = `<!DOCTYPE html>
                 <div class="pt-2 border-t border-slate-800">
                     <div class="flex items-center justify-between mb-2">
                         <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Custom / Extra Attributes</label>
-                        <button type="button" onclick="addCustomAttributeRow('', '')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium">＋ Add Attribute</button>
+                        <button type="button" onclick="addCustomAttributeRow('', '', getAllowedCustomAttributeNames(window.currentNodeMeta || getCurrentNodeMeta()))" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium">＋ Add Attribute</button>
                     </div>
                     <div id="modal-custom-attrs" class="space-y-2"></div>
                 </div>
@@ -696,14 +811,45 @@ const IndexHTML = `<!DOCTYPE html>
             openEditNode(nodeId);
         }
 
-        function addCustomAttributeRow(name, value) {
+        function getCurrentNodeMeta() {
+            const nodeType = document.getElementById('modal-node-type')?.value;
+            return catalogData.find(c => c.type === nodeType) || { type: nodeType, fields: [] };
+        }
+
+        function getAllowedCustomAttributeNames(meta) {
+            if (!meta || !Array.isArray(meta.fields)) return [];
+            return (meta.fields || []).map(f => f.name).filter(Boolean).sort();
+        }
+
+        function addCustomAttributeRow(name, value, allowedNames) {
             const container = document.getElementById('modal-custom-attrs');
+            if (!container) return;
+
             const row = document.createElement('div');
             row.className = 'flex items-center space-x-2 custom-attr-row';
-            const safeName = (name || '').replace(/"/g, '&quot;');
             const safeVal = (value || '').replace(/"/g, '&quot;');
-            row.innerHTML = '<input type="text" placeholder="attribute_name" value="' + safeName + '" class="custom-attr-key w-1/3 bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
-                '<input type="text" placeholder="value" value="' + safeVal + '" class="custom-attr-val flex-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">' +
+            const attrList = Array.isArray(allowedNames) && allowedNames.length > 0 ? allowedNames : [];
+            const currentName = (name || '').trim();
+            const currentIsAllowed = attrList.includes(currentName);
+
+            let keyHtml = '';
+            if (attrList.length > 0) {
+                const opts = attrList.map(attr => {
+                    const selected = attr === currentName ? ' selected' : '';
+                    return '<option value="' + attr + '"' + selected + '>' + attr + '</option>';
+                }).join('');
+                keyHtml = '<select class="custom-attr-key w-1/3 bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
+                    '<option value="" ' + (currentName ? '' : 'selected') + '>Select...</option>' +
+                    opts +
+                    '</select>';
+            } else {
+                const safeName = currentName.replace(/"/g, '&quot;');
+                keyHtml = '<input type="text" placeholder="attribute_name" value="' + safeName + '" class="custom-attr-key w-1/3 bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">';
+            }
+
+            const inputValue = currentIsAllowed || attrList.length === 0 ? safeVal : '';
+            row.innerHTML = keyHtml +
+                '<input type="text" placeholder="value" value="' + inputValue + '" class="custom-attr-val flex-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">' +
                 '<button type="button" onclick="this.closest(\'.custom-attr-row\').remove()" class="p-1.5 hover:bg-red-950/60 text-slate-400 hover:text-red-400 rounded text-xs" title="Remove attribute">&times;</button>';
             container.appendChild(row);
         }
@@ -721,6 +867,7 @@ const IndexHTML = `<!DOCTYPE html>
         }
 
         function renderModalFields(meta, currentValues) {
+            window.currentNodeMeta = meta || getCurrentNodeMeta();
             const container = document.getElementById('modal-fields-container');
             container.innerHTML = '';
             const recognized = new Set();
@@ -760,9 +907,10 @@ const IndexHTML = `<!DOCTYPE html>
             // Populate custom/extra attributes not explicitly defined in meta.fields
             const customContainer = document.getElementById('modal-custom-attrs');
             customContainer.innerHTML = '';
+            const allowedCustomAttrs = getAllowedCustomAttributeNames(meta);
             Object.keys(currentValues).forEach(k => {
-                if (!recognized.has(k)) {
-                    addCustomAttributeRow(k, currentValues[k]);
+                if (!recognized.has(k) && allowedCustomAttrs.includes(k)) {
+                    addCustomAttributeRow(k, currentValues[k], allowedCustomAttrs);
                 }
             });
 
@@ -801,11 +949,14 @@ const IndexHTML = `<!DOCTYPE html>
                 }
             });
 
-            // Custom / extra attributes
+            const allowedCustomAttrs = getAllowedCustomAttributeNames(meta || getCurrentNodeMeta());
             form.querySelectorAll('.custom-attr-row').forEach(row => {
-                const k = row.querySelector('.custom-attr-key').value.trim();
-                const v = row.querySelector('.custom-attr-val').value;
-                if (k !== '') {
+                const keyEl = row.querySelector('.custom-attr-key');
+                const valEl = row.querySelector('.custom-attr-val');
+                if (!keyEl || !valEl) return;
+                const k = keyEl.value.trim();
+                const v = valEl.value;
+                if (k !== '' && allowedCustomAttrs.includes(k)) {
                     attrs[k] = v;
                 }
             });
@@ -1055,6 +1206,32 @@ const IndexHTML = `<!DOCTYPE html>
             }
         }
 
+        function syncScriptWithOptionsSelection() {
+            const scriptInput = document.getElementById('runner-script-file');
+            const optionsInput = document.getElementById('runner-options-file');
+            if (!scriptInput || !optionsInput) return;
+
+            const scriptValue = scriptInput.value.trim();
+            const optionsValue = optionsInput.value.trim();
+            if (!optionsValue) return;
+
+            if (!scriptValue || scriptValue === 'scripts.xml' || scriptValue === 'temp_run_script.xml') {
+                scriptInput.value = '';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const optionsInput = document.getElementById('runner-options-file');
+            if (optionsInput) {
+                optionsInput.addEventListener('change', syncScriptWithOptionsSelection);
+                optionsInput.addEventListener('input', function() {
+                    if (this.value.trim() !== '') {
+                        syncScriptWithOptionsSelection();
+                    }
+                });
+            }
+        });
+
         let browserTargetInputId = '';
         let browserFilterExt = '.xml';
         let browserCurrentDir = '.';
@@ -1196,6 +1373,9 @@ const IndexHTML = `<!DOCTYPE html>
                     if (browserTargetInputId === 'runner-script-file') {
                         setRunnerSource('file');
                     }
+                    if (browserTargetInputId === 'runner-options-file') {
+                        syncScriptWithOptionsSelection();
+                    }
                     if (browserTargetInputId === 'import-file-path') {
                         const nameInput = document.getElementById('import-script-name');
                         if (nameInput && !nameInput.value.trim()) {
@@ -1335,7 +1515,8 @@ const IndexHTML = `<!DOCTYPE html>
 
         let eventSource = null;
         function startPipelineExecution() {
-            const scriptFile = document.getElementById('runner-script-file').value.trim();
+            const scriptInput = document.getElementById('runner-script-file');
+            const scriptFile = scriptInput ? scriptInput.value.trim() : '';
             const configFile = document.getElementById('runner-config-file').value.trim();
             const optionsFile = document.getElementById('runner-options-file').value.trim();
             const term = document.getElementById('terminal-log');
@@ -1343,6 +1524,8 @@ const IndexHTML = `<!DOCTYPE html>
             const statusInd = document.getElementById('status-indicator');
             const statusText = document.getElementById('status-text');
             const timerEl = document.getElementById('status-timer');
+
+            const shouldIncludeScript = runnerSource === 'builder' || scriptFile !== '' || optionsFile === '';
 
             term.textContent = '';
             tbody.innerHTML = '';
@@ -1356,11 +1539,14 @@ const IndexHTML = `<!DOCTYPE html>
             }, 100);
 
             if (eventSource) eventSource.close();
-            const url = '/api/execute/stream?source=' + encodeURIComponent(runnerSource) +
+
+            let url = '/api/execute/stream?source=' + encodeURIComponent(runnerSource) +
                         '&script_id=' + currentScriptId +
-                        '&file=' + encodeURIComponent(scriptFile) +
                         '&config=' + encodeURIComponent(configFile) +
                         '&options=' + encodeURIComponent(optionsFile);
+            if (shouldIncludeScript) {
+                url += '&file=' + encodeURIComponent(scriptFile || (runnerSource === 'builder' ? 'temp_run_script.xml' : 'scripts.xml'));
+            }
             eventSource = new EventSource(url);
 
             eventSource.onmessage = function(e) {

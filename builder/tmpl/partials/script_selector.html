@@ -1,0 +1,24 @@
+{{define "script_selector"}}
+<select id="active-script-select" onchange="window.location.href='/?script_id=' + this.value"
+        class="bg-slate-950 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-cyan-300 font-semibold focus:outline-none focus:border-blue-500 shadow-inner">
+    {{range .AllScripts}}
+    <option value="{{.ID}}" {{if eq .ID $.ActiveScript.ID}}selected{{end}}>{{.Name}}</option>
+    {{end}}
+</select>
+<button onclick="document.getElementById('new-script-modal').classList.remove('hidden')" 
+        class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md text-xs font-semibold transition" title="Create New Script">
+    ＋ New
+</button>
+<button onclick="openCopyScriptModal()" 
+        class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md text-xs font-semibold transition" title="Duplicate / Copy Active Pipeline">
+    📋 Copy
+</button>
+<button onclick="openImportScriptModal()" 
+        class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 rounded-md text-xs font-semibold transition" title="Import Pipeline from Filesystem">
+    📂 Import
+</button>
+<button onclick="confirmDeleteScript()" 
+        class="px-2.5 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 rounded-md text-xs font-semibold transition" title="Delete Active Pipeline">
+    🗑️ Delete
+</button>
+{{end}}
