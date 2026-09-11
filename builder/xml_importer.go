@@ -99,30 +99,10 @@ func ImportPipelineFromBytes(data []byte, defaultName, customName, sourcePath st
 		return nil, fmt.Errorf("failed to create script record: %w", err)
 	}
 
-	// Helper to extract attributes and insert nodes
 	insertNodes := func(section string, nodes []rawXMLNode) error {
 		for _, n := range nodes {
-			tag := n.XMLName.Local
-			if tag == "" {
-				continue
-			}
-
-			attrs := make(map[string]string)
-			for _, a := range n.Attrs {
-				// Filter XML schema namespaces
-				if a.Name.Space == "xmlns" || a.Name.Local == "xmlns" || strings.HasPrefix(a.Name.Local, "xmlns:") {
-					continue
-				}
-				if a.Name.Space == "xsi" || a.Name.Local == "noNamespaceSchemaLocation" {
-					continue
-				}
-				attrs[a.Name.Local] = a.Value
-			}
-
-			content := strings.TrimSpace(n.InnerXML)
-			_, err := storage.AddNode(script.ID, section, tag, attrs, content)
-			if err != nil {
-				return fmt.Errorf("failed to add %s node <%s>: %w", section, tag, err)
+			if err := insertNodeTree(script.ID, section, n, nil, storage); err != nil {
+				return err
 			}
 		}
 		return nil
@@ -162,4 +142,131 @@ func ImportPipelineFromBytes(data []byte, defaultName, customName, sourcePath st
 	}
 
 	return script, nil
+}
+
+// Helper to extract XML attributes into a map, ignoring XML schema namespaces
+func extractAttrs(attrs []xml.Attr) map[string]string {
+	res := make(map[string]string)
+	for _, a := range attrs {
+		if a.Name.Space == "xmlns" || a.Name.Local == "xmlns" || strings.HasPrefix(a.Name.Local, "xmlns:") {
+			continue
+		}
+		if a.Name.Space == "xsi" || a.Name.Local == "noNamespaceSchemaLocation" {
+			continue
+		}
+		res[a.Name.Local] = a.Value
+	}
+	return res
+}
+
+// parseContainerInner extracts text content and child XML elements from inner XML.
+func parseContainerInner(innerXML string) (string, []rawXMLNode) {
+	if strings.TrimSpace(innerXML) == "" {
+		return "", nil
+	}
+	d := xml.NewDecoder(strings.NewReader("<wrapper>" + innerXML + "</wrapper>"))
+	var textParts []string
+	var children []rawXMLNode
+
+	for {
+		tok, err := d.Token()
+		if err != nil {
+			break
+		}
+		switch t := tok.(type) {
+		case xml.CharData:
+			txt := strings.TrimSpace(string(t))
+			if txt != "" {
+				textParts = append(textParts, txt)
+			}
+		case xml.StartElement:
+			if t.Name.Local == "wrapper" {
+				continue
+			}
+			var child rawXMLNode
+			if err := d.DecodeElement(&child, &t); err == nil {
+				children = append(children, child)
+			}
+		}
+	}
+	return strings.Join(textParts, "\n"), children
+}
+
+// insertNodeTree recursively inserts an XML node and all its nested children into SQLite storage.
+func insertNodeTree(scriptID int64, section string, n rawXMLNode, parentNodeID *int64, storage *Storage) error {
+	tag := n.XMLName.Local
+	if tag == "" {
+		return nil
+	}
+
+	attrs := extractAttrs(n.Attrs)
+
+	// Special handling for <if> conditional container
+	if tag == "if" {
+		ifNode, err := storage.AddNodeWithParent(scriptID, section, tag, attrs, "", parentNodeID)
+		if err != nil {
+			return fmt.Errorf("failed to add <if> node: %w", err)
+		}
+
+		thenNode, elseNode, err := storage.EnsureIfBranches(scriptID, section, ifNode.ID)
+		if err != nil {
+			return fmt.Errorf("failed to ensure if branches: %w", err)
+		}
+
+		_, children := parseContainerInner(n.InnerXML)
+		for _, ch := range children {
+			chTag := ch.XMLName.Local
+			if chTag == "then" {
+				_, thenChildren := parseContainerInner(ch.InnerXML)
+				for _, tch := range thenChildren {
+					if err := insertNodeTree(scriptID, section, tch, &thenNode.ID, storage); err != nil {
+						return err
+					}
+				}
+			} else if chTag == "else" {
+				_, elseChildren := parseContainerInner(ch.InnerXML)
+				for _, ech := range elseChildren {
+					if err := insertNodeTree(scriptID, section, ech, &elseNode.ID, storage); err != nil {
+						return err
+					}
+				}
+			} else {
+				// Inline child under <if> treated as <then>
+				if err := insertNodeTree(scriptID, section, ch, &thenNode.ID, storage); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+
+	// Container tags or nodes with child elements (group, parallel, foreach, while, etc.)
+	isContainerTag := tag == "group" || tag == "parallel" || tag == "foreach" || tag == "while"
+	driverText, children := parseContainerInner(n.InnerXML)
+
+	if isContainerTag || len(children) > 0 {
+		contentText := ""
+		if tag == "foreach" {
+			contentText = driverText
+		}
+		containerNode, err := storage.AddNodeWithParent(scriptID, section, tag, attrs, contentText, parentNodeID)
+		if err != nil {
+			return fmt.Errorf("failed to add <%s> node: %w", tag, err)
+		}
+
+		for _, ch := range children {
+			if err := insertNodeTree(scriptID, section, ch, &containerNode.ID, storage); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// Leaf nodes (sql, script, database, variable, kv, etc.)
+	content := strings.TrimSpace(n.InnerXML)
+	_, err := storage.AddNodeWithParent(scriptID, section, tag, attrs, content, parentNodeID)
+	if err != nil {
+		return fmt.Errorf("failed to add node <%s>: %w", tag, err)
+	}
+	return nil
 }

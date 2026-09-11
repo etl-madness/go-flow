@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/rand"
-	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -36,7 +36,7 @@ func (s *Server) generateCSRFToken() string {
 	if _, err := rand.Read(b); err != nil {
 		return "fallback-token-error"
 	}
-	return base64.StdEncoding.EncodeToString(b)
+	return hex.EncodeToString(b)
 }
 
 func NewServer(storage *Storage, port int) (*Server, error) {
@@ -98,8 +98,8 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 	varNodes, _ := s.storage.GetNodes(activeScript.ID, "variables")
 	dbNodes, _ := s.storage.GetNodes(activeScript.ID, "databases")
-	preNodes, _ := s.storage.GetNodes(activeScript.ID, "preflight")
-	flowNodes, _ := s.storage.GetNodes(activeScript.ID, "flow")
+	preNodes, _ := s.storage.GetNodeTree(activeScript.ID, "preflight")
+	flowNodes, _ := s.storage.GetNodeTree(activeScript.ID, "flow")
 
 	configContent := s.storage.GetOrCreateDefaultConfig()
 	optionsContent := s.storage.GetOrCreateDefaultOptions()
@@ -136,8 +136,8 @@ func (s *Server) handleCanvas(w http.ResponseWriter, r *http.Request) {
 
 	varNodes, _ := s.storage.GetNodes(activeScript.ID, "variables")
 	dbNodes, _ := s.storage.GetNodes(activeScript.ID, "databases")
-	preNodes, _ := s.storage.GetNodes(activeScript.ID, "preflight")
-	flowNodes, _ := s.storage.GetNodes(activeScript.ID, "flow")
+	preNodes, _ := s.storage.GetNodeTree(activeScript.ID, "preflight")
+	flowNodes, _ := s.storage.GetNodeTree(activeScript.ID, "flow")
 
 	data := PageData{
 		ActiveScript:   activeScript,
@@ -154,12 +154,13 @@ func (s *Server) handleCanvas(w http.ResponseWriter, r *http.Request) {
 }
 
 type NodeRequest struct {
-	ScriptID   int64             `json:"script_id"`
-	NodeID     int64             `json:"node_id"`
-	NodeType   string            `json:"node_type"`
-	Section    string            `json:"section"`
-	Attributes map[string]string `json:"attributes"`
-	Content    string            `json:"content"`
+	ScriptID     int64             `json:"script_id"`
+	NodeID       int64             `json:"node_id"`
+	ParentNodeID *int64            `json:"parent_node_id,omitempty"`
+	NodeType     string            `json:"node_type"`
+	Section      string            `json:"section"`
+	Attributes   map[string]string `json:"attributes"`
+	Content      string            `json:"content"`
 }
 
 func (s *Server) validateCSRF(r *http.Request) bool {
@@ -225,10 +226,14 @@ func (s *Server) handleAddNode(w http.ResponseWriter, r *http.Request) {
 		req.Section = "flow"
 	}
 
-	_, err := s.storage.AddNode(req.ScriptID, req.Section, req.NodeType, req.Attributes, req.Content)
+	created, err := s.storage.AddNodeWithParent(req.ScriptID, req.Section, req.NodeType, req.Attributes, req.Content, req.ParentNodeID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	if req.NodeType == "if" && created != nil {
+		_, _, _ = s.storage.EnsureIfBranches(req.ScriptID, req.Section, created.ID)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -368,8 +373,8 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 
 	varNodes, _ := s.storage.GetNodes(activeScript.ID, "variables")
 	dbNodes, _ := s.storage.GetNodes(activeScript.ID, "databases")
-	preNodes, _ := s.storage.GetNodes(activeScript.ID, "preflight")
-	flowNodes, _ := s.storage.GetNodes(activeScript.ID, "flow")
+	preNodes, _ := s.storage.GetNodeTree(activeScript.ID, "preflight")
+	flowNodes, _ := s.storage.GetNodeTree(activeScript.ID, "flow")
 
 	xmlContent := GenerateXML(activeScript.Name, varNodes, dbNodes, preNodes, flowNodes)
 
@@ -485,6 +490,20 @@ func (s *Server) handleDeleteScript(w http.ResponseWriter, r *http.Request) {
 		"next_script_id": nextScriptID,
 		"remaining":      remaining,
 	})
+}
+
+func (s *Server) handleListScripts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	scripts, err := s.storage.ListScripts()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(scripts)
 }
 
 func (s *Server) handleImportScript(w http.ResponseWriter, r *http.Request) {
@@ -627,8 +646,8 @@ func (s *Server) handleSaveFile(w http.ResponseWriter, r *http.Request) {
 
 	varNodes, _ := s.storage.GetNodes(script.ID, "variables")
 	dbNodes, _ := s.storage.GetNodes(script.ID, "databases")
-	preNodes, _ := s.storage.GetNodes(script.ID, "preflight")
-	flowNodes, _ := s.storage.GetNodes(script.ID, "flow")
+	preNodes, _ := s.storage.GetNodeTree(script.ID, "preflight")
+	flowNodes, _ := s.storage.GetNodeTree(script.ID, "flow")
 
 	xmlContent := GenerateXML(script.Name, varNodes, dbNodes, preNodes, flowNodes)
 
@@ -869,6 +888,7 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 	configFile := strings.TrimSpace(r.URL.Query().Get("config"))
 	optionsFile := strings.TrimSpace(r.URL.Query().Get("options"))
 	source := strings.TrimSpace(r.URL.Query().Get("source")) // "builder" or "file"
+	preflightOnly := r.URL.Query().Get("preflight") == "true" || r.URL.Query().Get("preflight") == "1"
 
 	if source == "builder" {
 		if scriptFile == "" {
@@ -879,8 +899,8 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 				if script, err := s.storage.GetScript(id); err == nil {
 					varNodes, _ := s.storage.GetNodes(script.ID, "variables")
 					dbNodes, _ := s.storage.GetNodes(script.ID, "databases")
-					preNodes, _ := s.storage.GetNodes(script.ID, "preflight")
-					flowNodes, _ := s.storage.GetNodes(script.ID, "flow")
+					preNodes, _ := s.storage.GetNodeTree(script.ID, "preflight")
+					flowNodes, _ := s.storage.GetNodeTree(script.ID, "flow")
 					xmlContent := GenerateXML(script.Name, varNodes, dbNodes, preNodes, flowNodes)
 					if err := os.WriteFile(scriptFile, []byte(xmlContent), 0644); err != nil {
 						sendSSE("done", map[string]any{"type": "done", "status": "ERROR", "error": fmt.Sprintf("Failed to write draft XML: %v", err)})
@@ -934,6 +954,9 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 	}
 	if configFile != "" {
 		args = append(args, "-config", configFile)
+	}
+	if preflightOnly {
+		args = append(args, "-preflight")
 	}
 	args = append(args, "-format", "stream")
 
@@ -1030,6 +1053,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/scripts/copy", s.handleCopyScript)
 	mux.HandleFunc("/api/scripts/delete", s.handleDeleteScript)
 	mux.HandleFunc("/api/scripts/import", s.handleImportScript)
+	mux.HandleFunc("/api/scripts/list", s.handleListScripts)
 	mux.HandleFunc("/api/db/purge", s.handlePurgeDatabase)
 	mux.HandleFunc("/api/save_file", s.handleSaveFile)
 	mux.HandleFunc("/api/config/save", s.handleSaveConfig)

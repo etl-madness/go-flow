@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/etl-madness/flow"
 )
 
 func TestCatalog(t *testing.T) {
@@ -508,7 +510,12 @@ func TestConfigAndOptionsDrafts(t *testing.T) {
 }
 
 func TestFileBrowsingEndpoints(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir, err := os.MkdirTemp(".", "test_browse_")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
 	dbPath := filepath.Join(tmpDir, "test_browse.db")
 	storage, err := NewStorage(dbPath)
 	if err != nil {
@@ -548,7 +555,6 @@ func TestFileBrowsingEndpoints(t *testing.T) {
 	hasSubfolder := false
 	hasScriptsXML := false
 	hasReadme := false
-
 	for _, entry := range browseResp.Entries {
 		if entry.Name == "subfolder" && entry.IsDir {
 			hasSubfolder = true
@@ -562,35 +568,41 @@ func TestFileBrowsingEndpoints(t *testing.T) {
 	}
 
 	if !hasSubfolder {
-		t.Errorf("expected subfolder in browse results")
+		t.Errorf("expected 'subfolder' directory in entries")
 	}
 	if !hasScriptsXML {
-		t.Errorf("expected scripts.xml in browse results")
+		t.Errorf("expected 'scripts.xml' file in entries")
 	}
 	if hasReadme {
-		t.Errorf("expected readme.txt to be filtered out by .xml ext filter")
+		t.Errorf("did not expect 'readme.txt' to match .xml filter")
 	}
 
-	// Test 2: Quick files list
-	qReq := httptest.NewRequest(http.MethodGet, "/api/files/quick?root="+tmpDir+"&ext=.xml", nil)
-	qRec := httptest.NewRecorder()
-	server.handleQuickFiles(qRec, qReq)
+	// Test 2: Quick files search from root
+	req2 := httptest.NewRequest(http.MethodGet, "/api/files/quick?root="+tmpDir+"&ext=.xml", nil)
+	rec2 := httptest.NewRecorder()
+	server.handleQuickFiles(rec2, req2)
 
-	if qRec.Code != http.StatusOK {
-		t.Fatalf("expected status 200 for quick files, got %d", qRec.Code)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("expected status 200 for quick files, got %d: %s", rec2.Code, rec2.Body.String())
 	}
 
 	var quickFiles []string
-	if err := json.Unmarshal(qRec.Body.Bytes(), &quickFiles); err != nil {
-		t.Fatalf("failed to unmarshal quick files: %v", err)
+	if err := json.Unmarshal(rec2.Body.Bytes(), &quickFiles); err != nil {
+		t.Fatalf("failed to unmarshal quick files response: %v", err)
 	}
-	if len(quickFiles) < 2 {
-		t.Fatalf("expected at least two xml files in tmpDir, got %d", len(quickFiles))
+
+	if len(quickFiles) != 2 {
+		t.Errorf("expected 2 XML files in quick search, got %d: %v", len(quickFiles), quickFiles)
 	}
 }
 
 func TestFileBrowsingIncludesHiddenDirectories(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir, err := os.MkdirTemp(".", "test_browse_hidden_")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
 	hiddenDir := filepath.Join(tmpDir, ".config")
 	if err := os.MkdirAll(hiddenDir, 0755); err != nil {
 		t.Fatalf("failed to create hidden directory: %v", err)
@@ -928,6 +940,7 @@ func TestPipelineManagementAPIs(t *testing.T) {
 	// 1. Copy API
 	copyReqBody, _ := json.Marshal(map[string]any{"id": sc.ID, "new_name": "API Cloned Pipeline"})
 	reqCopy := httptest.NewRequest(http.MethodPost, "/api/scripts/copy", bytes.NewReader(copyReqBody))
+	reqCopy.Header.Set("X-CSRF-Token", server.csrfToken)
 	recCopy := httptest.NewRecorder()
 	server.handleCopyScript(recCopy, reqCopy)
 	if recCopy.Code != http.StatusOK {
@@ -943,10 +956,16 @@ func TestPipelineManagementAPIs(t *testing.T) {
 	}
 
 	// 2. Import API
-	tmpXML := filepath.Join(t.TempDir(), "api_import.xml")
+	tmpXMLDir, err := os.MkdirTemp(".", "test_api_import_")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpXMLDir)
+	tmpXML := filepath.Join(tmpXMLDir, "api_import.xml")
 	_ = os.WriteFile(tmpXML, []byte("<pipeline name=\"api_import_pipe\"><flow><sql id=\"1\">SELECT 1</sql></flow></pipeline>"), 0644)
 	importReqBody, _ := json.Marshal(map[string]any{"file_path": tmpXML, "name": "Imported via API"})
 	reqImport := httptest.NewRequest(http.MethodPost, "/api/scripts/import", bytes.NewReader(importReqBody))
+	reqImport.Header.Set("X-CSRF-Token", server.csrfToken)
 	recImport := httptest.NewRecorder()
 	server.handleImportScript(recImport, reqImport)
 	if recImport.Code != http.StatusOK {
@@ -955,6 +974,7 @@ func TestPipelineManagementAPIs(t *testing.T) {
 
 	// 3. Delete API
 	reqDelete := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/scripts/delete?id=%d", copyResp.Script.ID), nil)
+	reqDelete.Header.Set("X-CSRF-Token", server.csrfToken)
 	recDelete := httptest.NewRecorder()
 	server.handleDeleteScript(recDelete, reqDelete)
 	if recDelete.Code != http.StatusOK {
@@ -963,6 +983,7 @@ func TestPipelineManagementAPIs(t *testing.T) {
 
 	// 4. Purge API
 	reqPurge := httptest.NewRequest(http.MethodPost, "/api/db/purge", nil)
+	reqPurge.Header.Set("X-CSRF-Token", server.csrfToken)
 	recPurge := httptest.NewRecorder()
 	server.handlePurgeDatabase(recPurge, reqPurge)
 	if recPurge.Code != http.StatusOK {
@@ -1020,3 +1041,918 @@ func TestIndexSectionNavigation(t *testing.T) {
 		}
 	}
 }
+
+func TestNestedContainersAndConditionalsStorage(t *testing.T) {
+	tmpDir, err := os.MkdirTemp(".", "test_nested_storage_")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test_nested.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to init storage: %v", err)
+	}
+	defer storage.Close()
+
+	sc, err := storage.CreateScript("nested_flow", "Testing nested containers and conditionals")
+	if err != nil {
+		t.Fatalf("failed to create script: %v", err)
+	}
+
+	// 1. Add <group> root container
+	groupNode, err := storage.AddNode(sc.ID, "flow", "group", map[string]string{"transaction": "true"}, "")
+	if err != nil {
+		t.Fatalf("failed to add group node: %v", err)
+	}
+
+	// 2. Add <if> container under <group>
+	ifNode, err := storage.AddNodeWithParent(sc.ID, "flow", "if", map[string]string{"condition": "status == 'ACTIVE'"}, "", &groupNode.ID)
+	if err != nil {
+		t.Fatalf("failed to add if node: %v", err)
+	}
+
+	// Ensure then/else branches exist for <if>
+	thenBranch, elseBranch, err := storage.EnsureIfBranches(sc.ID, "flow", ifNode.ID)
+	if err != nil {
+		t.Fatalf("failed to ensure if branches: %v", err)
+	}
+	if thenBranch == nil || elseBranch == nil {
+		t.Fatalf("expected then and else branches, got then=%v, else=%v", thenBranch, elseBranch)
+	}
+
+	// 3. Add <parallel> inside <then>
+	parallelNode, err := storage.AddNodeWithParent(sc.ID, "flow", "parallel", map[string]string{"max_threads": "4"}, "", &thenBranch.ID)
+	if err != nil {
+		t.Fatalf("failed to add parallel node: %v", err)
+	}
+
+	// 4. Add 2 <sql> nodes inside <parallel>
+	pSql1, err := storage.AddNodeWithParent(sc.ID, "flow", "sql", map[string]string{"id": "p1"}, "SELECT 1;", &parallelNode.ID)
+	if err != nil {
+		t.Fatalf("failed to add pSql1: %v", err)
+	}
+	pSql2, err := storage.AddNodeWithParent(sc.ID, "flow", "sql", map[string]string{"id": "p2"}, "SELECT 2;", &parallelNode.ID)
+	if err != nil {
+		t.Fatalf("failed to add pSql2: %v", err)
+	}
+
+	// 5. Add <script> inside <else>
+	elseScript, err := storage.AddNodeWithParent(sc.ID, "flow", "script", map[string]string{"id": "e1", "language": "powershell"}, "Write-Host 'fallback'", &elseBranch.ID)
+	if err != nil {
+		t.Fatalf("failed to add elseScript: %v", err)
+	}
+
+	// 6. Add <while> under <group>
+	whileNode, err := storage.AddNodeWithParent(sc.ID, "flow", "while", map[string]string{"condition": "more == true"}, "", &groupNode.ID)
+	if err != nil {
+		t.Fatalf("failed to add whileNode: %v", err)
+	}
+	_, err = storage.AddNodeWithParent(sc.ID, "flow", "sql", map[string]string{"id": "w1"}, "SELECT next();", &whileNode.ID)
+	if err != nil {
+		t.Fatalf("failed to add while sql: %v", err)
+	}
+
+	// 7. Add <foreach> under <group> with driver query
+	foreachNode, err := storage.AddNodeWithParent(sc.ID, "flow", "foreach", map[string]string{"var": "rec", "stream": "true"}, "SELECT id FROM items;", &groupNode.ID)
+	if err != nil {
+		t.Fatalf("failed to add foreachNode: %v", err)
+	}
+	_, err = storage.AddNodeWithParent(sc.ID, "flow", "sql", map[string]string{"id": "fe1"}, "INSERT INTO dst VALUES ({{.rec.id}});", &foreachNode.ID)
+	if err != nil {
+		t.Fatalf("failed to add foreach child sql: %v", err)
+	}
+
+	// Query tree
+	tree, err := storage.GetNodeTree(sc.ID, "flow")
+	if err != nil {
+		t.Fatalf("failed to get node tree: %v", err)
+	}
+
+	// Verify root level
+	if len(tree) != 1 {
+		t.Fatalf("expected 1 root node (group), got %d", len(tree))
+	}
+	if tree[0].NodeType != "group" {
+		t.Fatalf("expected root node to be group, got %s", tree[0].NodeType)
+	}
+
+	// Verify group children: if, while, foreach
+	if len(tree[0].Children) != 3 {
+		t.Fatalf("expected 3 children under group, got %d", len(tree[0].Children))
+	}
+
+	ifChild := tree[0].Children[0]
+	if ifChild.NodeType != "if" {
+		t.Fatalf("expected first child of group to be if, got %s", ifChild.NodeType)
+	}
+	// Verify if branches: then and else
+	then := ifChild.GetThenBranch()
+	elseB := ifChild.GetElseBranch()
+	if then == nil || elseB == nil {
+		t.Fatalf("expected both then and else branches on if child")
+	}
+
+	// Verify then children: parallel
+	if len(then.Children) != 1 || then.Children[0].NodeType != "parallel" {
+		t.Fatalf("expected parallel child under then, got: %+v", then.Children)
+	}
+	// Verify parallel children: 2 sql nodes
+	parallelChild := then.Children[0]
+	if len(parallelChild.Children) != 2 {
+		t.Fatalf("expected 2 children under parallel, got %d", len(parallelChild.Children))
+	}
+	if parallelChild.Children[0].Attributes["id"] != "p1" || parallelChild.Children[1].Attributes["id"] != "p2" {
+		t.Fatalf("unexpected parallel children IDs: %s, %s", parallelChild.Children[0].Attributes["id"], parallelChild.Children[1].Attributes["id"])
+	}
+
+	// Verify else children: script
+	if len(elseB.Children) != 1 || elseB.Children[0].NodeType != "script" {
+		t.Fatalf("expected script child under else, got: %+v", elseB.Children)
+	}
+	if elseB.Children[0].ID != elseScript.ID {
+		t.Fatalf("expected elseScript ID %d, got %d", elseScript.ID, elseB.Children[0].ID)
+	}
+
+	// Verify while children: 1 sql
+	whileChild := tree[0].Children[1]
+	if len(whileChild.Children) != 1 || whileChild.Children[0].NodeType != "sql" {
+		t.Fatalf("expected 1 sql child under while, got: %+v", whileChild.Children)
+	}
+
+	// Verify foreach children: 1 sql and driver query retained
+	foreachChild := tree[0].Children[2]
+	if len(foreachChild.Children) != 1 || foreachChild.Children[0].NodeType != "sql" {
+		t.Fatalf("expected 1 sql child under foreach, got: %+v", foreachChild.Children)
+	}
+	if !strings.Contains(foreachChild.ContentText, "SELECT id FROM items;") {
+		t.Fatalf("expected driver query in foreach content, got %q", foreachChild.ContentText)
+	}
+
+	// Test MoveNode within container (swap parallel sql steps)
+	if err := storage.MoveNode(pSql2.ID, "up"); err != nil {
+		t.Fatalf("failed to move pSql2 up: %v", err)
+	}
+	updatedTree, _ := storage.GetNodeTree(sc.ID, "flow")
+	updatedParallel := updatedTree[0].Children[0].GetThenBranch().Children[0]
+	if updatedParallel.Children[0].ID != pSql2.ID || updatedParallel.Children[1].ID != pSql1.ID {
+		t.Fatalf("expected pSql2 to be before pSql1 after move up")
+	}
+
+	// Test CopyScript with nested hierarchy
+	copied, err := storage.CopyScript(sc.ID, "cloned_nested_flow")
+	if err != nil {
+		t.Fatalf("failed to copy script: %v", err)
+	}
+	copiedTree, err := storage.GetNodeTree(copied.ID, "flow")
+	if err != nil {
+		t.Fatalf("failed to get node tree for copied script: %v", err)
+	}
+	if len(copiedTree) != 1 || copiedTree[0].NodeType != "group" {
+		t.Fatalf("expected copied tree root to be group")
+	}
+	if len(copiedTree[0].Children) != 3 {
+		t.Fatalf("expected copied group to have 3 children, got %d", len(copiedTree[0].Children))
+	}
+	copiedThen := copiedTree[0].Children[0].GetThenBranch()
+	if copiedThen == nil || len(copiedThen.Children) != 1 {
+		t.Fatalf("expected copied then branch to have parallel child")
+	}
+	if len(copiedThen.Children[0].Children) != 2 {
+		t.Fatalf("expected copied parallel to have 2 children")
+	}
+
+	// Test DeleteNode recursive purge (delete parallel container)
+	if err := storage.DeleteNode(parallelNode.ID); err != nil {
+		t.Fatalf("failed to delete parallel container: %v", err)
+	}
+	treeAfterParallelDelete, _ := storage.GetNodeTree(sc.ID, "flow")
+	thenAfterDelete := treeAfterParallelDelete[0].Children[0].GetThenBranch()
+	if len(thenAfterDelete.Children) != 0 {
+		t.Fatalf("expected then branch to be empty after parallel deleted, got %d", len(thenAfterDelete.Children))
+	}
+	// Verify else branch is still intact
+	elseAfterDelete := treeAfterParallelDelete[0].Children[0].GetElseBranch()
+	if len(elseAfterDelete.Children) != 1 {
+		t.Fatalf("expected else branch to remain intact with 1 child")
+	}
+
+	// Test DeleteNode on root group (purges entire tree)
+	if err := storage.DeleteNode(groupNode.ID); err != nil {
+		t.Fatalf("failed to delete root group: %v", err)
+	}
+	treeAfterRootDelete, _ := storage.GetNodeTree(sc.ID, "flow")
+	if len(treeAfterRootDelete) != 0 {
+		t.Fatalf("expected empty flow tree after root group deleted, got %d", len(treeAfterRootDelete))
+	}
+}
+
+func TestRecursiveXMLGeneration(t *testing.T) {
+	// Construct an in-memory tree
+	sql1 := PipelineNode{
+		NodeType:   "sql",
+		Attributes: map[string]string{"id": "StepParallel1"},
+		ContentText: "SELECT 1;",
+	}
+	sql2 := PipelineNode{
+		NodeType:   "sql",
+		Attributes: map[string]string{"id": "StepParallel2"},
+		ContentText: "SELECT 2;",
+	}
+	parallel := PipelineNode{
+		NodeType:   "parallel",
+		Attributes: map[string]string{"max_threads": "4"},
+		Children:   []PipelineNode{sql1, sql2},
+	}
+	thenBranch := PipelineNode{
+		NodeType: "then",
+		Children: []PipelineNode{parallel},
+	}
+	elseScript := PipelineNode{
+		NodeType:   "script",
+		Attributes: map[string]string{"id": "fallback_script", "language": "powershell"},
+		ContentText: "Write-Output 'fallback executed'",
+	}
+	elseBranch := PipelineNode{
+		NodeType: "else",
+		Children: []PipelineNode{elseScript},
+	}
+	ifNode := PipelineNode{
+		NodeType:   "if",
+		Attributes: map[string]string{"condition": "error_count == 0"},
+		Children:   []PipelineNode{thenBranch, elseBranch},
+	}
+	whileSql := PipelineNode{
+		NodeType:   "sql",
+		Attributes: map[string]string{"id": "loop_step"},
+		ContentText: "SELECT loop_batch();",
+	}
+	whileNode := PipelineNode{
+		NodeType:   "while",
+		Attributes: map[string]string{"condition": "has_more == 'yes'"},
+		Children:   []PipelineNode{whileSql},
+	}
+	foreachSql := PipelineNode{
+		NodeType:   "sql",
+		Attributes: map[string]string{"id": "fe_step"},
+		ContentText: "INSERT INTO sink VALUES ({{.row.id}});",
+	}
+	foreachNode := PipelineNode{
+		NodeType:    "foreach",
+		Attributes: map[string]string{"var": "row", "stream": "true"},
+		ContentText: "SELECT id FROM source_stream;",
+		Children:    []PipelineNode{foreachSql},
+	}
+	groupNode := PipelineNode{
+		NodeType:   "group",
+		Attributes: map[string]string{"transaction": "true"},
+		Children:   []PipelineNode{ifNode, whileNode, foreachNode},
+	}
+
+	xml := GenerateXML("nested_demo", nil, nil, nil, []PipelineNode{groupNode})
+
+	// Assertions on the generated XML structure
+	expectedSnippets := []string{
+		`<group transaction="true">`,
+		`<if condition="error_count == 0">`,
+		`<then>`,
+		`<parallel max_threads="4">`,
+		`<sql id="StepParallel1">`,
+		`<sql id="StepParallel2">`,
+		`</parallel>`,
+		`</then>`,
+		`<else>`,
+		`<script id="fallback_script" language="powershell">`,
+		`</else>`,
+		`</if>`,
+		`<while condition="has_more == 'yes'">`,
+		`<sql id="loop_step">`,
+		`</while>`,
+		`<foreach`,
+		`var="row"`,
+		`stream="true"`,
+		`SELECT id FROM source_stream;`,
+		`<sql id="fe_step">`,
+		`</foreach>`,
+		`</group>`,
+	}
+
+	for _, snippet := range expectedSnippets {
+		if !strings.Contains(xml, snippet) {
+			t.Errorf("expected generated XML to contain snippet %q\nGenerated XML:\n%s", snippet, xml)
+		}
+	}
+
+	// Verify that empty else is omitted
+	ifNoElse := PipelineNode{
+		NodeType:   "if",
+		Attributes: map[string]string{"condition": "x &gt; 0"},
+		Children: []PipelineNode{
+			{NodeType: "then", Children: []PipelineNode{sql1}},
+			{NodeType: "else", Children: nil},
+		},
+	}
+	xmlNoElse := GenerateXML("no_else", nil, nil, nil, []PipelineNode{ifNoElse})
+	if strings.Contains(xmlNoElse, "<else>") || strings.Contains(xmlNoElse, "</else>") {
+		t.Errorf("expected empty <else> to be omitted from XML, got:\n%s", xmlNoElse)
+	}
+}
+
+func findNodeRecursive(nodes []PipelineNode, nodeType string) *PipelineNode {
+	for i := range nodes {
+		if nodes[i].NodeType == nodeType {
+			return &nodes[i]
+		}
+		if found := findNodeRecursive(nodes[i].Children, nodeType); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func TestRecursiveXMLImport(t *testing.T) {
+	tmpDir, err := os.MkdirTemp(".", "test_xml_import_")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	storage, err := NewStorage(filepath.Join(tmpDir, "test_import.db"))
+	if err != nil {
+		t.Fatalf("failed to init storage: %v", err)
+	}
+	defer storage.Close()
+
+	// 1. Import if_than_else.xml
+	ifPath := filepath.Join("..", "examples", "if_than_else.xml")
+	scIf, err := ImportPipelineFromXML(ifPath, "If-Then-Else Test", storage)
+	if err != nil {
+		t.Fatalf("failed to import if_than_else.xml: %v", err)
+	}
+
+	flowTree, err := storage.GetNodeTree(scIf.ID, "flow")
+	if err != nil {
+		t.Fatalf("failed to get flow tree for if pipeline: %v", err)
+	}
+
+	ifNode := findNodeRecursive(flowTree, "if")
+	if ifNode == nil {
+		t.Fatalf("expected if node in imported if pipeline")
+	}
+	thenB := ifNode.GetThenBranch()
+	elseB := ifNode.GetElseBranch()
+	if thenB == nil || len(thenB.Children) == 0 {
+		t.Errorf("expected then branch with children in imported if node")
+	}
+	if elseB == nil || len(elseB.Children) == 0 {
+		t.Errorf("expected else branch with children in imported if node")
+	}
+
+	// 2. Import parallel_example.xml (contains <parallel> and <foreach> nested in <then>)
+	parallelPath := filepath.Join("..", "examples", "parallel_example.xml")
+	scPar, err := ImportPipelineFromXML(parallelPath, "Parallel Test", storage)
+	if err != nil {
+		t.Fatalf("failed to import parallel_example.xml: %v", err)
+	}
+
+	parTree, err := storage.GetNodeTree(scPar.ID, "flow")
+	if err != nil {
+		t.Fatalf("failed to get flow tree for parallel pipeline: %v", err)
+	}
+
+	parallelNode := findNodeRecursive(parTree, "parallel")
+	if parallelNode == nil || len(parallelNode.Children) == 0 {
+		t.Fatalf("expected parallel node with children in imported parallel pipeline")
+	}
+	if len(parallelNode.Children) < 3 {
+		t.Errorf("expected at least 3 children in parallel container, got %d", len(parallelNode.Children))
+	}
+
+	// 3. Import true_false_foreach_example.xml (multi-level: <if> -> <then> -> <foreach> -> <group> -> <sql>)
+	fePath := filepath.Join("..", "examples", "true_false_foreach_example.xml")
+	scFE, err := ImportPipelineFromXML(fePath, "ForEach Test", storage)
+	if err != nil {
+		t.Fatalf("failed to import true_false_foreach_example.xml: %v", err)
+	}
+
+	feTree, err := storage.GetNodeTree(scFE.ID, "flow")
+	if err != nil {
+		t.Fatalf("failed to get flow tree for foreach pipeline: %v", err)
+	}
+
+	feNode := findNodeRecursive(feTree, "foreach")
+	if feNode == nil || len(feNode.Children) == 0 {
+		t.Fatalf("expected foreach node with children in imported foreach pipeline")
+	}
+	groupChild := findNodeRecursive(feNode.Children, "group")
+	if groupChild == nil || len(groupChild.Children) == 0 {
+		t.Fatalf("expected nested group inside foreach with child steps (multi-level hierarchy)")
+	}
+	if groupChild.Children[0].NodeType != "sql" {
+		t.Errorf("expected sql step inside nested group, got %s", groupChild.Children[0].NodeType)
+	}
+}
+
+func TestServerNestedNodeAPI(t *testing.T) {
+	tmpDir, err := os.MkdirTemp(".", "test_api_nested_")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	storage, err := NewStorage(filepath.Join(tmpDir, "test_api_nested.db"))
+	if err != nil {
+		t.Fatalf("failed to init storage: %v", err)
+	}
+	defer storage.Close()
+
+	server, err := NewServer(storage, 0)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	sc, err := storage.CreateScript("api_nested_test", "API test for nested nodes")
+	if err != nil {
+		t.Fatalf("failed to create script: %v", err)
+	}
+
+	// Add an <if> node via /api/nodes/add
+	addIfBody, _ := json.Marshal(NodeRequest{
+		ScriptID:   sc.ID,
+		NodeType:   "if",
+		Section:    "flow",
+		Attributes: map[string]string{"condition": "x == 1"},
+	})
+	reqIf := httptest.NewRequest(http.MethodPost, "/api/nodes/add", bytes.NewReader(addIfBody))
+	reqIf.Header.Set("X-CSRF-Token", server.csrfToken)
+	recIf := httptest.NewRecorder()
+	server.handleAddNode(recIf, reqIf)
+	if recIf.Code != http.StatusOK {
+		t.Fatalf("handleAddNode failed for if node: code %d: %s", recIf.Code, recIf.Body.String())
+	}
+
+	// Query tree to find the auto-created then branch
+	tree, err := storage.GetNodeTree(sc.ID, "flow")
+	if err != nil || len(tree) != 1 {
+		t.Fatalf("expected 1 root if node, got %d, err=%v", len(tree), err)
+	}
+	ifNode := tree[0]
+	thenBranch := ifNode.GetThenBranch()
+	if thenBranch == nil {
+		t.Fatalf("expected then branch to be created automatically for if node")
+	}
+
+	// Add a <sql> node inside the <then> branch via /api/nodes/add
+	addSqlBody, _ := json.Marshal(NodeRequest{
+		ScriptID:     sc.ID,
+		ParentNodeID: &thenBranch.ID,
+		NodeType:     "sql",
+		Section:      "flow",
+		Attributes:   map[string]string{"id": "StepInThen"},
+		Content:      "SELECT 'inside then';",
+	})
+	reqSql := httptest.NewRequest(http.MethodPost, "/api/nodes/add", bytes.NewReader(addSqlBody))
+	reqSql.Header.Set("X-CSRF-Token", server.csrfToken)
+	recSql := httptest.NewRecorder()
+	server.handleAddNode(recSql, reqSql)
+	if recSql.Code != http.StatusOK {
+		t.Fatalf("handleAddNode failed for child sql node: code %d: %s", recSql.Code, recSql.Body.String())
+	}
+
+	// Request canvas rendering via /api/canvas
+	reqCanvas := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/canvas?script_id=%d", sc.ID), nil)
+	recCanvas := httptest.NewRecorder()
+	server.handleCanvas(recCanvas, reqCanvas)
+	if recCanvas.Code != http.StatusOK {
+		t.Fatalf("handleCanvas failed with code %d: %s", recCanvas.Code, recCanvas.Body.String())
+	}
+
+	canvasHTML := recCanvas.Body.String()
+	// Assert that conditional elements and child steps are rendered in HTML
+	if !strings.Contains(canvasHTML, "THEN") {
+		t.Errorf("expected canvas HTML to contain 'THEN' branch indicator")
+	}
+	if !strings.Contains(canvasHTML, "ELSE") {
+		t.Errorf("expected canvas HTML to contain 'ELSE' branch indicator")
+	}
+	if !strings.Contains(canvasHTML, "StepInThen") {
+		t.Errorf("expected canvas HTML to contain child step 'StepInThen'")
+	}
+	if !strings.Contains(canvasHTML, "container-drop-zone") {
+		t.Errorf("expected canvas HTML to contain 'container-drop-zone' for nested drop targets")
+	}
+
+	// Request preview rendering via /api/preview
+	reqPreview := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/preview?script_id=%d", sc.ID), nil)
+	recPreview := httptest.NewRecorder()
+	server.handlePreview(recPreview, reqPreview)
+	if recPreview.Code != http.StatusOK {
+		t.Fatalf("handlePreview failed with code %d: %s", recPreview.Code, recPreview.Body.String())
+	}
+	previewXML := recPreview.Body.String()
+	if !strings.Contains(previewXML, "<if condition=\"x == 1\">") ||
+		!strings.Contains(previewXML, "<then>") ||
+		!strings.Contains(previewXML, "<sql id=\"StepInThen\">") {
+		t.Errorf("preview XML does not reflect nested conditional structure:\n%s", previewXML)
+	}
+}
+
+func TestDeleteLoadedPipelineScripts(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "delete_test.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
+
+	server, err := NewServer(storage, 8089)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	// 1. Create multiple pipeline scripts
+	s1, err := storage.CreateScript("Pipeline_A", "First pipeline")
+	if err != nil {
+		t.Fatalf("failed to create pipeline A: %v", err)
+	}
+	s2, err := storage.CreateScript("Pipeline_B", "Second pipeline")
+	if err != nil {
+		t.Fatalf("failed to create pipeline B: %v", err)
+	}
+	s3, err := storage.CreateScript("Pipeline_C", "Third pipeline")
+	if err != nil {
+		t.Fatalf("failed to create pipeline C: %v", err)
+	}
+
+	// Verify list endpoint returns all scripts
+	reqList := httptest.NewRequest(http.MethodGet, "/api/scripts/list", nil)
+	recList := httptest.NewRecorder()
+	server.handleListScripts(recList, reqList)
+	if recList.Code != http.StatusOK {
+		t.Fatalf("handleListScripts failed: %d, body: %s", recList.Code, recList.Body.String())
+	}
+	var listedScripts []Script
+	if err := json.Unmarshal(recList.Body.Bytes(), &listedScripts); err != nil {
+		t.Fatalf("failed to decode scripts list: %v", err)
+	}
+	if len(listedScripts) < 3 {
+		t.Fatalf("expected at least 3 scripts, got %d", len(listedScripts))
+	}
+
+	// 2. Attempt deletion without CSRF token -> MUST return 403 Forbidden
+	reqNoCSRF := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/scripts/delete?id=%d", s2.ID), nil)
+	recNoCSRF := httptest.NewRecorder()
+	server.handleDeleteScript(recNoCSRF, reqNoCSRF)
+	if recNoCSRF.Code != http.StatusForbidden {
+		t.Errorf("expected 403 Forbidden when deleting without CSRF, got %d", recNoCSRF.Code)
+	}
+
+	// 3. Attempt deletion with wrong CSRF token -> MUST return 403 Forbidden
+	reqWrongCSRF := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/scripts/delete?id=%d", s2.ID), nil)
+	reqWrongCSRF.Header.Set("X-CSRF-Token", "invalid-fake-token")
+	recWrongCSRF := httptest.NewRecorder()
+	server.handleDeleteScript(recWrongCSRF, reqWrongCSRF)
+	if recWrongCSRF.Code != http.StatusForbidden {
+		t.Errorf("expected 403 Forbidden with invalid CSRF token, got %d", recWrongCSRF.Code)
+	}
+
+	// Verify Pipeline_B is still present in storage
+	if _, err := storage.GetScript(s2.ID); err != nil {
+		t.Errorf("Pipeline_B should NOT have been deleted after failed CSRF: %v", err)
+	}
+
+	// 4. Successful deletion of non-active loaded script with valid CSRF token
+	reqValidCSRF := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/scripts/delete?id=%d", s2.ID), nil)
+	reqValidCSRF.Header.Set("X-CSRF-Token", server.csrfToken)
+	recValidCSRF := httptest.NewRecorder()
+	server.handleDeleteScript(recValidCSRF, reqValidCSRF)
+	if recValidCSRF.Code != http.StatusOK {
+		t.Fatalf("handleDeleteScript failed with valid CSRF: code %d, body: %s", recValidCSRF.Code, recValidCSRF.Body.String())
+	}
+
+	var delResp struct {
+		Success      bool     `json:"success"`
+		NextScriptID int64    `json:"next_script_id"`
+		Remaining    []Script `json:"remaining"`
+	}
+	if err := json.Unmarshal(recValidCSRF.Body.Bytes(), &delResp); err != nil {
+		t.Fatalf("failed to parse delete response: %v", err)
+	}
+	if !delResp.Success {
+		t.Errorf("expected success true in delete response")
+	}
+
+	// Verify Pipeline_B is gone from storage, but Pipeline_A and Pipeline_C remain
+	if _, err := storage.GetScript(s2.ID); err == nil {
+		t.Errorf("expected Pipeline_B to be deleted from storage")
+	}
+	if _, err := storage.GetScript(s1.ID); err != nil {
+		t.Errorf("Pipeline_A should still exist: %v", err)
+	}
+	if _, err := storage.GetScript(s3.ID); err != nil {
+		t.Errorf("Pipeline_C should still exist: %v", err)
+	}
+
+	// 5. Delete via JSON body payload instead of query param
+	delBody, _ := json.Marshal(map[string]int64{"id": s3.ID})
+	reqJSONBody := httptest.NewRequest(http.MethodPost, "/api/scripts/delete", bytes.NewReader(delBody))
+	reqJSONBody.Header.Set("X-CSRF-Token", server.csrfToken)
+	recJSONBody := httptest.NewRecorder()
+	server.handleDeleteScript(recJSONBody, reqJSONBody)
+	if recJSONBody.Code != http.StatusOK {
+		t.Fatalf("handleDeleteScript via JSON body failed: %d, body: %s", recJSONBody.Code, recJSONBody.Body.String())
+	}
+	if _, err := storage.GetScript(s3.ID); err == nil {
+		t.Errorf("expected Pipeline_C to be deleted via JSON body")
+	}
+
+	// 6. Delete the last remaining script (s1) -> must re-seed default_pipeline
+	reqDelLast := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/scripts/delete?id=%d", s1.ID), nil)
+	reqDelLast.Header.Set("X-CSRF-Token", server.csrfToken)
+	recDelLast := httptest.NewRecorder()
+	server.handleDeleteScript(recDelLast, reqDelLast)
+	if recDelLast.Code != http.StatusOK {
+		t.Fatalf("handleDeleteScript on last script failed: %d, body: %s", recDelLast.Code, recDelLast.Body.String())
+	}
+	var lastDelResp struct {
+		Success      bool     `json:"success"`
+		NextScriptID int64    `json:"next_script_id"`
+		Remaining    []Script `json:"remaining"`
+	}
+	if err := json.Unmarshal(recDelLast.Body.Bytes(), &lastDelResp); err != nil {
+		t.Fatalf("failed to decode last delete response: %v", err)
+	}
+	if len(lastDelResp.Remaining) == 0 {
+		t.Errorf("expected auto re-seeded default script after deleting all scripts, got 0 remaining")
+	}
+	if lastDelResp.NextScriptID <= 0 {
+		t.Errorf("expected valid positive next_script_id, got %d", lastDelResp.NextScriptID)
+	}
+
+	// 7. Verify Index page renders CSRF token and Manage Pipelines modal in HTML
+	reqIndex := httptest.NewRequest(http.MethodGet, "/", nil)
+	recIndex := httptest.NewRecorder()
+	server.handleIndex(recIndex, reqIndex)
+	if recIndex.Code != http.StatusOK {
+		t.Fatalf("handleIndex failed: %d", recIndex.Code)
+	}
+	indexHTML := recIndex.Body.String()
+	if !strings.Contains(indexHTML, fmt.Sprintf(`const csrfToken = "%s";`, server.csrfToken)) {
+		t.Errorf("index HTML does not contain expected csrfToken declaration with value %s", server.csrfToken)
+	}
+	if !strings.Contains(indexHTML, "manage-pipelines-modal") {
+		t.Errorf("index HTML does not contain manage-pipelines-modal")
+	}
+	if !strings.Contains(indexHTML, "openManagePipelinesModal") {
+		t.Errorf("index HTML does not contain openManagePipelinesModal function")
+	}
+}
+
+func TestXMLEntityEscapingAndBuilderDraftRun(t *testing.T) {
+	// 1. Test escapeXMLAttr directly
+	csRaw := "sqlserver://sa:Password123!@localhost:1433?database=database1&trustServerCertificate=true"
+	escapedCS := escapeXMLAttr(csRaw)
+	expectedCS := "sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true"
+	if escapedCS != expectedCS {
+		t.Errorf("expected escaped connection string %q, got %q", expectedCS, escapedCS)
+	}
+
+	// Verify no double-escaping
+	doubleEscaped := escapeXMLAttr(escapedCS)
+	if doubleEscaped != expectedCS {
+		t.Errorf("expected no double-escaping %q, got %q", expectedCS, doubleEscaped)
+	}
+
+	// Verify quote escaping
+	quoted := `Say "Hello" <World>`
+	escapedQuoted := escapeXMLAttr(quoted)
+	expectedQuoted := `Say &quot;Hello&quot; &lt;World&gt;`
+	if escapedQuoted != expectedQuoted {
+		t.Errorf("expected %q, got %q", expectedQuoted, escapedQuoted)
+	}
+
+	// 2. Test GenerateXML with connection strings and SQL containing special XML characters
+	varNodes := []PipelineNode{
+		{
+			NodeType: "variable",
+			Attributes: map[string]string{
+				"name":        "Database1ConnStr",
+				"value":       csRaw,
+				"description": "Connection string with ampersands",
+				"type":        "string",
+			},
+		},
+		{
+			NodeType: "variable",
+			Attributes: map[string]string{
+				"name":        "AlreadyEscaped",
+				"value":       "https://example.com/api?a=1&amp;b=2",
+				"description": "Already escaped ampersand",
+				"type":        "string",
+			},
+		},
+	}
+	dbNodes := []PipelineNode{
+		{
+			NodeType: "database",
+			Attributes: map[string]string{
+				"name":              "database1",
+				"driver":            "sqlserver",
+				"connection_string": "{{Database1ConnStr}}",
+			},
+		},
+	}
+	flowNodes := []PipelineNode{
+		{
+			NodeType: "sql",
+			Attributes: map[string]string{
+				"id": "query_step",
+				"db": "database1",
+			},
+			ContentText: "SELECT * FROM users WHERE age < 30 AND points > 50;",
+		},
+	}
+
+	xmlContent := GenerateXML("test_pipeline", varNodes, dbNodes, nil, flowNodes)
+
+	// Verify raw ampersand was escaped in output
+	if strings.Contains(xmlContent, "&trustServerCertificate") {
+		t.Errorf("xmlContent should not contain unescaped &trustServerCertificate: %s", xmlContent)
+	}
+	if !strings.Contains(xmlContent, "&amp;trustServerCertificate=true") {
+		t.Errorf("xmlContent missing expected &amp;trustServerCertificate=true: %s", xmlContent)
+	}
+	// Verify already-escaped was not double escaped
+	if strings.Contains(xmlContent, "&amp;amp;") {
+		t.Errorf("xmlContent should not contain double-escaped &amp;amp;: %s", xmlContent)
+	}
+
+	// Verify Flow engine parser accepts the generated XML without syntax errors
+	cfg, err := flow.ParseXMLConfig([]byte(xmlContent))
+	if err != nil {
+		t.Fatalf("flow.ParseXMLConfig failed to parse generated XML: %v\nGenerated XML:\n%s", err, xmlContent)
+	}
+	if len(cfg.Variables) != 2 {
+		t.Errorf("expected 2 variables, got %d", len(cfg.Variables))
+	}
+	// Verify that the unmarshaled value in Flow has the raw '&' character as expected by connection strings
+	if cfg.Variables[0].Value != csRaw {
+		t.Errorf("expected unmarshaled variable value to be raw string %q, got %q", csRaw, cfg.Variables[0].Value)
+	}
+
+	// 3. Test handleExecuteStream in builder draft mode
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "builder.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
+
+	script, err := storage.CreateScript("draft_run_test", "Draft test")
+	if err != nil {
+		t.Fatalf("failed to create script: %v", err)
+	}
+
+	_, err = storage.AddNode(script.ID, "variables", "variable", map[string]string{
+		"name":  "Database1ConnStr",
+		"value": csRaw,
+		"type":  "string",
+	}, "")
+	if err != nil {
+		t.Fatalf("failed to add variable node: %v", err)
+	}
+	_, err = storage.AddNode(script.ID, "databases", "database", map[string]string{
+		"name":              "database1",
+		"driver":            "sqlserver",
+		"connection_string": "{{Database1ConnStr}}",
+	}, "")
+	if err != nil {
+		t.Fatalf("failed to add database node: %v", err)
+	}
+
+	server, err := NewServer(storage, 8080)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	draftExportFile := filepath.Join(tmpDir, "exported_run_script.xml")
+	reqStream := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/execute/stream?source=builder&script_id=%d&file=%s", script.ID, draftExportFile), nil)
+	recStream := httptest.NewRecorder()
+
+	// Execute stream handler
+	server.handleExecuteStream(recStream, reqStream)
+
+	// Verify the exported file was written and is valid XML
+	writtenBytes, err := os.ReadFile(draftExportFile)
+	if err != nil {
+		t.Fatalf("expected draft XML file to be written: %v", err)
+	}
+	if strings.Contains(string(writtenBytes), "&trustServerCertificate") {
+		t.Errorf("exported file should not contain unescaped &trustServerCertificate: %s", string(writtenBytes))
+	}
+	parsedExportCfg, err := flow.ParseXMLConfig(writtenBytes)
+	if err != nil {
+		t.Fatalf("flow.ParseXMLConfig failed on exported builder draft: %v\nExported XML:\n%s", err, string(writtenBytes))
+	}
+	if len(parsedExportCfg.Variables) != 1 || parsedExportCfg.Variables[0].Value != csRaw {
+		t.Errorf("unexpected parsed variables from exported builder draft: %+v", parsedExportCfg.Variables)
+	}
+}
+
+func TestExecuteStreamPreflightOption(t *testing.T) {
+	tmpDir := t.TempDir()
+	testScript := filepath.Join(tmpDir, "test_preflight.xml")
+	xmlContent := `<?xml version="1.0" encoding="UTF-8"?>
+<pipeline name="preflight_test">
+    <variables>
+        <variable name="foo" value="bar"/>
+    </variables>
+    <preflight>
+        <sql id="pre_1" description="preflight check">SELECT 1;</sql>
+    </preflight>
+    <flow>
+        <sql id="flow_1" description="flow task">SELECT 2;</sql>
+    </flow>
+</pipeline>`
+	if err := os.WriteFile(testScript, []byte(xmlContent), 0644); err != nil {
+		t.Fatalf("failed to write test XML: %v", err)
+	}
+
+	storage, err := NewStorage(":memory:")
+	if err != nil {
+		t.Fatalf("failed to init storage: %v", err)
+	}
+	defer storage.Close()
+
+	server, err := NewServer(storage, 0)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	// 1. Preflight enabled: verify -preflight flag is passed in execution args
+	reqPreflight := httptest.NewRequest(http.MethodGet, "/api/execute/stream?source=file&file="+testScript+"&preflight=true", nil)
+	recPreflight := httptest.NewRecorder()
+	server.handleExecuteStream(recPreflight, reqPreflight)
+
+	bodyPreflight := recPreflight.Body.String()
+	if !strings.Contains(bodyPreflight, "-preflight") {
+		t.Errorf("expected execution log to contain -preflight flag, got:\n%s", bodyPreflight)
+	}
+
+	// 2. Preflight disabled/omitted: verify -preflight flag is NOT passed
+	reqNormal := httptest.NewRequest(http.MethodGet, "/api/execute/stream?source=file&file="+testScript, nil)
+	recNormal := httptest.NewRecorder()
+	server.handleExecuteStream(recNormal, reqNormal)
+
+	bodyNormal := recNormal.Body.String()
+	if strings.Contains(bodyNormal, "-preflight") {
+		t.Errorf("expected execution log NOT to contain -preflight flag when omitted, got:\n%s", bodyNormal)
+	}
+
+	// 3. Preflight with builder draft mode
+	script, err := storage.CreateScript("Draft Script", "Draft Description")
+	if err != nil {
+		t.Fatalf("failed to create draft script: %v", err)
+	}
+	_, err = storage.AddNode(script.ID, "preflight", "sql", map[string]string{"id": "draft_preflight_1"}, "SELECT 1")
+	if err != nil {
+		t.Fatalf("failed to add preflight node to draft: %v", err)
+	}
+
+	draftExportFile := filepath.Join(tmpDir, "draft_preflight_exported.xml")
+	reqDraftPreflight := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/execute/stream?source=builder&script_id=%d&file=%s&preflight=true", script.ID, draftExportFile), nil)
+	recDraftPreflight := httptest.NewRecorder()
+	server.handleExecuteStream(recDraftPreflight, reqDraftPreflight)
+
+	bodyDraftPreflight := recDraftPreflight.Body.String()
+	if !strings.Contains(bodyDraftPreflight, "-preflight") {
+		t.Errorf("expected builder draft execution log to contain -preflight flag, got:\n%s", bodyDraftPreflight)
+	}
+
+	// 4. Verify template rendering contains preflight runner UI controls
+	reqIndex := httptest.NewRequest(http.MethodGet, "/", nil)
+	recIndex := httptest.NewRecorder()
+	server.handleIndex(recIndex, reqIndex)
+	if recIndex.Code != http.StatusOK {
+		t.Fatalf("handleIndex failed: %d", recIndex.Code)
+	}
+	indexHTML := recIndex.Body.String()
+	if !strings.Contains(indexHTML, "runner-preflight") {
+		t.Errorf("expected index HTML to contain runner-preflight checkbox")
+	}
+	if !strings.Contains(indexHTML, "preflight-btn") {
+		t.Errorf("expected index HTML to contain preflight-btn")
+	}
+	if !strings.Contains(indexHTML, "updatePreflightUI") {
+		t.Errorf("expected index HTML to contain updatePreflightUI JS function")
+	}
+	if !strings.Contains(indexHTML, "-preflight") {
+		t.Errorf("expected index HTML to mention -preflight flag")
+	}
+}
+
+
+

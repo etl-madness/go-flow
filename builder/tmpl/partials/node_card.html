@@ -1,4 +1,204 @@
 {{define "node_card"}}
+{{if eq .NodeType "if"}}
+<div class="node-card bg-slate-950/80 border border-amber-900/40 hover:border-amber-700/60 rounded-xl p-3.5 mb-3 shadow-md transition"
+     data-node-id="{{.ID}}" data-section="{{.Section}}" data-type="{{.NodeType}}" {{if .Attributes.name}}data-name="{{.Attributes.name}}"{{end}}>
+    <!-- Conditional Header -->
+    <div class="flex items-center justify-between pb-3 border-b border-slate-800/80">
+        <div class="flex items-center space-x-3 overflow-hidden">
+            <div class="drag-handle cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 px-1 py-1 text-sm select-none" title="Drag to re-order sequence">
+                ⋮⋮
+            </div>
+            <div class="flex flex-col min-w-0">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs font-mono font-bold text-amber-400 bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded">&lt;if&gt;</span>
+                    {{if .Attributes.name}}
+                        <span class="text-xs font-semibold text-white truncate">{{.Attributes.name}}</span>
+                    {{else if .Attributes.id}}
+                        <span class="text-xs font-semibold text-white truncate">{{.Attributes.id}}</span>
+                    {{end}}
+                    <span class="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-amber-950/80 text-amber-300 border border-amber-800/40">Conditional Branch</span>
+                </div>
+                <div class="text-[11px] font-mono text-slate-400 mt-0.5 truncate max-w-lg">
+                    {{if .Attributes.condition}}
+                        <span class="text-slate-400 font-semibold">condition:</span> <span class="text-amber-300">{{.Attributes.condition}}</span>
+                    {{else if .Attributes.var}}
+                        <span class="text-slate-400 font-semibold">var:</span> <span class="text-cyan-300">{{.Attributes.var}}</span> <span class="text-slate-400">==</span> <span class="text-amber-300">{{.Attributes.equals}}</span>
+                    {{else}}
+                        <span class="text-slate-500 italic">No condition set</span>
+                    {{end}}
+                    {{if .Attributes.description}}
+                        <span class="text-slate-500 ml-2">({{ .Attributes.description }})</span>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center space-x-1.5 shrink-0 ml-3">
+            <button onclick="moveNode({{.ID}}, 'up')" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded text-xs" title="Move Up">▲</button>
+            <button onclick="moveNode({{.ID}}, 'down')" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded text-xs" title="Move Down">▼</button>
+            <button onclick="openEditNode({{.ID}})" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded text-xs font-medium">Edit</button>
+            <button onclick="deleteNode({{.ID}})" class="p-1 hover:bg-red-950/50 text-slate-400 hover:text-red-400 rounded text-xs" title="Delete">✕</button>
+        </div>
+    </div>
+
+    <!-- Conditional Branches: THEN and ELSE -->
+    {{$then := .GetThenBranch}}
+    {{$else := .GetElseBranch}}
+    <div class="mt-3.5 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- THEN Branch -->
+        <div class="bg-emerald-950/10 border border-emerald-900/30 rounded-lg p-3">
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-emerald-900/30">
+                <div class="flex items-center space-x-1.5">
+                    <span class="text-emerald-400 font-bold text-xs">✓ THEN</span>
+                    <span class="text-[10px] text-slate-400">(evaluates to true)</span>
+                </div>
+                {{if $then}}
+                <button onclick="openComponentPicker('{{$.Section}}', {{$then.ID}}, 'then')"
+                        class="px-2 py-0.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-800/50 rounded text-[11px] transition">
+                    ＋ Add Step
+                </button>
+                {{end}}
+            </div>
+            <div class="container-drop-zone space-y-2 min-h-[40px]" data-section="{{.Section}}" {{if $then}}data-parent-id="{{$then.ID}}"{{end}}>
+                {{if $then}}
+                    {{range $then.Children}}
+                        {{template "node_card" .}}
+                    {{else}}
+                        <div class="p-3 border border-dashed border-emerald-900/30 rounded text-center text-xs text-slate-500">
+                            No steps in THEN branch.
+                        </div>
+                    {{end}}
+                {{else}}
+                    <div class="p-3 border border-dashed border-emerald-900/30 rounded text-center text-xs text-slate-500">
+                        THEN container not initialized.
+                    </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- ELSE Branch -->
+        <div class="bg-rose-950/10 border border-rose-900/30 rounded-lg p-3">
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-rose-900/30">
+                <div class="flex items-center space-x-1.5">
+                    <span class="text-rose-400 font-bold text-xs">✗ ELSE</span>
+                    <span class="text-[10px] text-slate-400">(optional fallback)</span>
+                </div>
+                {{if $else}}
+                <button onclick="openComponentPicker('{{$.Section}}', {{$else.ID}}, 'else')"
+                        class="px-2 py-0.5 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/50 rounded text-[11px] transition">
+                    ＋ Add Step
+                </button>
+                {{end}}
+            </div>
+            <div class="container-drop-zone space-y-2 min-h-[40px]" data-section="{{.Section}}" {{if $else}}data-parent-id="{{$else.ID}}"{{end}}>
+                {{if $else}}
+                    {{range $else.Children}}
+                        {{template "node_card" .}}
+                    {{else}}
+                        <div class="p-3 border border-dashed border-rose-900/30 rounded text-center text-xs text-slate-500">
+                            No steps in ELSE branch (skipped if condition is false).
+                        </div>
+                    {{end}}
+                {{else}}
+                    <div class="p-3 border border-dashed border-rose-900/30 rounded text-center text-xs text-slate-500">
+                        ELSE container not initialized.
+                    </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+</div>
+
+{{else if or (eq .NodeType "group") (eq .NodeType "parallel") (eq .NodeType "foreach") (eq .NodeType "loop") (eq .NodeType "while")}}
+<!-- General Container Cards (group, parallel, foreach, while) -->
+<div class="node-card bg-slate-950/80 border 
+    {{if eq .NodeType "group"}}border-sky-900/50 hover:border-sky-700/60
+    {{else if eq .NodeType "parallel"}}border-purple-900/50 hover:border-purple-700/60
+    {{else}}border-teal-900/50 hover:border-teal-700/60{{end}} rounded-xl p-3.5 mb-3 shadow-md transition"
+     data-node-id="{{.ID}}" data-section="{{.Section}}" data-type="{{.NodeType}}" {{if .Attributes.name}}data-name="{{.Attributes.name}}"{{end}}>
+    <!-- Container Header -->
+    <div class="flex items-center justify-between pb-3 border-b border-slate-800/80">
+        <div class="flex items-center space-x-3 overflow-hidden">
+            <div class="drag-handle cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 px-1 py-1 text-sm select-none" title="Drag to re-order sequence">
+                ⋮⋮
+            </div>
+            <div class="flex flex-col min-w-0">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs font-mono font-bold px-2 py-0.5 rounded
+                        {{if eq .NodeType "group"}}text-sky-400 bg-sky-950/60 border border-sky-800/60
+                        {{else if eq .NodeType "parallel"}}text-purple-400 bg-purple-950/60 border border-purple-800/60
+                        {{else}}text-teal-400 bg-teal-950/60 border border-teal-800/60{{end}}">
+                        &lt;{{.NodeType}}&gt;
+                    </span>
+                    {{if .Attributes.name}}
+                        <span class="text-xs font-semibold text-white truncate">{{.Attributes.name}}</span>
+                    {{else if .Attributes.id}}
+                        <span class="text-xs font-semibold text-white truncate">{{.Attributes.id}}</span>
+                    {{end}}
+                    <span class="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                        {{if eq .NodeType "group"}}Transaction / Group
+                        {{else if eq .NodeType "parallel"}}Parallel Execution
+                        {{else if eq .NodeType "while"}}While Loop
+                        {{else}}Iteration Loop{{end}}
+                    </span>
+                    {{if eq .Attributes.transaction "true"}}
+                        <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">TX</span>
+                    {{end}}
+                    {{if .Attributes.max_threads}}
+                        <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-800">threads: {{.Attributes.max_threads}}</span>
+                    {{end}}
+                </div>
+                <div class="text-[11px] font-mono text-slate-400 mt-0.5 truncate max-w-lg">
+                    {{range $k, $v := .Attributes}}
+                        {{if and (ne $k "id") (ne $k "name")}}
+                            <span class="text-slate-400">{{$k}}:</span> <span class="text-slate-300">{{$v}}</span> 
+                        {{end}}
+                    {{end}}
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center space-x-1.5 shrink-0 ml-3">
+            <button onclick="moveNode({{.ID}}, 'up')" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded text-xs" title="Move Up">▲</button>
+            <button onclick="moveNode({{.ID}}, 'down')" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded text-xs" title="Move Down">▼</button>
+            <button onclick="openEditNode({{.ID}})" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded text-xs font-medium">Edit</button>
+            <button onclick="deleteNode({{.ID}})" class="p-1 hover:bg-red-950/50 text-slate-400 hover:text-red-400 rounded text-xs" title="Delete">✕</button>
+        </div>
+    </div>
+
+    {{if and (or (eq .NodeType "foreach") (eq .NodeType "loop")) .ContentText}}
+    <!-- Driver SQL for foreach -->
+    <div class="mt-2.5 p-2 bg-slate-900 border border-slate-800 rounded font-mono text-[11px] text-teal-300/90 whitespace-pre-wrap max-h-24 overflow-y-auto">
+        <span class="text-slate-500 font-semibold select-none">Driver Query: </span>{{.ContentText}}
+    </div>
+    {{end}}
+
+    <!-- Container Child Steps -->
+    <div class="mt-3 bg-slate-900/60 border border-slate-800/80 rounded-lg p-3">
+        <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800/70">
+            <span class="text-xs font-semibold text-slate-300">
+                {{if eq .NodeType "group"}}Group Steps (sequential)
+                {{else if eq .NodeType "parallel"}}Parallel Steps (concurrent)
+                {{else if eq .NodeType "while"}}While Loop Steps
+                {{else}}Iteration Steps{{end}}
+            </span>
+            <button onclick="openComponentPicker('{{.Section}}', {{.ID}}, '{{.NodeType}}')"
+                    class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded text-[11px] transition">
+                ＋ Add Child Step
+            </button>
+        </div>
+        <div class="container-drop-zone space-y-2 min-h-[40px]" data-section="{{.Section}}" data-parent-id="{{.ID}}">
+            {{range .Children}}
+                {{template "node_card" .}}
+            {{else}}
+                <div class="p-3 border border-dashed border-slate-800 rounded text-center text-xs text-slate-500">
+                    No child steps inside this container. Click ＋ Add Child Step above.
+                </div>
+            {{end}}
+        </div>
+    </div>
+</div>
+
+{{else}}
+<!-- Standard Leaf Step Card -->
 <div class="node-card bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-lg p-3 flex items-center justify-between transition shadow-sm"
      data-node-id="{{.ID}}" data-section="{{.Section}}" data-type="{{.NodeType}}" {{if .Attributes.name}}data-name="{{.Attributes.name}}"{{end}}>
     <div class="flex items-center space-x-3 overflow-hidden">
@@ -34,4 +234,5 @@
         <button onclick="deleteNode({{.ID}})" class="p-1 hover:bg-red-950/50 text-slate-400 hover:text-red-400 rounded text-xs" title="Delete">✕</button>
     </div>
 </div>
+{{end}}
 {{end}}
