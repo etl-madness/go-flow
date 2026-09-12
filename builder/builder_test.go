@@ -2044,3 +2044,66 @@ func TestUpdateNodeEndpointAndSaveComponent(t *testing.T) {
 		t.Errorf("expected IndexHTML in html_content.go to alert errors in submitNodeModal")
 	}
 }
+
+func TestXMLPreviewAdjustablePanel(t *testing.T) {
+	// Verify template files contain resizer, panel, and functions
+	indexBytes, err := os.ReadFile("tmpl/index.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/index.html: %v", err)
+	}
+	tmplStr := string(indexBytes)
+
+	requiredSnippets := []string{
+		`id="xml-preview-resizer"`,
+		`id="xml-preview-panel"`,
+		`id="xml-preview-reset-btn"`,
+		`id="xml-preview-toggle-btn"`,
+		`initXMLPreviewResizer()`,
+		`resetXMLPreviewWidth()`,
+		`toggleXMLPreviewCollapse()`,
+		`collapseXMLPreview(`,
+		`expandXMLPreview()`,
+		`flow_builder_preview_width`,
+		`cursor-col-resize`,
+		`resizing-active`,
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(tmplStr, snippet) {
+			t.Errorf("expected tmpl/index.html to contain %q", snippet)
+		}
+		if !strings.Contains(IndexHTML, snippet) {
+			t.Errorf("expected IndexHTML in html_content.go to contain %q", snippet)
+		}
+	}
+
+	// Verify server renders index with resizer and panel
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_preview_panel.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
+
+	srv, err := NewServer(storage, 8089)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	srv.handleIndex(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("handleIndex failed: %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(body, snippet) {
+			t.Errorf("expected rendered page to contain %q", snippet)
+		}
+	}
+}
+

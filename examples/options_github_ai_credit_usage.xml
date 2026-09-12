@@ -1,8 +1,8 @@
 <flow_cli_options xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/options.xsd">
+    xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/options.xsd">
     <options>
         <file>.\.private\github_ai_credit_usage.xml</file>
-        <format>summary</format>
+        <format>stream</format>
         <config>.\.private\CONFIG.xml</config>
         <validate>false</validate>
         <preflight>false</preflight>
