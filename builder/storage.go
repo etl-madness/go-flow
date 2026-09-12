@@ -30,6 +30,27 @@ type PipelineNode struct {
 	SequenceOrder int               `json:"sequence_order"`
 	Attributes    map[string]string `json:"attributes"`
 	ContentText   string            `json:"content_text"`
+	Children      []PipelineNode    `json:"children,omitempty"`
+}
+
+// GetThenBranch returns the <then> branch child node for conditional nodes, if present.
+func (n PipelineNode) GetThenBranch() *PipelineNode {
+	for i := range n.Children {
+		if n.Children[i].NodeType == "then" {
+			return &n.Children[i]
+		}
+	}
+	return nil
+}
+
+// GetElseBranch returns the <else> branch child node for conditional nodes, if present.
+func (n PipelineNode) GetElseBranch() *PipelineNode {
+	for i := range n.Children {
+		if n.Children[i].NodeType == "else" {
+			return &n.Children[i]
+		}
+	}
+	return nil
 }
 
 // Storage handles local SQLite persistence for builder drafts.
@@ -66,6 +87,7 @@ func (s *Storage) Close() error {
 
 func (s *Storage) migrate() error {
 	queries := []string{
+		`PRAGMA foreign_keys = ON;`,
 		`CREATE TABLE IF NOT EXISTS scripts (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL UNIQUE,
@@ -84,6 +106,7 @@ func (s *Storage) migrate() error {
 			content_text TEXT NOT NULL DEFAULT ''
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_nodes_script_seq ON pipeline_nodes(script_id, section, sequence_order);`,
+		`CREATE INDEX IF NOT EXISTS idx_nodes_parent ON pipeline_nodes(parent_node_id);`,
 		`CREATE TABLE IF NOT EXISTS config_files (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL UNIQUE,
@@ -246,20 +269,30 @@ func (s *Storage) GetNode(id int64) (*PipelineNode, error) {
 	return &n, nil
 }
 
-func (s *Storage) AddNode(scriptID int64, section, nodeType string, attributes map[string]string, content string) (*PipelineNode, error) {
+func (s *Storage) AddNodeWithParent(scriptID int64, section, nodeType string, attributes map[string]string, content string, parentNodeID *int64) (*PipelineNode, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	var maxSeq int
-	_ = s.db.QueryRow("SELECT COALESCE(MAX(sequence_order), 0) FROM pipeline_nodes WHERE script_id = ? AND section = ?", scriptID, section).Scan(&maxSeq)
+	if parentNodeID == nil {
+		_ = s.db.QueryRow("SELECT COALESCE(MAX(sequence_order), 0) FROM pipeline_nodes WHERE script_id = ? AND section = ? AND parent_node_id IS NULL", scriptID, section).Scan(&maxSeq)
+	} else {
+		_ = s.db.QueryRow("SELECT COALESCE(MAX(sequence_order), 0) FROM pipeline_nodes WHERE script_id = ? AND section = ? AND parent_node_id = ?", scriptID, section, *parentNodeID).Scan(&maxSeq)
+	}
 
 	attrJSON, err := json.Marshal(attributes)
 	if err != nil {
 		attrJSON = []byte("{}")
 	}
 
-	res, err := s.db.Exec(`INSERT INTO pipeline_nodes (script_id, section, node_type, sequence_order, attributes_json, content_text)
-		VALUES (?, ?, ?, ?, ?, ?)`, scriptID, section, nodeType, maxSeq+1, string(attrJSON), content)
+	var res sql.Result
+	if parentNodeID == nil {
+		res, err = s.db.Exec(`INSERT INTO pipeline_nodes (script_id, section, parent_node_id, node_type, sequence_order, attributes_json, content_text)
+			VALUES (?, ?, NULL, ?, ?, ?, ?)`, scriptID, section, nodeType, maxSeq+1, string(attrJSON), content)
+	} else {
+		res, err = s.db.Exec(`INSERT INTO pipeline_nodes (script_id, section, parent_node_id, node_type, sequence_order, attributes_json, content_text)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`, scriptID, section, *parentNodeID, nodeType, maxSeq+1, string(attrJSON), content)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -273,6 +306,7 @@ func (s *Storage) AddNode(scriptID int64, section, nodeType string, attributes m
 		ID:            id,
 		ScriptID:      scriptID,
 		Section:       section,
+		ParentNodeID:  parentNodeID,
 		NodeType:      nodeType,
 		SequenceOrder: maxSeq + 1,
 		Attributes:    attributes,
@@ -280,7 +314,111 @@ func (s *Storage) AddNode(scriptID int64, section, nodeType string, attributes m
 	}, nil
 }
 
-func (s *Storage) UpdateNode(id int64, attributes map[string]string, content string) error {
+func (s *Storage) AddNode(scriptID int64, section, nodeType string, attributes map[string]string, content string) (*PipelineNode, error) {
+	return s.AddNodeWithParent(scriptID, section, nodeType, attributes, content, nil)
+}
+
+// EnsureIfBranches ensures that an <if> node has both a <then> and <else> child container.
+func (s *Storage) EnsureIfBranches(scriptID int64, section string, ifNodeID int64) (*PipelineNode, *PipelineNode, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var thenNode PipelineNode
+	var thenAttrJSON string
+	err := s.db.QueryRow("SELECT id, script_id, section, parent_node_id, node_type, sequence_order, attributes_json, content_text FROM pipeline_nodes WHERE script_id = ? AND parent_node_id = ? AND node_type = 'then'", scriptID, ifNodeID).
+		Scan(&thenNode.ID, &thenNode.ScriptID, &thenNode.Section, &thenNode.ParentNodeID, &thenNode.NodeType, &thenNode.SequenceOrder, &thenAttrJSON, &thenNode.ContentText)
+	if err == sql.ErrNoRows {
+		res, err := s.db.Exec(`INSERT INTO pipeline_nodes (script_id, section, parent_node_id, node_type, sequence_order, attributes_json, content_text)
+			VALUES (?, ?, ?, 'then', 1, '{}', '')`, scriptID, section, ifNodeID)
+		if err != nil {
+			return nil, nil, err
+		}
+		id, _ := res.LastInsertId()
+		thenNode = PipelineNode{
+			ID:            id,
+			ScriptID:      scriptID,
+			Section:       section,
+			ParentNodeID:  &ifNodeID,
+			NodeType:      "then",
+			SequenceOrder: 1,
+			Attributes:    map[string]string{},
+		}
+	} else if err != nil {
+		return nil, nil, err
+	} else {
+		thenNode.Attributes = make(map[string]string)
+		_ = json.Unmarshal([]byte(thenAttrJSON), &thenNode.Attributes)
+	}
+
+	var elseNode PipelineNode
+	var elseAttrJSON string
+	err = s.db.QueryRow("SELECT id, script_id, section, parent_node_id, node_type, sequence_order, attributes_json, content_text FROM pipeline_nodes WHERE script_id = ? AND parent_node_id = ? AND node_type = 'else'", scriptID, ifNodeID).
+		Scan(&elseNode.ID, &elseNode.ScriptID, &elseNode.Section, &elseNode.ParentNodeID, &elseNode.NodeType, &elseNode.SequenceOrder, &elseAttrJSON, &elseNode.ContentText)
+	if err == sql.ErrNoRows {
+		res, err := s.db.Exec(`INSERT INTO pipeline_nodes (script_id, section, parent_node_id, node_type, sequence_order, attributes_json, content_text)
+			VALUES (?, ?, ?, 'else', 2, '{}', '')`, scriptID, section, ifNodeID)
+		if err != nil {
+			return nil, nil, err
+		}
+		id, _ := res.LastInsertId()
+		elseNode = PipelineNode{
+			ID:            id,
+			ScriptID:      scriptID,
+			Section:       section,
+			ParentNodeID:  &ifNodeID,
+			NodeType:      "else",
+			SequenceOrder: 2,
+			Attributes:    map[string]string{},
+		}
+	} else if err != nil {
+		return nil, nil, err
+	} else {
+		elseNode.Attributes = make(map[string]string)
+		_ = json.Unmarshal([]byte(elseAttrJSON), &elseNode.Attributes)
+	}
+
+	return &thenNode, &elseNode, nil
+}
+
+// GetNodeTree returns root nodes with their nested child nodes recursively assembled in .Children.
+func (s *Storage) GetNodeTree(scriptID int64, section string) ([]PipelineNode, error) {
+	allNodes, err := s.GetNodes(scriptID, section)
+	if err != nil {
+		return nil, err
+	}
+
+	childMap := make(map[int64][]PipelineNode)
+	var rootNodes []PipelineNode
+
+	for _, n := range allNodes {
+		if n.ParentNodeID == nil {
+			rootNodes = append(rootNodes, n)
+		} else {
+			childMap[*n.ParentNodeID] = append(childMap[*n.ParentNodeID], n)
+		}
+	}
+
+	var attachChildren func(node *PipelineNode)
+	attachChildren = func(node *PipelineNode) {
+		children, exists := childMap[node.ID]
+		if !exists {
+			node.Children = nil
+			return
+		}
+		for i := range children {
+			attachChildren(&children[i])
+		}
+		node.Children = children
+	}
+
+	for i := range rootNodes {
+		attachChildren(&rootNodes[i])
+	}
+
+	return rootNodes, nil
+}
+
+func (s *Storage) UpdateNodeWithSection(id int64, section string, attributes map[string]string, content string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -289,16 +427,77 @@ func (s *Storage) UpdateNode(id int64, attributes map[string]string, content str
 		attrJSON = []byte("{}")
 	}
 
+	if section != "" {
+		_, err = s.db.Exec("UPDATE pipeline_nodes SET section = ?, attributes_json = ?, content_text = ? WHERE id = ?", section, string(attrJSON), content, id)
+		if err != nil {
+			return err
+		}
+		// Also cascade section update to descendants
+		var updateChildSections func(parentID int64) error
+		updateChildSections = func(parentID int64) error {
+			rows, err := s.db.Query("SELECT id FROM pipeline_nodes WHERE parent_node_id = ?", parentID)
+			if err != nil {
+				return err
+			}
+			var childIDs []int64
+			for rows.Next() {
+				var cid int64
+				if err := rows.Scan(&cid); err == nil {
+					childIDs = append(childIDs, cid)
+				}
+			}
+			rows.Close()
+			for _, cid := range childIDs {
+				if _, err := s.db.Exec("UPDATE pipeline_nodes SET section = ? WHERE id = ?", section, cid); err != nil {
+					return err
+				}
+				if err := updateChildSections(cid); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		return updateChildSections(id)
+	}
+
 	_, err = s.db.Exec("UPDATE pipeline_nodes SET attributes_json = ?, content_text = ? WHERE id = ?", string(attrJSON), content, id)
 	return err
+}
+
+func (s *Storage) UpdateNode(id int64, attributes map[string]string, content string) error {
+	return s.UpdateNodeWithSection(id, "", attributes, content)
 }
 
 func (s *Storage) DeleteNode(id int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := s.db.Exec("DELETE FROM pipeline_nodes WHERE id = ?", id)
-	return err
+	var deleteDescendants func(parentID int64) error
+	deleteDescendants = func(parentID int64) error {
+		rows, err := s.db.Query("SELECT id FROM pipeline_nodes WHERE parent_node_id = ?", parentID)
+		if err != nil {
+			return err
+		}
+		var childIDs []int64
+		for rows.Next() {
+			var cid int64
+			if err := rows.Scan(&cid); err == nil {
+				childIDs = append(childIDs, cid)
+			}
+		}
+		rows.Close()
+
+		for _, cid := range childIDs {
+			if err := deleteDescendants(cid); err != nil {
+				return err
+			}
+		}
+
+		_, err = s.db.Exec("DELETE FROM pipeline_nodes WHERE id = ?", parentID)
+		return err
+	}
+
+	return deleteDescendants(id)
 }
 
 func (s *Storage) MoveNode(id int64, direction string) error {
@@ -307,9 +506,10 @@ func (s *Storage) MoveNode(id int64, direction string) error {
 
 	var scriptID int64
 	var section string
+	var parentNodeID *int64
 	var currentSeq int
-	err := s.db.QueryRow("SELECT script_id, section, sequence_order FROM pipeline_nodes WHERE id = ?", id).
-		Scan(&scriptID, &section, &currentSeq)
+	err := s.db.QueryRow("SELECT script_id, section, parent_node_id, sequence_order FROM pipeline_nodes WHERE id = ?", id).
+		Scan(&scriptID, &section, &parentNodeID, &currentSeq)
 	if err != nil {
 		return err
 	}
@@ -317,14 +517,26 @@ func (s *Storage) MoveNode(id int64, direction string) error {
 	var neighborID int64
 	var neighborSeq int
 
-	if direction == "up" {
-		err = s.db.QueryRow(`SELECT id, sequence_order FROM pipeline_nodes 
-			WHERE script_id = ? AND section = ? AND sequence_order < ? 
-			ORDER BY sequence_order DESC LIMIT 1`, scriptID, section, currentSeq).Scan(&neighborID, &neighborSeq)
+	if parentNodeID == nil {
+		if direction == "up" {
+			err = s.db.QueryRow(`SELECT id, sequence_order FROM pipeline_nodes 
+				WHERE script_id = ? AND section = ? AND parent_node_id IS NULL AND sequence_order < ? 
+				ORDER BY sequence_order DESC LIMIT 1`, scriptID, section, currentSeq).Scan(&neighborID, &neighborSeq)
+		} else {
+			err = s.db.QueryRow(`SELECT id, sequence_order FROM pipeline_nodes 
+				WHERE script_id = ? AND section = ? AND parent_node_id IS NULL AND sequence_order > ? 
+				ORDER BY sequence_order ASC LIMIT 1`, scriptID, section, currentSeq).Scan(&neighborID, &neighborSeq)
+		}
 	} else {
-		err = s.db.QueryRow(`SELECT id, sequence_order FROM pipeline_nodes 
-			WHERE script_id = ? AND section = ? AND sequence_order > ? 
-			ORDER BY sequence_order ASC LIMIT 1`, scriptID, section, currentSeq).Scan(&neighborID, &neighborSeq)
+		if direction == "up" {
+			err = s.db.QueryRow(`SELECT id, sequence_order FROM pipeline_nodes 
+				WHERE script_id = ? AND section = ? AND parent_node_id = ? AND sequence_order < ? 
+				ORDER BY sequence_order DESC LIMIT 1`, scriptID, section, *parentNodeID, currentSeq).Scan(&neighborID, &neighborSeq)
+		} else {
+			err = s.db.QueryRow(`SELECT id, sequence_order FROM pipeline_nodes 
+				WHERE script_id = ? AND section = ? AND parent_node_id = ? AND sequence_order > ? 
+				ORDER BY sequence_order ASC LIMIT 1`, scriptID, section, *parentNodeID, currentSeq).Scan(&neighborID, &neighborSeq)
+		}
 	}
 
 	if err != nil {
@@ -546,11 +758,45 @@ func (s *Storage) CopyScript(sourceID int64, newName string) (*Script, error) {
 		return newScript, nil
 	}
 
-	for _, node := range nodes {
-		_, err := s.AddNode(newScript.ID, node.Section, node.NodeType, node.Attributes, node.ContentText)
-		if err != nil {
-			return nil, fmt.Errorf("failed to duplicate node %d: %w", node.ID, err)
+	// Map old node ID -> new node ID so parent_node_id references are preserved
+	idMap := make(map[int64]int64)
+	remaining := make([]PipelineNode, len(nodes))
+	copy(remaining, nodes)
+
+	for len(remaining) > 0 {
+		var nextRound []PipelineNode
+		progress := false
+
+		for _, node := range remaining {
+			if node.ParentNodeID == nil {
+				created, err := s.AddNodeWithParent(newScript.ID, node.Section, node.NodeType, node.Attributes, node.ContentText, nil)
+				if err != nil {
+					return nil, fmt.Errorf("failed to duplicate root node %d: %w", node.ID, err)
+				}
+				idMap[node.ID] = created.ID
+				progress = true
+			} else if newParentID, ok := idMap[*node.ParentNodeID]; ok {
+				created, err := s.AddNodeWithParent(newScript.ID, node.Section, node.NodeType, node.Attributes, node.ContentText, &newParentID)
+				if err != nil {
+					return nil, fmt.Errorf("failed to duplicate child node %d: %w", node.ID, err)
+				}
+				idMap[node.ID] = created.ID
+				progress = true
+			} else {
+				nextRound = append(nextRound, node)
+			}
 		}
+
+		if !progress && len(nextRound) > 0 {
+			for _, orphan := range nextRound {
+				created, _ := s.AddNodeWithParent(newScript.ID, orphan.Section, orphan.NodeType, orphan.Attributes, orphan.ContentText, nil)
+				if created != nil {
+					idMap[orphan.ID] = created.ID
+				}
+			}
+			break
+		}
+		remaining = nextRound
 	}
 
 	return newScript, nil

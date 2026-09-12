@@ -325,6 +325,9 @@ const IndexHTML = `<!DOCTYPE html>
                                     🎨 Builder Draft
                                 </button>
                             </div>
+                            <button onclick="startPipelineExecution(true)" id="preflight-btn" title="Execute preflight validation nodes only (-preflight)" class="px-3.5 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition shadow flex items-center space-x-1.5 cursor-pointer">
+                                <span>⚡ Run Preflight</span>
+                            </button>
                             <button onclick="startPipelineExecution()" id="execute-btn" class="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition shadow flex items-center space-x-1.5 cursor-pointer">
                                 <span>▶ Run Execution</span>
                             </button>
@@ -368,6 +371,18 @@ const IndexHTML = `<!DOCTYPE html>
                                     <span>📂 Browse</span>
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/60 mt-1 text-xs">
+                        <div class="flex items-center space-x-3">
+                            <label class="flex items-center space-x-2 cursor-pointer select-none text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded">
+                                <input type="checkbox" id="runner-preflight" onchange="updatePreflightUI(this.checked)" class="rounded bg-slate-900 border-slate-700 text-amber-500 cursor-pointer">
+                                <span class="font-medium flex items-center space-x-1.5">
+                                    <span class="text-amber-400">⚡ Preflight Only</span>
+                                    <span class="text-[10px] text-slate-500 font-mono">(-preflight)</span>
+                                </span>
+                            </label>
+                            <span class="text-[11px] text-slate-400">Execute preflight validation checks only without executing the main flow</span>
                         </div>
                     </div>
                 </div>
@@ -421,6 +436,7 @@ const IndexHTML = `<!DOCTYPE html>
             </div>
             <form id="node-form" onsubmit="submitNodeModal(event)" class="flex-1 overflow-y-auto custom-scrollbar space-y-3.5 pr-1">
                 <input type="hidden" id="modal-node-id" name="node_id">
+                <input type="hidden" id="modal-parent-node-id" name="parent_node_id">
                 <input type="hidden" id="modal-node-type" name="node_type">
                 <div class="space-y-1">
                     <label class="text-xs font-medium text-slate-300">Target Section</label>
@@ -522,6 +538,32 @@ const IndexHTML = `<!DOCTYPE html>
             </form>
         </div>
     </div>
+    <div id="manage-pipelines-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[85vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xl">📑</span>
+                    <div>
+                        <h3 class="text-sm font-bold text-white">Manage Loaded Pipelines</h3>
+                        <p class="text-xs text-slate-400">View, switch between, and delete pipelines stored in the builder.</p>
+                    </div>
+                </div>
+                <button onclick="closeManagePipelinesModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+            </div>
+            <div class="flex items-center justify-between px-1 text-xs text-slate-400">
+                <span id="manage-pipelines-count">0 pipelines loaded</span>
+                <div class="flex space-x-2">
+                    <button type="button" onclick="closeManagePipelinesModal(); document.getElementById('new-script-modal').classList.remove('hidden')" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded transition font-medium">＋ New</button>
+                    <button type="button" onclick="closeManagePipelinesModal(); openImportScriptModal()" class="px-2.5 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 rounded transition font-medium">📂 Import</button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1 min-h-[200px]" id="manage-pipelines-list">
+            </div>
+            <div class="flex items-center justify-end pt-3 border-t border-slate-800">
+                <button type="button" onclick="closeManagePipelinesModal()" class="px-3.5 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition">Close</button>
+            </div>
+        </div>
+    </div>
     <div id="delete-pipeline-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-slate-900 border border-rose-900/40 rounded-xl max-w-md w-full p-6 shadow-2xl flex flex-col space-y-4">
             <div class="flex items-center space-x-2 text-rose-400 border-b border-slate-800 pb-3">
@@ -612,9 +654,35 @@ const IndexHTML = `<!DOCTYPE html>
         </div>
     </div>
     <script>
+        const csrfToken = "{{.CSRFToken}}";
         let rawCatalog = {{.CatalogJSON}};
         const catalogData = Array.isArray(rawCatalog) ? rawCatalog : (typeof rawCatalog === 'string' ? JSON.parse(rawCatalog || '[]') : []);
         let currentScriptId = {{.ActiveScript.ID}};
+
+        // Transparently attach CSRF and AJAX headers to all non-GET fetch requests
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            options = options || {};
+            const method = (options.method || 'GET').toUpperCase();
+            if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+                if (!options.headers) {
+                    options.headers = {};
+                }
+                if (options.headers instanceof Headers) {
+                    options.headers.set('X-Requested-With', 'XMLHttpRequest');
+                    if (!options.headers.has('X-CSRF-Token') && csrfToken) {
+                        options.headers.set('X-CSRF-Token', csrfToken);
+                    }
+                } else if (Array.isArray(options.headers)) {
+                    options.headers.push(['X-Requested-With', 'XMLHttpRequest']);
+                    if (csrfToken) options.headers.push(['X-CSRF-Token', csrfToken]);
+                } else {
+                    options.headers['X-Requested-With'] = 'XMLHttpRequest';
+                    if (csrfToken) options.headers['X-CSRF-Token'] = csrfToken;
+                }
+            }
+            return originalFetch.call(this, url, options);
+        };
 
         function switchTab(tab) {
             ['pipeline', 'config', 'options', 'runner'].forEach(t => {
@@ -655,11 +723,36 @@ const IndexHTML = `<!DOCTYPE html>
                         ghostClass: 'sortable-ghost',
                         handle: '.drag-handle',
                         onEnd: function() {
-                            const ids = Array.from(container.children).map(c => parseInt(c.dataset.nodeId));
+                            const ids = Array.from(container.children)
+                                .filter(c => c.dataset && c.dataset.nodeId)
+                                .map(c => parseInt(c.dataset.nodeId));
                             fetch('/api/nodes/reorder', {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/json'},
                                 body: JSON.stringify({script_id: currentScriptId, section: sec, node_ids: ids})
+                            }).then(() => updatePreview());
+                        }
+                    });
+                }
+            });
+
+            document.querySelectorAll('.container-drop-zone').forEach(zone => {
+                if (!zone.sortableInstance) {
+                    const sec = zone.dataset.section || 'flow';
+                    const parentId = zone.dataset.parentId ? parseInt(zone.dataset.parentId) : null;
+                    zone.sortableInstance = new Sortable(zone, {
+                        group: 'nested-' + (parentId || 'zone'),
+                        animation: 150,
+                        ghostClass: 'sortable-ghost',
+                        handle: '.drag-handle',
+                        onEnd: function() {
+                            const ids = Array.from(zone.children)
+                                .filter(c => c.dataset && c.dataset.nodeId)
+                                .map(c => parseInt(c.dataset.nodeId));
+                            fetch('/api/nodes/reorder', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({script_id: currentScriptId, section: sec, parent_node_id: parentId, node_ids: ids})
                             }).then(() => updatePreview());
                         }
                     });
@@ -677,9 +770,11 @@ const IndexHTML = `<!DOCTYPE html>
         }
 
         let activePickerSection = 'flow';
+        let activePickerParentId = null;
 
-        function openComponentPicker(targetSection) {
+        function openComponentPicker(targetSection, parentId, contextLabel) {
             activePickerSection = targetSection || 'flow';
+            activePickerParentId = parentId || null;
             const modal = document.getElementById('picker-modal');
             const title = document.getElementById('picker-modal-title');
             const subtitle = document.getElementById('picker-modal-subtitle');
@@ -692,10 +787,16 @@ const IndexHTML = `<!DOCTYPE html>
                 'variables': 'Pipeline Variable (<variables>)',
                 'databases': 'Database Connection (<databases>)'
             };
-            title.textContent = 'Add Component to ' + (sectionLabels[activePickerSection] || activePickerSection);
-            subtitle.textContent = activePickerSection === 'preflight'
-                ? 'Select any validation gate, assertion, SQL check, HTTP probe, or script for preflight.'
-                : 'Select any task, conditional, loop, or step for the pipeline flow.';
+
+            if (activePickerParentId && contextLabel) {
+                title.textContent = 'Add Step to <' + contextLabel + '>';
+                subtitle.textContent = 'Select a task, query, script, or nested container to insert into this <' + contextLabel + '> block.';
+            } else {
+                title.textContent = 'Add Component to ' + (sectionLabels[activePickerSection] || activePickerSection);
+                subtitle.textContent = activePickerSection === 'preflight'
+                    ? 'Select any validation gate, assertion, SQL check, HTTP probe, or script for preflight.'
+                    : 'Select any task, conditional, loop, or step for the pipeline flow.';
+            }
 
             renderPickerList('');
             modal.classList.remove('hidden');
@@ -742,7 +843,7 @@ const IndexHTML = `<!DOCTYPE html>
                 div.className = 'group bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 p-3 rounded-lg transition-all cursor-pointer flex items-center justify-between';
                 div.onclick = () => {
                     closeComponentPicker();
-                    openAddNodeModal(c.type, c.name, activePickerSection);
+                    openAddNodeModal(c.type, c.name, activePickerSection, activePickerParentId);
                 };
                 div.innerHTML = '<div>' +
                     '<div class="flex items-center space-x-2">' +
@@ -756,15 +857,16 @@ const IndexHTML = `<!DOCTYPE html>
             });
         }
 
-        function openAddNodeModal(nodeType, name, defaultSection) {
+        function openAddNodeModal(nodeType, name, defaultSection, parentNodeId) {
             const meta = catalogData.find(c => c.type === nodeType);
             if (!meta) return;
             const targetSec = defaultSection || meta.section || 'flow';
             document.getElementById('modal-node-id').value = '';
+            document.getElementById('modal-parent-node-id').value = parentNodeId ? String(parentNodeId) : '';
             document.getElementById('modal-node-type').value = nodeType;
             const secSelect = document.getElementById('modal-node-section');
             if (secSelect) secSelect.value = targetSec;
-            document.getElementById('modal-title').textContent = 'Add <' + meta.tag + '> ' + meta.name;
+            document.getElementById('modal-title').textContent = (parentNodeId ? 'Add Nested <' : 'Add <') + meta.tag + '> ' + meta.name;
             document.getElementById('modal-subtitle').textContent = meta.description;
             document.getElementById('modal-content-text').value = '';
             renderModalFields(meta, {});
@@ -787,6 +889,7 @@ const IndexHTML = `<!DOCTYPE html>
                         has_content: !!node.content_text
                     };
                     document.getElementById('modal-node-id').value = node.id;
+                    document.getElementById('modal-parent-node-id').value = node.parent_node_id ? String(node.parent_node_id) : '';
                     document.getElementById('modal-node-type').value = node.node_type;
                     document.getElementById('modal-node-section').value = node.section;
                     document.getElementById('modal-title').textContent = 'Edit <' + meta.tag + '> ' + (meta.name || node.node_type);
@@ -1062,9 +1165,8 @@ const IndexHTML = `<!DOCTYPE html>
             const nodeType = form.querySelector('#modal-node-type').value;
             const section = form.querySelector('#modal-node-section').value;
             const contentBox = document.getElementById('modal-content-container');
-            const meta = catalogData.find(c => c.type === nodeType);
-            const content = (!contentBox.classList.contains('hidden') && meta && meta.has_content)
-                ? form.querySelector('#modal-content-text').value
+            const content = !contentBox.classList.contains('hidden')
+                ? (form.querySelector('#modal-content-text') ? form.querySelector('#modal-content-text').value : '')
                 : '';
             const attrs = {};
 
@@ -1076,6 +1178,7 @@ const IndexHTML = `<!DOCTYPE html>
                 }
             });
 
+            // Custom attributes
             form.querySelectorAll('.custom-attr-row').forEach(row => {
                 const selectEl = row.querySelector('.custom-attr-key-select');
                 const customInput = row.querySelector('.custom-attr-key-input');
@@ -1094,10 +1197,12 @@ const IndexHTML = `<!DOCTYPE html>
             });
 
             const isEdit = nodeId !== '';
+            const parentIdVal = form.querySelector('#modal-parent-node-id') ? form.querySelector('#modal-parent-node-id').value : '';
             const endpoint = isEdit ? '/api/nodes/update' : '/api/nodes/add';
             const body = {
                 script_id: currentScriptId,
                 node_id: isEdit ? parseInt(nodeId) : 0,
+                parent_node_id: parentIdVal !== '' ? parseInt(parentIdVal) : null,
                 node_type: nodeType,
                 section: section,
                 attributes: attrs,
@@ -1106,32 +1211,44 @@ const IndexHTML = `<!DOCTYPE html>
 
             fetch(endpoint, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: JSON.stringify(body)
-            }).then(() => {
+            }).then(r => {
+                if (!r.ok) {
+                    return r.text().then(t => { throw new Error(t || ('HTTP ' + r.status)); });
+                }
                 closeNodeModal();
                 htmx.trigger(document.body, 'refreshCanvas');
                 setTimeout(updatePreview, 100);
             }).catch(err => {
-                alert('Save failed: ' + err);
+                alert('Save failed: ' + (err.message || err));
             });
         }
 
         function deleteNode(id) {
             if (!confirm('Remove this step?')) return;
-            fetch('/api/nodes/delete?id=' + id, {method: 'POST'})
-                .then(() => {
-                    htmx.trigger(document.body, 'refreshCanvas');
-                    setTimeout(updatePreview, 100);
-                });
+            fetch('/api/nodes/delete?id=' + id, {
+                method: 'POST',
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            }).then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                htmx.trigger(document.body, 'refreshCanvas');
+                setTimeout(updatePreview, 100);
+            }).catch(err => alert('Failed to delete step: ' + (err.message || err)));
         }
 
         function moveNode(id, dir) {
-            fetch('/api/nodes/move?id=' + id + '&dir=' + dir, {method: 'POST'})
-                .then(() => {
-                    htmx.trigger(document.body, 'refreshCanvas');
-                    setTimeout(updatePreview, 100);
-                });
+            fetch('/api/nodes/move?id=' + id + '&dir=' + dir, {
+                method: 'POST',
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            }).then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                htmx.trigger(document.body, 'refreshCanvas');
+                setTimeout(updatePreview, 100);
+            }).catch(err => alert('Failed to move step: ' + (err.message || err)));
         }
 
         function saveToFileOnDisk() {
@@ -1139,9 +1256,16 @@ const IndexHTML = `<!DOCTYPE html>
             if (!filename) return;
             fetch('/api/save_file', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: JSON.stringify({script_id: currentScriptId, filename: filename})
-            }).then(r => r.text()).then(msg => alert(msg));
+            }).then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                return r.text();
+            }).then(msg => alert(msg))
+            .catch(err => alert('Failed to save file: ' + (err.message || err)));
         }
 
         function downloadActiveXML() {
@@ -1165,18 +1289,30 @@ const IndexHTML = `<!DOCTYPE html>
             const content = document.getElementById('config-editor').value;
             fetch('/api/config/save', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: JSON.stringify({name: 'CONFIG.xml', content: content})
-            }).then(() => alert('CONFIG.xml saved successfully!'));
+            }).then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                alert('CONFIG.xml saved successfully!');
+            }).catch(err => alert('Failed to save CONFIG.xml: ' + (err.message || err)));
         }
 
         function saveOptionsFile() {
             const content = document.getElementById('options-editor').value;
             fetch('/api/options/save', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: JSON.stringify({name: 'options.xml', content: content})
-            }).then(() => alert('options.xml saved successfully!'));
+            }).then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                alert('options.xml saved successfully!');
+            }).catch(err => alert('Failed to save options.xml: ' + (err.message || err)));
         }
 
         function submitNewScript(e) {
@@ -1185,11 +1321,18 @@ const IndexHTML = `<!DOCTYPE html>
             const desc = document.getElementById('new-script-desc').value;
             fetch('/api/scripts/new', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': csrfToken
+                },
                 body: JSON.stringify({name: name, description: desc})
-            }).then(r => r.json()).then(sc => {
+            }).then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                return r.json();
+            }).then(sc => {
                 window.location.href = '/?script_id=' + sc.id;
-            });
+            }).catch(err => alert('Failed to create pipeline: ' + (err.message || err)));
         }
 
         function openCopyScriptModal() {
@@ -1211,7 +1354,11 @@ const IndexHTML = `<!DOCTYPE html>
             const newName = document.getElementById('copy-script-name').value.trim();
             fetch('/api/scripts/copy', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': csrfToken
+                },
                 body: JSON.stringify({id: currentScriptId, new_name: newName})
             }).then(function(r) {
                 if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
@@ -1247,7 +1394,11 @@ const IndexHTML = `<!DOCTYPE html>
             }
             fetch('/api/scripts/import', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': csrfToken
+                },
                 body: JSON.stringify({file_path: filePath, name: customName})
             }).then(function(r) {
                 if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
@@ -1263,12 +1414,103 @@ const IndexHTML = `<!DOCTYPE html>
             });
         }
 
-        function confirmDeleteScript() {
+        let scriptIdToDelete = null;
+
+        function openManagePipelinesModal() {
+            loadPipelinesList();
+            document.getElementById('manage-pipelines-modal').classList.remove('hidden');
+        }
+
+        function closeManagePipelinesModal() {
+            document.getElementById('manage-pipelines-modal').classList.add('hidden');
+        }
+
+        function refreshScriptSelectorOptions(scripts, activeId) {
             const select = document.getElementById('active-script-select');
-            let currentName = 'Active Pipeline';
-            if (select && select.selectedOptions && select.selectedOptions[0]) {
-                currentName = select.selectedOptions[0].text;
+            if (!select || !Array.isArray(scripts)) return;
+            select.innerHTML = '';
+            scripts.forEach(sc => {
+                const opt = document.createElement('option');
+                const id = sc.ID !== undefined ? sc.ID : sc.id;
+                const name = sc.Name !== undefined ? sc.Name : sc.name;
+                opt.value = id;
+                opt.textContent = name;
+                if (id === activeId) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function loadPipelinesList() {
+            const listEl = document.getElementById('manage-pipelines-list');
+            const countEl = document.getElementById('manage-pipelines-count');
+            if (!listEl) return;
+            listEl.innerHTML = '<div class="p-4 text-center text-xs text-slate-500">Loading loaded pipelines...</div>';
+
+            fetch('/api/scripts/list')
+                .then(r => {
+                    if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                    return r.json();
+                })
+                .then(scripts => {
+                    listEl.innerHTML = '';
+                    if (!scripts || scripts.length === 0) {
+                        listEl.innerHTML = '<div class="p-4 text-center text-xs text-slate-500">No pipelines loaded.</div>';
+                        if (countEl) countEl.textContent = '0 pipelines loaded';
+                        return;
+                    }
+                    if (countEl) countEl.textContent = scripts.length + ' pipeline' + (scripts.length > 1 ? 's' : '') + ' loaded';
+                    scripts.forEach(sc => {
+                        const id = sc.ID !== undefined ? sc.ID : sc.id;
+                        const name = sc.Name !== undefined ? sc.Name : sc.name;
+                        const desc = sc.Description !== undefined ? sc.Description : sc.description;
+                        const isActive = id === currentScriptId;
+
+                        const item = document.createElement('div');
+                        item.className = 'flex items-center justify-between p-3 rounded-lg border ' + 
+                            (isActive ? 'border-cyan-600/60 bg-cyan-950/20' : 'border-slate-800 bg-slate-950/60 hover:border-slate-700') + 
+                            ' transition';
+
+                        const escapedName = escapeHtml(name || 'Unnamed Pipeline');
+                        const jsEscapedName = (name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                        const escapedDesc = escapeHtml(desc || 'No description');
+                        const activeBadge = isActive ? '<span class="text-[10px] px-1.5 py-0.2 bg-cyan-900/60 text-cyan-300 border border-cyan-700/60 rounded font-semibold">Active</span>' : '';
+                        const switchBtn = !isActive ? '<button type="button" onclick="window.location.href=\'/?script_id=' + id + '\'" class="px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded transition font-medium">Switch To</button>' : '';
+                        const icon = isActive ? '⭐' : '📜';
+                        const titleColor = isActive ? 'text-cyan-300' : 'text-slate-200';
+
+                        item.innerHTML = 
+                            '<div class="flex items-center space-x-3">' +
+                                '<span class="text-lg">' + icon + '</span>' +
+                                '<div>' +
+                                    '<div class="flex items-center space-x-2">' +
+                                        '<span class="text-xs font-semibold ' + titleColor + '">' + escapedName + '</span>' +
+                                        activeBadge +
+                                    '</div>' +
+                                    '<p class="text-[11px] text-slate-400 truncate max-w-md">' + escapedDesc + '</p>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="flex items-center space-x-2">' +
+                                switchBtn +
+                                '<button type="button" onclick="confirmDeleteScript(' + id + ', \'' + jsEscapedName + '\')" class="px-2 py-1 text-xs bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 rounded transition font-medium" title="Delete this pipeline">🗑️ Delete</button>' +
+                            '</div>';
+                        listEl.appendChild(item);
+                    });
+                })
+                .catch(err => {
+                    listEl.innerHTML = '<div class="p-4 text-center text-xs text-rose-400">Failed to load pipelines: ' + err.message + '</div>';
+                });
+        }
+
+        function confirmDeleteScript(id, name) {
+            scriptIdToDelete = id || currentScriptId;
+            let currentName = name;
+            if (!currentName) {
+                const select = document.getElementById('active-script-select');
+                if (select && select.selectedOptions && select.selectedOptions[0]) {
+                    currentName = select.selectedOptions[0].text;
+                }
             }
+            currentName = currentName || 'Active Pipeline';
             const nameEl = document.getElementById('delete-pipeline-name');
             if (nameEl) {
                 nameEl.textContent = '"' + currentName + '"';
@@ -1277,16 +1519,30 @@ const IndexHTML = `<!DOCTYPE html>
         }
 
         function submitDeleteScript() {
-            fetch('/api/scripts/delete?id=' + currentScriptId, {
-                method: 'POST'
+            const targetId = scriptIdToDelete || currentScriptId;
+            fetch('/api/scripts/delete?id=' + targetId, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': csrfToken
+                }
             }).then(function(r) {
                 if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
                 return r.json();
             }).then(function(res) {
-                if (res.next_script_id) {
-                    window.location.href = '/?script_id=' + res.next_script_id;
+                // If the deleted script was the active script, navigate to next_script_id or root
+                if (targetId === currentScriptId || !res.next_script_id) {
+                    if (res.next_script_id) {
+                        window.location.href = '/?script_id=' + res.next_script_id;
+                    } else {
+                        window.location.href = '/';
+                    }
                 } else {
-                    window.location.href = '/';
+                    // Deleted a non-active script from manage modal: update dropdown and reload manage modal list
+                    document.getElementById('delete-pipeline-modal').classList.add('hidden');
+                    scriptIdToDelete = null;
+                    refreshScriptSelectorOptions(res.remaining, currentScriptId);
+                    loadPipelinesList();
                 }
             }).catch(function(err) {
                 alert('Failed to delete pipeline: ' + err.message);
@@ -1299,7 +1555,11 @@ const IndexHTML = `<!DOCTYPE html>
 
         function submitPurgeDatabase() {
             fetch('/api/db/purge', {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': csrfToken
+                }
             }).then(function(r) {
                 if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
                 return r.json();
@@ -1645,12 +1905,34 @@ const IndexHTML = `<!DOCTYPE html>
             }
         }
 
+        function updatePreflightUI(checked) {
+            const preflightCheckbox = document.getElementById('runner-preflight');
+            if (preflightCheckbox && preflightCheckbox.checked !== checked) {
+                preflightCheckbox.checked = checked;
+            }
+            const execBtn = document.getElementById('execute-btn');
+            if (!execBtn) return;
+            if (checked) {
+                execBtn.className = 'px-5 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition shadow flex items-center space-x-1.5 cursor-pointer';
+                execBtn.innerHTML = '<span>⚡ Run Preflight Only</span>';
+            } else {
+                execBtn.className = 'px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition shadow flex items-center space-x-1.5 cursor-pointer';
+                execBtn.innerHTML = '<span>▶ Run Execution</span>';
+            }
+        }
+
         let eventSource = null;
-        function startPipelineExecution() {
+        function startPipelineExecution(forcePreflight) {
             const scriptInput = document.getElementById('runner-script-file');
             const scriptFile = scriptInput ? scriptInput.value.trim() : '';
             const configFile = document.getElementById('runner-config-file').value.trim();
             const optionsFile = document.getElementById('runner-options-file').value.trim();
+            const preflightCheckbox = document.getElementById('runner-preflight');
+            const isPreflight = (typeof forcePreflight === 'boolean') ? forcePreflight : (preflightCheckbox ? preflightCheckbox.checked : false);
+            if (preflightCheckbox && typeof forcePreflight === 'boolean') {
+                preflightCheckbox.checked = forcePreflight;
+                updatePreflightUI(forcePreflight);
+            }
             const term = document.getElementById('terminal-log');
             const tbody = document.getElementById('execution-results-body');
             const statusInd = document.getElementById('status-indicator');
@@ -1662,7 +1944,7 @@ const IndexHTML = `<!DOCTYPE html>
             term.textContent = '';
             tbody.innerHTML = '';
             statusInd.className = 'h-2.5 w-2.5 rounded-full bg-amber-400 animate-ping';
-            statusText.textContent = 'Execution in progress...';
+            statusText.textContent = isPreflight ? 'Preflight execution in progress...' : 'Execution in progress...';
             const startTime = Date.now();
             const nodeStartTimes = {};
             const timerInterval = setInterval(() => {
@@ -1676,6 +1958,9 @@ const IndexHTML = `<!DOCTYPE html>
                         '&script_id=' + currentScriptId +
                         '&config=' + encodeURIComponent(configFile) +
                         '&options=' + encodeURIComponent(optionsFile);
+            if (isPreflight) {
+                url += '&preflight=true';
+            }
             if (shouldIncludeScript) {
                 url += '&file=' + encodeURIComponent(scriptFile || (runnerSource === 'builder' ? 'temp_run_script.xml' : 'scripts.xml'));
             }
@@ -1693,15 +1978,15 @@ const IndexHTML = `<!DOCTYPE html>
                     eventSource.close();
                     if (tbody.children.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">' +
-                            (data.error ? ('Execution stopped: ' + escapeHtml(data.error)) : 'Execution completed with no node events.') +
+                            (data.error ? ((isPreflight ? 'Preflight stopped: ' : 'Execution stopped: ') + escapeHtml(data.error)) : ((isPreflight ? 'Preflight' : 'Execution') + ' completed with no node events.')) +
                             '</td></tr>';
                     }
                     if (data.status === 'SUCCESS') {
                         statusInd.className = 'h-2.5 w-2.5 rounded-full bg-emerald-500';
-                        statusText.textContent = 'Execution Finished Successfully (' + data.duration + ')';
+                        statusText.textContent = (isPreflight ? 'Preflight Finished Successfully (' : 'Execution Finished Successfully (') + data.duration + ')';
                     } else {
                         statusInd.className = 'h-2.5 w-2.5 rounded-full bg-red-500';
-                        statusText.textContent = 'Execution Failed: ' + (data.error || 'Error');
+                        statusText.textContent = (isPreflight ? 'Preflight Failed: ' : 'Execution Failed: ') + (data.error || 'Error');
                     }
                 }
             };

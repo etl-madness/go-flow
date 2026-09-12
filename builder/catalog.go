@@ -122,6 +122,7 @@ Write-Host "Running pipeline script..."
 				{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Description of the group block"},
 				{Name: "on_error", Label: "On Error", Type: "select", Mandatory: false, Default: "stop", Options: []string{"stop", "continue", "retry"}},
 				{Name: "retry_count", Label: "Retry Count", Type: "int", Mandatory: false, Default: "0"},
+				{Name: "retry_interval", Label: "Retry Interval", Type: "text", Mandatory: false, Description: "Delay between retries (e.g. 2s, 10s)"},
 			},
 			DefaultXML: `<group id="TransformBatch" transaction="false" on_error="stop"></group>`,
 		},
@@ -130,12 +131,15 @@ Write-Host "Running pipeline script..."
 			Tag:         "if",
 			Name:        "Conditional Branch",
 			Category:    "Control Flow",
-			Description: "Evaluates an expression to execute steps when condition evaluates to true.",
+			Description: "Evaluates an expression or variable equality to execute steps in <then> and <else> branches.",
 			Section:     "flow",
 			HasContent:  false,
 			Fields: []ComponentField{
 				{Name: "id", Label: "Condition ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
-				{Name: "condition", Label: "Condition Expression", Type: "text", Mandatory: true, Description: "Go template or boolean expression, e.g. eq .Environment \"prod\""},
+				{Name: "condition", Label: "Condition Expression", Type: "text", Mandatory: false, Description: "Go template or boolean expression, e.g. eq .Environment \"prod\""},
+				{Name: "var", Label: "Variable Name", Type: "text", Mandatory: false, Description: "Variable name to compare (e.g. Status, ScriptAResult)"},
+				{Name: "equals", Label: "Equals Value", Type: "text", Mandatory: false, Description: "Target value to compare variable against (e.g. true, COMPLETE)"},
+				{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Description of the conditional logic"},
 			},
 			DefaultXML: `<if id="CheckEnv" condition="eq .Environment \"prod\""></if>`,
 		},
@@ -155,6 +159,7 @@ Write-Host "Running pipeline script..."
 				{Name: "buffer", Label: "Buffer In-Memory", Type: "bool", Mandatory: false, Default: "false", Options: []string{"true", "false"}, Description: "Opt-in in-memory buffering to read rows upfront (capped at 100k) and release DB cursor early"},
 				{Name: "mode", Label: "Execution Mode", Type: "select", Mandatory: false, Default: "stream", Options: []string{"stream", "buffer"}, Description: "Loop execution mode: 'stream' (default, O(1) RAM) or 'buffer'"},
 				{Name: "var", Label: "Query Variable", Type: "text", Mandatory: false, Description: "Optional variable containing driver query (if not provided in body)"},
+				{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Description of the loop"},
 			},
 			DefaultXML: `<foreach id="ProcessRecords" db="local_sqlite" stream="true">
 SELECT id, name FROM raw_items WHERE status = 'pending';
@@ -170,8 +175,11 @@ SELECT id, name FROM raw_items WHERE status = 'pending';
 			HasContent:  false,
 			Fields: []ComponentField{
 				{Name: "id", Label: "Loop ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
-				{Name: "condition", Label: "Condition Expression", Type: "text", Mandatory: true, Description: "Loop while this condition is true"},
+				{Name: "condition", Label: "Condition Expression", Type: "text", Mandatory: false, Description: "Loop while this condition is true (e.g. ne .Status \"COMPLETE\")"},
+				{Name: "var", Label: "Variable Name", Type: "text", Mandatory: false, Description: "Variable name to monitor (e.g. JobStatus)"},
+				{Name: "equals", Label: "Equals Value", Type: "text", Mandatory: false, Description: "Loop while variable equals this value"},
 				{Name: "max_iterations", Label: "Max Iterations", Type: "int", Mandatory: false, Default: "100"},
+				{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Description of the while loop"},
 			},
 			DefaultXML: `<while id="PollStatus" condition="ne .Status \"COMPLETE\"" max_iterations="50"></while>`,
 		},
@@ -185,9 +193,10 @@ SELECT id, name FROM raw_items WHERE status = 'pending';
 			HasContent:  false,
 			Fields: []ComponentField{
 				{Name: "id", Label: "Parallel Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
-				{Name: "max_concurrency", Label: "Max Concurrency", Type: "int", Mandatory: false, Default: "4"},
+				{Name: "max_threads", Label: "Max Threads", Type: "int", Mandatory: false, Default: "4", Description: "Max concurrent worker threads (aliases: threads, max_concurrency)"},
+				{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Description of parallel block"},
 			},
-			DefaultXML: `<parallel id="ParallelDownloads" max_concurrency="4"></parallel>`,
+			DefaultXML: `<parallel id="ParallelDownloads" max_threads="4"></parallel>`,
 		},
 
 		// 3. Database & SQL Operations
