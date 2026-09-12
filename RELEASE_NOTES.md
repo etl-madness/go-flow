@@ -1,6 +1,56 @@
-# Release Notes - Flow Visual Builder Security & Port Management
+# Release Notes
 
-## Overview
+## Release Notes (v1.1.17) - Resizable Live XML Preview & Offline XSLT Schema Resolution
+
+### Overview
+
+This release introduces an adjustable, resizable Live XML Preview panel in the Flow Visual Builder with layout persistence, and hardens the XSLT 3.0 transformation engine with automatic in-memory resolution for pipeline schemas (`pipeline.xsd`) and configurable remote URI resolution.
+
+---
+
+### 1. Resizable Live XML Preview Panel
+
+- **Draggable Splitter Handle:**
+  - Added a dedicated splitter divider (`#xml-preview-resizer`) between the workflow canvas and the Live XML Preview panel.
+  - Interactive styling with `cursor: col-resize`, cyan accent highlighting on hover/active states, and a centered visual grab pill indicator.
+  - Seamless mouse and touch drag listeners with dynamic boundaries (`min-width: 200px` and responsive max-width preserving palette and canvas space).
+  - Displays a live pixel width badge during active resizing.
+
+- **Persistent Layout Memory (`localStorage`):**
+  - Saves user-adjusted panel width in `localStorage` under `flow_builder_preview_width`.
+  - Automatically restores custom width on page refresh or tab switching.
+
+- **One-Click Reset & Quick Collapse:**
+  - **Double-Click or Reset Button (`⟲`):** Instantly resets the panel to standard default width (`384px`).
+  - **Quick Collapse / Expand (`▶` / `◀`):** Minimizes the preview panel into a compact 42px vertical bar to maximize canvas space, saving collapse state in `localStorage` (`flow_builder_preview_collapsed`).
+
+- **Template & Runtime Synchronization:**
+  - Synchronized across the HTML template ([`builder/tmpl/index.html`](builder/tmpl/index.html)) and the embedded Go string constant ([`builder/html_content.go`](builder/html_content.go)).
+
+- **Automated Test Coverage:**
+  - Added unit test `TestXMLPreviewAdjustablePanel` in [`builder/builder_test.go`](builder/builder_test.go) verifying splitter markup, reset/collapse controls, localStorage keys, and rendered HTML responses.
+
+---
+
+### 2. XSLT 3.0 Processing & Embedded Schema Resolution
+
+- **Embedded Schema Interception (`pipeline.xsd`):**
+  - Resolved transformation error (`nested-schema load denied by default-deny policy: no HTTPClient or URIResolver configured`) when processing XML pipelines containing `xsi:noNamespaceSchemaLocation` or `xsi:schemaLocation` pointing to `https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd`.
+  - Configured custom `defaultURIResolver` conforming to both `xslt3.URIResolver` and `xpath3.URIResolver`.
+  - Automatically intercepts references to `pipeline.xsd` and resolves them immediately in-memory via `flow.GetSchemaXSD()`, providing zero-latency, offline documentation generation (`-xslt`).
+
+- **Remote & Local URI Fallback:**
+  - Safely falls back to remote HTTP/HTTPS queries via a configured HTTP client with timeout.
+  - Resolves local `file://` URIs and filesystem paths.
+
+- **Automated Test Coverage:**
+  - Added unit test `TestProcessXSLTWithSchemaLocation` in [`mermaid_test.go`](mermaid_test.go) verifying end-to-end transformation of pipeline XML referencing remote schemas.
+
+---
+
+## Release Notes (v1.1.17) - Flow Visual Builder Security & Port Management
+
+### Overview
 
 This release introduces critical single-user security hardening, dynamic port management, CodeQL security remediations (Reflected XSS), and automated test suites for the Flow Visual Builder (`-builder`). It prevents unauthorized local or network access to the host machine's filesystem and pipeline execution APIs, protects against cross-site scripting and MIME-confusion attacks, and enables flexible port allocation with dynamic ephemeral ports by default.
 

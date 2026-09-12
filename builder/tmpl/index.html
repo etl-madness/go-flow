@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-slate-950 text-slate-100">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Flow Pipeline Builder</title>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,6 +12,7 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.4); border-radius: 3px; }
         .sortable-ghost { opacity: 0.4; background-color: #0284c7 !important; border: 2px dashed #38bdf8; }
+        .resizing-active { user-select: none !important; cursor: col-resize !important; }
 
         /* Themes */
         html[data-theme="slate"] {
@@ -261,12 +262,28 @@
                     {{template "canvas_nodes" .}}
                 </div>
             </section>
-            <aside class="w-96 bg-slate-900 border-l border-slate-800 flex flex-col">
-                <div class="p-3 border-b border-slate-800 flex items-center justify-between">
-                    <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Live XML Preview</span>
-                    <button onclick="copyXMLPreview()" class="text-xs text-cyan-400 hover:text-cyan-300 font-medium">ðŸ“‹ Copy</button>
+            <!-- Live XML Preview Resizer Splitter -->
+            <div id="xml-preview-resizer" 
+                 class="w-1.5 hover:w-2 bg-slate-800 hover:bg-cyan-500 active:bg-cyan-400 cursor-col-resize transition-all flex-shrink-0 relative group select-none z-10"
+                 title="Drag to resize Live XML Preview (Double-click to reset)">
+                <div class="absolute inset-y-0 -left-1.5 -right-1.5 cursor-col-resize"></div>
+                <div class="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-0.5 h-6 bg-slate-600 rounded group-hover:bg-cyan-200 transition-colors pointer-events-none"></div>
+            </div>
+
+            <!-- Live XML Preview Panel -->
+            <aside id="xml-preview-panel" class="bg-slate-900 border-l border-slate-800 flex flex-col flex-shrink-0 relative" style="width: 384px; min-width: 200px; max-width: calc(100vw - 360px);">
+                <div class="p-3 border-b border-slate-800 flex items-center justify-between select-none">
+                    <div class="flex items-center space-x-2 overflow-hidden">
+                        <span id="xml-preview-title" class="text-xs font-bold text-slate-300 uppercase tracking-wider whitespace-nowrap">Live XML Preview</span>
+                        <span id="xml-preview-width-label" class="text-[10px] text-slate-500 font-mono hidden">384px</span>
+                    </div>
+                    <div class="flex items-center space-x-1.5 flex-shrink-0">
+                        <button onclick="resetXMLPreviewWidth()" id="xml-preview-reset-btn" title="Reset width (384px)" class="text-slate-400 hover:text-slate-200 text-xs px-1.5 py-0.5 rounded hover:bg-slate-800 transition">⟲</button>
+                        <button onclick="toggleXMLPreviewCollapse()" id="xml-preview-toggle-btn" title="Collapse / Expand panel" class="text-slate-400 hover:text-slate-200 text-xs px-1.5 py-0.5 rounded hover:bg-slate-800 transition">▶</button>
+                        <button onclick="copyXMLPreview()" id="xml-preview-copy-btn" class="text-xs text-cyan-400 hover:text-cyan-300 font-medium px-2 py-0.5 rounded hover:bg-slate-800 transition">📋 Copy</button>
+                    </div>
                 </div>
-                <div class="flex-1 overflow-auto custom-scrollbar p-3 bg-slate-950">
+                <div id="xml-preview-content" class="flex-1 overflow-auto custom-scrollbar p-3 bg-slate-950">
                     <pre id="live-xml-preview" class="text-[11px] font-mono text-cyan-300/90 whitespace-pre leading-relaxed"></pre>
                 </div>
             </aside>
@@ -1283,6 +1300,176 @@
             navigator.clipboard.writeText(text).then(() => alert('XML copied to clipboard!'));
         }
 
+        // Resizable Live XML Preview Panel
+        let isResizingXMLPreview = false;
+        let lastXMLPreviewWidth = 384;
+
+        function initXMLPreviewResizer() {
+            const resizer = document.getElementById('xml-preview-resizer');
+            const panel = document.getElementById('xml-preview-panel');
+            const container = document.getElementById('tab-pipeline');
+            const widthLabel = document.getElementById('xml-preview-width-label');
+            if (!resizer || !panel || !container) return;
+
+            // Restore saved width from localStorage
+            const savedWidth = localStorage.getItem('flow_builder_preview_width');
+            if (savedWidth) {
+                const parsed = parseInt(savedWidth, 10);
+                if (!isNaN(parsed) && parsed >= 200) {
+                    panel.style.width = parsed + 'px';
+                    lastXMLPreviewWidth = parsed;
+                }
+            }
+
+            // Restore collapsed state if saved
+            if (localStorage.getItem('flow_builder_preview_collapsed') === 'true') {
+                collapseXMLPreview(true);
+            }
+
+            function startResize(e) {
+                if (panel.classList.contains('is-collapsed')) {
+                    expandXMLPreview();
+                }
+                isResizingXMLPreview = true;
+                document.body.classList.add('resizing-active');
+                resizer.classList.add('bg-cyan-500');
+                if (widthLabel) {
+                    widthLabel.classList.remove('hidden');
+                    widthLabel.textContent = panel.offsetWidth + 'px';
+                }
+                e.preventDefault();
+            }
+
+            function doResize(clientX) {
+                if (!isResizingXMLPreview) return;
+                const containerRect = container.getBoundingClientRect();
+                let newWidth = containerRect.right - clientX;
+                const minWidth = 200;
+                const maxWidth = Math.max(minWidth, containerRect.width - 340);
+                newWidth = Math.max(minWidth, Math.min(newWidth, maxWidth));
+
+                panel.style.width = newWidth + 'px';
+                lastXMLPreviewWidth = newWidth;
+                if (widthLabel) {
+                    widthLabel.textContent = Math.round(newWidth) + 'px';
+                }
+            }
+
+            function stopResize() {
+                if (!isResizingXMLPreview) return;
+                isResizingXMLPreview = false;
+                document.body.classList.remove('resizing-active');
+                resizer.classList.remove('bg-cyan-500');
+                if (widthLabel) {
+                    setTimeout(() => widthLabel.classList.add('hidden'), 800);
+                }
+                localStorage.setItem('flow_builder_preview_width', panel.offsetWidth);
+            }
+
+            // Mouse events
+            resizer.addEventListener('mousedown', (e) => startResize(e));
+            document.addEventListener('mousemove', (e) => {
+                if (isResizingXMLPreview) {
+                    doResize(e.clientX);
+                }
+            });
+            document.addEventListener('mouseup', stopResize);
+
+            // Touch events for mobile/tablet
+            resizer.addEventListener('touchstart', (e) => {
+                if (e.touches && e.touches.length === 1) {
+                    startResize(e);
+                }
+            }, { passive: false });
+            document.addEventListener('touchmove', (e) => {
+                if (isResizingXMLPreview && e.touches && e.touches.length === 1) {
+                    doResize(e.touches[0].clientX);
+                }
+            });
+            document.addEventListener('touchend', stopResize);
+
+            // Double click to reset to default
+            resizer.addEventListener('dblclick', resetXMLPreviewWidth);
+        }
+
+        function resetXMLPreviewWidth() {
+            const panel = document.getElementById('xml-preview-panel');
+            if (!panel) return;
+            if (panel.classList.contains('is-collapsed')) {
+                expandXMLPreview();
+            }
+            const defaultWidth = 384;
+            panel.style.width = defaultWidth + 'px';
+            lastXMLPreviewWidth = defaultWidth;
+            localStorage.setItem('flow_builder_preview_width', defaultWidth);
+        }
+
+        function toggleXMLPreviewCollapse() {
+            const panel = document.getElementById('xml-preview-panel');
+            if (!panel) return;
+            if (panel.classList.contains('is-collapsed')) {
+                expandXMLPreview();
+            } else {
+                collapseXMLPreview(false);
+            }
+        }
+
+        function collapseXMLPreview(immediate) {
+            const panel = document.getElementById('xml-preview-panel');
+            const toggleBtn = document.getElementById('xml-preview-toggle-btn');
+            const resizer = document.getElementById('xml-preview-resizer');
+            if (!panel) return;
+
+            if (panel.offsetWidth > 60) {
+                lastXMLPreviewWidth = panel.offsetWidth;
+            }
+            panel.classList.add('is-collapsed');
+            panel.style.width = '42px';
+            panel.style.minWidth = '42px';
+            const content = document.getElementById('xml-preview-content');
+            if (content) content.classList.add('hidden');
+            const title = document.getElementById('xml-preview-title');
+            if (title) title.classList.add('hidden');
+            const copyBtn = document.getElementById('xml-preview-copy-btn');
+            if (copyBtn) copyBtn.classList.add('hidden');
+            const resetBtn = document.getElementById('xml-preview-reset-btn');
+            if (resetBtn) resetBtn.classList.add('hidden');
+            if (toggleBtn) {
+                toggleBtn.textContent = '◀';
+                toggleBtn.title = 'Expand Live XML Preview';
+            }
+            if (resizer) resizer.classList.add('pointer-events-none', 'opacity-30');
+            localStorage.setItem('flow_builder_preview_collapsed', 'true');
+        }
+
+        function expandXMLPreview() {
+            const panel = document.getElementById('xml-preview-panel');
+            const toggleBtn = document.getElementById('xml-preview-toggle-btn');
+            const resizer = document.getElementById('xml-preview-resizer');
+            if (!panel) return;
+
+            panel.classList.remove('is-collapsed');
+            const targetWidth = lastXMLPreviewWidth >= 200 ? lastXMLPreviewWidth : 384;
+            panel.style.width = targetWidth + 'px';
+            panel.style.minWidth = '200px';
+            const content = document.getElementById('xml-preview-content');
+            if (content) content.classList.remove('hidden');
+            const title = document.getElementById('xml-preview-title');
+            if (title) title.classList.remove('hidden');
+            const copyBtn = document.getElementById('xml-preview-copy-btn');
+            if (copyBtn) copyBtn.classList.remove('hidden');
+            const resetBtn = document.getElementById('xml-preview-reset-btn');
+            if (resetBtn) resetBtn.classList.remove('hidden');
+            if (toggleBtn) {
+                toggleBtn.textContent = '▶';
+                toggleBtn.title = 'Collapse Live XML Preview';
+            }
+            if (resizer) resizer.classList.remove('pointer-events-none', 'opacity-30');
+            localStorage.setItem('flow_builder_preview_collapsed', 'false');
+            updatePreview();
+        }
+
+
         function saveConfigFile() {
             const content = document.getElementById('config-editor').value;
             fetch('/api/config/save', {
@@ -2123,6 +2310,7 @@
             updatePreview();
             populateQuickFilesList();
             initSectionNavigation();
+            initXMLPreviewResizer();
         });
         document.body.addEventListener('htmx:afterSwap', () => {
             initSortables();

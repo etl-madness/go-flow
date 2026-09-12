@@ -125,3 +125,43 @@ func TestValidateXSDWithV1231Features(t *testing.T) {
 		t.Fatalf("pipeline with v1.2.31 features failed XSD validation: %v", err)
 	}
 }
+
+func TestProcessXSLTWithSchemaLocation(t *testing.T) {
+	xmlContent := `<?xml version="1.0" encoding="UTF-8"?>
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
+    <variables>
+        <variable name="test_var" type="string" value="hello" />
+    </variables>
+    <flow>
+        <script id="test_step" language="bash">
+            echo "hello"
+        </script>
+    </flow>
+</pipeline>`
+
+	xsltContent, err := os.ReadFile("./autodoc/autodoc_md.xslt")
+	if err != nil {
+		t.Fatalf("failed to read XSLT stylesheet: %v", err)
+	}
+
+	diagram, err := generateMermaid([]byte(xmlContent))
+	if err != nil {
+		t.Fatalf("failed to generate mermaid: %v", err)
+	}
+
+	src := "test_pipeline.xml"
+	out, err := ProcessXSLT([]byte(xmlContent), xsltContent, diagram, &src)
+	if err != nil {
+		t.Fatalf("ProcessXSLT failed: %v", err)
+	}
+
+	outStr := string(out)
+	if !strings.Contains(outStr, "Execution Flow Diagram") {
+		t.Fatalf("expected output to contain 'Execution Flow Diagram', got: %s", outStr)
+	}
+	if !strings.Contains(outStr, "test_var") {
+		t.Fatalf("expected output to contain 'test_var', got: %s", outStr)
+	}
+}
+

@@ -3,8 +3,8 @@
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <meta charset="utf-8" />
-    <title>ETL Pipeline Documentation &amp; Flowchart  .\examples\gcloud_billing.xml</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ETL Pipeline Documentation &amp; Flowchart .\.private\gcloud_billing.xml</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@9/dist/mermaid.min.js"></script>
     <style>
@@ -19,34 +19,39 @@
                 </style>
   </head>
   <body>
-    <h1>Pipeline Specification &amp; Flowchart .\examples\gcloud_billing.xml</h1>
+    <h1>Pipeline Specification &amp; Flowchart .\.private\gcloud_billing.xml</h1>
     <h2>Execution Flow Diagram</h2>
     <div class="diagram-card">
       <div class="mermaid">flowchart TD
     subgraph VarsBox ["📋 Pipeline Variables"]
-        vars_node["• <b>full_table_path</b> <i>(string)</i>: <code></code><br />• <b>database1_connection_string</b> <i>(string)</i>: <code>sqlserver://server.example.com:1...</code><br />• <b>GCP_PROJECT_ID</b> <i>(string)</i>: <code>YOUR_PROJECT_ID</code><br />• <b>BQ_BILLING_TABLE</b> <i>(string)</i>: <code>YOUR_BQ_BILLING_TABLE</code><br />• <b>GOOGLE_APPLICATION_CREDENTIALS</b> <i>(string)</i>: <code>YOUR_GOOGLE_APPLICATION_CREDENTI...</code>"]
+        vars_node["• <b>full_table_path</b> <i>(string)</i>: <code></code><br />• <b>database1_connection_string</b> <i>(string)</i>: <code>sqlserver://T15P:1433?database=P...</code><br />• <b>log_db_cs</b> <i>(string)</i>: <code>sqlserver://sa:Password123!@loca...</code><br />• <b>GCP_PROJECT_ID</b> <i>(string)</i>: <code>osdiscovery-antigravity</code><br />• <b>BQ_BILLING_TABLE</b> <i>(string)</i>: <code>osdiscovery-antigravity.dsetbill...</code><br />• <b>GOOGLE_APPLICATION_CREDENTIALS</b> <i>(string)</i>: <code>C:/Users/U00001/keys/gcp-key.json</code>"]
     end
 
     subgraph DBBox ["🗄️ Configured Databases"]
         db_database1[("Database: database1")]
+        db_log_db[("Database: log_db")]
     end
 
     subgraph PreflightBox ["✈️ Preflight Flow"]
         PreflightStart([Start Preflight])
-    preflight_check["preflight_check<br />(SQL)"]
-    PreflightStart --> preflight_check
-    preflight_check_2["preflight_check_2<br />(SQL)"]
-    preflight_check --> preflight_check_2
-        preflight_check_2 --> PreflightEnd([End Preflight])
+    sql_preflight_check_1["sql_preflight_check_1<br />(SQL)"]
+    PreflightStart --> sql_preflight_check_1
+    sql_preflight_check_2["sql_preflight_check_2<br />(SQL)"]
+    sql_preflight_check_1 --> sql_preflight_check_2
+    assert_preflight_check_1["assert_preflight_check_1<br />(ASSERT)"]
+    sql_preflight_check_2 --> assert_preflight_check_1
+    assert_preflight_check_2["assert_preflight_check_2<br />(ASSERT)"]
+    assert_preflight_check_1 --> assert_preflight_check_2
+        assert_preflight_check_2 --> PreflightEnd([End Preflight])
     end
 
     subgraph FlowBox ["⚡ Main Execution Flow"]
         Start([Start Pipeline])
-    ExtractData["ExtractData<br />(BASH)"]
-    Start --> ExtractData
-    LoadData["LoadData<br />(SQL)"]
-    ExtractData --> LoadData
-        LoadData --> End_1([End Pipeline])
+    extract_billing_data_gcloud["extract_billing_data_gcloud<br />(BASH)"]
+    Start --> extract_billing_data_gcloud
+    load_billing_data_gcloud["load_billing_data_gcloud<br />(SQL)"]
+    extract_billing_data_gcloud --> load_billing_data_gcloud
+        load_billing_data_gcloud --> End_1([End Pipeline])
     end
 </div>
       <script>
@@ -82,7 +87,18 @@
             <code>string</code>
           </td>
           <td>
-            <code>sqlserver://server.example.com:1433?database=YOURDB&amp;integrated+security=true&amp;trustServerCertificate=true</code>
+            <code>sqlserver://T15P:1433?database=PROTO&amp;integrated+security=true&amp;trustServerCertificate=true</code>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>log_db_cs</strong>
+          </td>
+          <td>
+            <code>string</code>
+          </td>
+          <td>
+            <code>sqlserver://sa:Password123!@localhost:1433?database=database1&amp;trustServerCertificate=true</code>
           </td>
         </tr>
         <tr>
@@ -93,7 +109,7 @@
             <code>string</code>
           </td>
           <td>
-            <code>YOUR_PROJECT_ID</code>
+            <code>osdiscovery-antigravity</code>
           </td>
         </tr>
         <tr>
@@ -104,7 +120,7 @@
             <code>string</code>
           </td>
           <td>
-            <code>YOUR_BQ_BILLING_TABLE</code>
+            <code>osdiscovery-antigravity.dsetbilling_exports.gcp_billing_export_resource_v1_01612D_F4426C_7251BC</code>
           </td>
         </tr>
         <tr>
@@ -115,7 +131,7 @@
             <code>string</code>
           </td>
           <td>
-            <code>YOUR_GOOGLE_APPLICATION_CREDENTIALS_PATH</code>
+            <code>C:/Users/U00001/keys/gcp-key.json</code>
           </td>
         </tr>
       </tbody>
@@ -135,6 +151,14 @@
           </td>
           <td>
             <code>{{database1_connection_string}}</code>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <strong>log_db</strong>
+          </td>
+          <td>
+            <code>{{log_db_cs}}</code>
           </td>
         </tr>
       </tbody>
@@ -164,7 +188,7 @@
             <strong></strong>
           </td>
           <td>
-            <strong>preflight_check</strong>
+            <strong>sql_preflight_check_1</strong>
           </td>
           <td>
             <code>/Q{}pipeline[1]/Q{}preflight[1]/Q{}sql[1]</code>
@@ -198,7 +222,7 @@
             <strong></strong>
           </td>
           <td>
-            <strong>preflight_check_2</strong>
+            <strong>sql_preflight_check_2</strong>
           </td>
           <td>
             <code>/Q{}pipeline[1]/Q{}preflight[1]/Q{}sql[2]</code>
@@ -232,13 +256,13 @@
             <strong></strong>
           </td>
           <td>
-            <strong>database_check</strong>
+            <strong>assert_preflight_check_1</strong>
           </td>
           <td>
             <code>/Q{}pipeline[1]/Q{}preflight[1]/Q{}assert[1]</code>
           </td>
           <td>
-            <code>Check database connectivity</code>
+            <code></code>
           </td>
           <td>
             <code></code>
@@ -262,13 +286,13 @@
             <strong></strong>
           </td>
           <td>
-            <strong>user_check</strong>
+            <strong>assert_preflight_check_2</strong>
           </td>
           <td>
             <code>/Q{}pipeline[1]/Q{}preflight[1]/Q{}assert[2]</code>
           </td>
           <td>
-            <code>Check connected user is dbo</code>
+            <code></code>
           </td>
           <td>
             <code></code>
@@ -292,13 +316,13 @@
             <strong>bash</strong>
           </td>
           <td>
-            <strong>ExtractData</strong>
+            <strong>extract_billing_data_gcloud</strong>
           </td>
           <td>
             <code>/Q{}pipeline[1]/Q{}flow[1]/Q{}script[1]</code>
           </td>
           <td>
-            <code>Extract GCP billing data from BigQuery</code>
+            <code>Extract GCP billing data using bqBilling.exe</code>
           </td>
           <td>
             <code></code>
@@ -313,8 +337,6 @@
             <code></code>
           </td>
           <td>  
-        # see examples/bqBilling for the Go program that fetches the billing data from BigQuery and outputs it as JSON  
-        # required schema and structure of the BigQuery billing export table can be found there as well.
         ./bqBilling.exe -GCP_PROJECT_ID="{{GCP_PROJECT_ID}}" -BQ_BILLING_TABLE="{{BQ_BILLING_TABLE}}" -GOOGLE_APPLICATION_CREDENTIALS="{{GOOGLE_APPLICATION_CREDENTIALS}}"
         </td>
         </tr>
@@ -326,13 +348,13 @@
             <strong></strong>
           </td>
           <td>
-            <strong>LoadData</strong>
+            <strong>load_billing_data_gcloud</strong>
           </td>
           <td>
             <code>/Q{}pipeline[1]/Q{}flow[1]/Q{}sql[1]</code>
           </td>
           <td>
-            <code>Load Google Cloud billing JSON data into SQL Server table using OPENJSON</code>
+            <code>Load GCP billing data into SQL Server</code>
           </td>
           <td>
             <code>database1</code>
@@ -348,8 +370,6 @@
           </td>
           <td>
             
-DECLARE @J NVARCHAR(MAX) = '{{GCLOUD_BILLING_JSON}}'
- 
 INSERT INTO dbo.GcpBillingExport
 SELECT 
     -- Root Identifiers
@@ -412,7 +432,7 @@ SELECT
     SystemLabels              = system_labels,
     Credits                   = credits,
     Tags                      = tags
-FROM OPENJSON(@J)
+FROM OPENJSON('{{GCLOUD_BILLING_JSON}}')
 WITH (
   
     billing_account_id            VARCHAR(32)           '$.billing_account_id',
@@ -457,6 +477,7 @@ WITH (
     credits                       NVARCHAR(MAX)         '$.credits'        AS JSON,
     tags                          NVARCHAR(MAX)         '$.tags'           AS JSON
 );
+SELECT  @@ROWCOUNT;
 
         </td>
         </tr>
