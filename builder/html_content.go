@@ -1263,8 +1263,8 @@ const IndexHTML = `<!DOCTYPE html>
                 body: JSON.stringify({script_id: currentScriptId, filename: filename})
             }).then(r => {
                 if (!r.ok) return r.text().then(t => { throw new Error(t); });
-                return r.text();
-            }).then(msg => alert(msg))
+                return r.json();
+            }).then(data => alert(data.message || 'Pipeline saved successfully'))
             .catch(err => alert('Failed to save file: ' + (err.message || err)));
         }
 

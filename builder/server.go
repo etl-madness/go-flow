@@ -369,7 +369,7 @@ func (s *Server) sanitizePath(path string) (string, error) {
 	}
 
 	if !strings.HasPrefix(absPath, cwd) {
-		return "", fmt.Errorf("access denied: path %s is outside the working directory", path)
+		return "", fmt.Errorf("access denied: requested path is outside the working directory")
 	}
 
 	return absPath, nil
@@ -835,11 +835,16 @@ func (s *Server) handleSaveFile(w http.ResponseWriter, r *http.Request) {
 	xmlContent := GenerateXML(script.Name, varNodes, dbNodes, preNodes, flowNodes)
 
 	if err := os.WriteFile(writePath, []byte(xmlContent), 0644); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to write file %s: %v", writePath, err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to write file: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("Successfully saved pipeline to %s", writePath)))
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"message": fmt.Sprintf("Successfully saved pipeline to %s", filepath.Clean(writePath)),
+		"path":    filepath.Clean(writePath),
+	})
 }
 
 func (s *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
@@ -1245,7 +1250,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/files/browse", s.requireAuth(s.handleBrowseFiles))
 	mux.HandleFunc("/api/files/quick", s.requireAuth(s.handleQuickFiles))
 
-	return mux
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		mux.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) Start() error {

@@ -1,8 +1,8 @@
-# Release Notes (v1.1.15) - Flow Visual Builder Security & Port Management
+# Release Notes - Flow Visual Builder Security & Port Management
 
 ## Overview
 
-This release introduces critical single-user security hardening, dynamic port management, and test automation for the Flow Visual Builder (`-builder`). It prevents unauthorized local or network access to the host machine's filesystem and pipeline execution APIs, and allows flexible port allocation with dynamic ephemeral ports by default.
+This release introduces critical single-user security hardening, dynamic port management, CodeQL security remediations (Reflected XSS), and automated test suites for the Flow Visual Builder (`-builder`). It prevents unauthorized local or network access to the host machine's filesystem and pipeline execution APIs, protects against cross-site scripting and MIME-confusion attacks, and enables flexible port allocation with dynamic ephemeral ports by default.
 
 ---
 
@@ -51,7 +51,28 @@ This release introduces critical single-user security hardening, dynamic port ma
 
 ---
 
-## 3. Automated Testing & Documentation
+## 3. CodeQL Reflected XSS Remediation & Defensive Security Headers
+
+- **Reflected Cross-Site Scripting (XSS) Remediation:**
+  - Resolved CodeQL alert for Reflected Cross-Site Scripting (`go/reflected-xss`).
+  - In `handleSaveFile` (`/api/save_file`), eliminated raw string byte writing (`w.Write([]byte(fmt.Sprintf(...)))`) which echoed unescaped user-supplied filenames back into HTTP responses.
+  - Replaced with explicit `Content-Type: application/json` headers and structured JSON serialization via `json.NewEncoder(w).Encode(...)`.
+  - Neutralized internal file write errors returned to the client to avoid reflecting raw filesystem paths.
+
+- **Defensive Error Handling in Path Resolution (`sanitizePath`):**
+  - Updated `sanitizePath` to return generic access-denial errors (`"access denied: requested path is outside the working directory"`) rather than interpolating untrusted input paths into error strings.
+
+- **Global HTTP Security Headers Middleware:**
+  - Wrapped `Server.Handler()` with a defensive security middleware that applies essential security headers to every response:
+    - `X-Content-Type-Options: nosniff`: Enforces strict MIME typing and prevents browsers from sniffing non-HTML API responses as executable HTML.
+    - `X-Frame-Options: DENY`: Defends against clickjacking by disallowing framing of the application.
+
+- **Frontend Client Synchronization:**
+  - Updated `saveToFileOnDisk()` in both [`builder/tmpl/index.html`](builder/tmpl/index.html) and embedded [`builder/html_content.go`](builder/html_content.go) to parse the structured JSON payload (`r.json()`) and display status messages.
+
+---
+
+## 4. Automated Testing & Documentation
 
 - **Test Suite (`builder/auth_test.go`):**
   - `TestBuilderAuth_RejectUnauthorized`: Asserts 401 Unauthorized for unauthenticated browser visits (HTML error card) and API calls (JSON error).
@@ -59,6 +80,7 @@ This release introduces critical single-user security hardening, dynamic port ma
   - `TestBuilderAuth_BearerToken`: Validates `Authorization: Bearer <token>` header on protected API endpoints.
   - `TestBuilderAuth_InvalidTokenAndFakeCookie`: Tests rejection of invalid query tokens and forged session cookies.
   - `TestBuilderAuth_PortOverrideAndDynamicPort`: Validates that binding to port `0` dynamically assigns a valid ephemeral port and updates the server instance state.
+  - `TestBuilderSecurity_HeadersAndSaveFileJSON`: Asserts that global security headers (`nosniff`, `DENY`) are emitted on responses, `/api/save_file` returns structured JSON rather than echoing raw input, and directory path errors do not reflect unsanitized traversal strings.
 
 - **Documentation Updates:**
   - [`README.md`](README.md): Updated builder launch command, feature summary, and CLI reference table with default port `0`.

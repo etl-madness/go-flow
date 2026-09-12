@@ -2,9 +2,11 @@ package builder
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -217,3 +219,68 @@ func TestBuilderAuth_PortOverrideAndDynamicPort(t *testing.T) {
 		t.Fatalf("expected server.Port() to be %d, got %d", actualPort, server.Port())
 	}
 }
+
+func TestBuilderSecurity_HeadersAndSaveFileJSON(t *testing.T) {
+	server, storage := setupTestServer(t)
+	defer storage.Close()
+
+	handler := server.Handler()
+	token := server.GetAuthToken()
+
+	// 1. Verify security headers (X-Content-Type-Options: nosniff, X-Frame-Options: DENY)
+	req := httptest.NewRequest(http.MethodGet, "/?token="+token, nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Header().Get("X-Content-Type-Options") != "nosniff" {
+		t.Errorf("expected X-Content-Type-Options: nosniff, got %q", rec.Header().Get("X-Content-Type-Options"))
+	}
+	if rec.Header().Get("X-Frame-Options") != "DENY" {
+		t.Errorf("expected X-Frame-Options: DENY, got %q", rec.Header().Get("X-Frame-Options"))
+	}
+
+	// 2. Test /api/save_file returns application/json and structured message
+	defaultScript, err := storage.GetOrCreateDefaultScript()
+	if err != nil {
+		t.Fatalf("failed to get/create default script: %v", err)
+	}
+
+	savePayload := fmt.Sprintf(`{"script_id":%d,"filename":"save_test_pipeline.xml"}`, defaultScript.ID)
+	saveReq := httptest.NewRequest(http.MethodPost, "/api/save_file", strings.NewReader(savePayload))
+	defer os.Remove(filepath.Join("exports", "save_test_pipeline.xml"))
+	saveReq.Header.Set("Authorization", "Bearer "+token)
+	saveReq.Header.Set("Content-Type", "application/json")
+	saveReq.Header.Set("X-Requested-With", "XMLHttpRequest")
+
+	saveRec := httptest.NewRecorder()
+	handler.ServeHTTP(saveRec, saveReq)
+
+	if saveRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK from /api/save_file, got %d: %s", saveRec.Code, saveRec.Body.String())
+	}
+	if ct := saveRec.Header().Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Errorf("expected application/json content type, got %s", ct)
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(saveRec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse JSON response: %v", err)
+	}
+	if resp["success"] != true {
+		t.Errorf("expected success: true, got %v", resp["success"])
+	}
+
+	// 3. Test sanitizePath does not reflect raw input in error
+	browseReq := httptest.NewRequest(http.MethodGet, "/api/files/browse?dir=../../etc/passwd", nil)
+	browseReq.Header.Set("Authorization", "Bearer "+token)
+	browseRec := httptest.NewRecorder()
+	handler.ServeHTTP(browseRec, browseReq)
+
+	if browseRec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d", browseRec.Code)
+	}
+	if strings.Contains(browseRec.Body.String(), "../../etc/passwd") {
+		t.Errorf("expected error message to not reflect raw directory traversal path, got: %s", browseRec.Body.String())
+	}
+}
+
