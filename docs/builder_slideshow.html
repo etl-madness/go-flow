@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flow Builder UI - Visual Pipeline Designer Walkthrough</title>
+  <style>
+    :root {
+      --bg-primary: #090d16;
+      --bg-surface: #0f172a;
+      --bg-card: #1e293b;
+      --bg-card-hover: #27354f;
+      --border-color: #334155;
+      --border-glow: #38bdf8;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-blue: #38bdf8;
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --accent-indigo: #818cf8;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: "Fira Code", "Cascadia Code", Consolas, Monaco, "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    /* Top Bar */
+    header.top-nav {
+      height: 60px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      z-index: 50;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text-main);
+      text-decoration: none;
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      object-fit: cover;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    }
+
+    .brand span.tag {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .nav-center {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .slide-progress-container {
+      width: 260px;
+      height: 6px;
+      background: #1e293b;
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .slide-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+      width: 0%;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .slide-counter {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      min-width: 80px;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-glow);
+      color: #fff;
+    }
+
+    .btn.primary {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #fff;
+    }
+    .btn.primary:hover {
+      background: #0369a1;
+    }
+
+    /* Main Slides Container */
+    main.slides-viewport {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(30px);
+      transition: opacity 0.35s ease, transform 0.35s ease, visibility 0.35s;
+      padding: 2rem 3rem;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(0);
+      z-index: 10;
+    }
+
+    .slide.prev {
+      transform: translateX(-30px);
+    }
+
+    /* Slide Layouts */
+    .slide-header {
+      margin-bottom: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .slide-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--accent-blue);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    .slide-title {
+      font-size: 1.85rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .slide-subtitle {
+      font-size: 1rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    /* Two-Column Grid */
+    .slide-body-split {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 2rem;
+      flex: 1;
+      min-height: 0;
+      align-items: stretch;
+    }
+
+    /* Left: Media / Screenshot Container */
+    .media-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .media-preview-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #020617;
+      cursor: zoom-in;
+      position: relative;
+    }
+
+    .media-preview-wrapper img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      transition: transform 0.3s ease;
+    }
+
+    .media-preview-wrapper:hover img {
+      transform: scale(1.02);
+    }
+
+    .media-overlay-hint {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 4px;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .media-caption {
+      margin-top: 0.75rem;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 0.5rem;
+    }
+
+    /* Right: Informational Content Card */
+    .info-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      overflow-y: auto;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .info-block {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .info-block h4 {
+      font-size: 0.95rem;
+      color: var(--accent-blue);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .info-block p {
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: var(--text-main);
+    }
+
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .feature-list li {
+      font-size: 0.85rem;
+      line-height: 1.45;
+      color: var(--text-muted);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .feature-list li strong {
+      color: #fff;
+    }
+
+    .feature-list li::before {
+      content: "▹";
+      color: var(--accent-cyan);
+      font-weight: bold;
+    }
+
+    /* Code Snippet */
+    pre.code-box {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #38bdf8;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+
+    .stat-pill {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.6rem 0.8rem;
+      text-align: center;
+    }
+
+    .stat-pill .stat-val {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent-emerald);
+    }
+
+    .stat-pill .stat-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    /* Hero Slide Special Layout */
+    .slide-hero {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3.5rem;
+      flex: 1;
+      padding: 1rem 0;
+    }
+
+    .hero-mascot-box {
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, rgba(15, 23, 42, 0) 70%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .hero-mascot-img {
+      width: 270px;
+      height: auto;
+      filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.6));
+      animation: floatGopher 4s ease-in-out infinite;
+    }
+
+    @keyframes floatGopher {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-10px) rotate(1deg); }
+    }
+
+    .hero-text-box {
+      max-width: 600px;
+    }
+
+    .hero-title {
+      font-size: 2.8rem;
+      font-weight: 800;
+      line-height: 1.15;
+      background: linear-gradient(135deg, #ffffff 40%, var(--accent-blue) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 1rem;
+    }
+
+    .hero-desc {
+      font-size: 1.15rem;
+      line-height: 1.6;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+
+    .hero-badge-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 9999px;
+      padding: 6px 14px;
+      font-size: 0.85rem;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Floating Navigation Controls */
+    .nav-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      cursor: pointer;
+      z-index: 40;
+      transition: all 0.2s ease;
+      opacity: 0.7;
+    }
+
+    .nav-arrow:hover {
+      opacity: 1;
+      background: rgba(2, 132, 199, 0.9);
+      border-color: #38bdf8;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    }
+
+    .nav-arrow.prev-btn { left: 1rem; }
+    .nav-arrow.next-btn { right: 1rem; }
+
+    /* Overview Modal Grid */
+    .overview-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(2, 6, 23, 0.94);
+      backdrop-filter: blur(16px);
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      padding: 2rem 3rem;
+    }
+
+    .overview-modal.open {
+      display: flex;
+    }
+
+    .overview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1.25rem;
+      overflow-y: auto;
+      padding: 0.5rem;
+    }
+
+    .overview-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .overview-card:hover {
+      border-color: var(--border-glow);
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(56, 189, 248, 0.2);
+    }
+
+    .overview-card.active {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px var(--accent-blue);
+    }
+
+    .overview-card-img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 6px;
+      background: #020617;
+    }
+
+    .overview-card-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .overview-card-num {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    /* Lightbox Modal */
+    .lightbox-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.92);
+      backdrop-filter: blur(10px);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+    }
+
+    .lightbox-modal.open {
+      display: flex;
+    }
+
+    .lightbox-img {
+      max-width: 95%;
+      max-height: 92%;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 1.5rem;
+      right: 2rem;
+      color: #fff;
+      font-size: 2rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    /* Shortcuts Help Modal */
+    .shortcuts-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.75rem;
+      z-index: 150;
+      display: none;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+      width: 90%;
+      max-width: 460px;
+    }
+
+    .shortcuts-modal.open { display: block; }
+
+    .shortcuts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin: 1rem 0;
+    }
+
+    .shortcut-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(30, 41, 59, 0.6);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    kbd {
+      background: #020617;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="top-nav">
+    <a href="#" class="brand" onclick="goToSlide(0); return false;">
+      <img src="../flow-mascot.jpg" alt="Flow Pirate Mascot" class="brand-icon" onerror="this.onerror=null; this.src='flow-mascot.jpg';">
+      <span>Flow Builder UI</span>
+      <span class="tag">Interactive Walkthrough</span>
+    </a>
+
+    <div class="nav-center">
+      <div class="slide-progress-container">
+        <div class="slide-progress-bar" id="progressBar"></div>
+      </div>
+      <div class="slide-counter" id="slideCounter">Slide 1 / 14</div>
+    </div>
+
+    <div class="nav-actions">
+      <button class="btn" onclick="toggleOverview()" title="View all slides (O or G)">
+        <span>🗂️</span> Overview
+      </button>
+      <button class="btn" onclick="toggleHelp()" title="Keyboard Shortcuts (?)">
+        <span>⌨️</span> Keys
+      </button>
+      <button class="btn" onclick="toggleFullscreen()" title="Toggle Fullscreen (F)">
+        <span>⛶</span> Fullscreen
+      </button>
+    </div>
+  </header>
+
+  <!-- Viewport for Presentation Slides -->
+  <main class="slides-viewport" id="viewport">
+    
+    <!-- Prev / Next Floating Arrows -->
+    <div class="nav-arrow prev-btn" onclick="prevSlide()" title="Previous slide (Left Arrow)">❮</div>
+    <div class="nav-arrow next-btn" onclick="nextSlide()" title="Next slide (Right Arrow / Space)">❯</div>
+
+    <!-- ================= SLIDE 1: Hero / Introduction ================= -->
+    <section class="slide active" data-index="0">
+      <div class="slide-hero">
+        <div class="hero-mascot-box">
+          <img src="../flow-mascot.jpg" alt="Flow Pirate Mascot" class="hero-mascot-img" onerror="this.onerror=null; this.src='flow-mascot.jpg';">
+        </div>
+        <div class="hero-text-box">
+          <div class="slide-badge">⚡ Embedded Visual Orchestration</div>
+          <h1 class="hero-title">Flow Builder UI</h1>
+          <p class="hero-desc">
+            Explore the embedded HTMX visual designer and runtime engine of <strong>Flow</strong>. Designed to slash ETL complexity with zero dependencies, native database abstractions, live XML synchronization, and complete step-level telemetry.
+          </p>
+          <div class="hero-badges">
+            <span class="hero-badge-pill">🏴‍☠️ Pirate Gopher Engine</span>
+            <span class="hero-badge-pill">🚀 Single Go Binary</span>
+            <span class="hero-badge-pill">⚡ HTMX + SQLite Backed</span>
+            <span class="hero-badge-pill">📄 Bidirectional XML Sync</span>
+            <span class="hero-badge-pill">🛡️ Preflight Quality Gates</span>
+          </div>
+          <div>
+            <button class="btn primary" style="padding: 10px 20px; font-size: 1rem;" onclick="nextSlide()">
+              Start Tour ➔
+            </button>
+            <span style="margin-left: 1rem; color: var(--text-dim); font-size: 0.85rem;">Press <kbd>Space</kbd> or <kbd>→</kbd></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SLIDE 2: Architectural Overview ================= -->
+    <section class="slide" data-index="1">
+      <div class="slide-header">
+        <div class="slide-badge">Architecture & Philosophy</div>
+        <h2 class="slide-title">What is Flow Builder Doing?</h2>
+        <div class="slide-subtitle">A zero-dependency local web studio served directly from the Go binary</div>
+      </div>
+      <div class="slide-body-split">
+        <div class="info-card">
+          <div class="info-block">
+            <h4>💡 The Core Purpose</h4>
+            <p>
+              Flow combines the speed and simplicity of declarative XML pipelines with the ergonomics of a modern visual DAG editor. Running <code>flow -builder</code> starts an embedded lightweight web server backed by <code>flow_builder.db</code>.
+            </p>
+          </div>
+          <div class="info-block">
+            <h4>🏗️ 3-Tier Visual Architecture</h4>
+            <ul class="feature-list">
+              <li><strong>Left Component Palette:</strong> Drag-and-drop primitives categorized by lifecycle: Pipeline Setup, Control Flow, Database & SQL, Key-Value Stores, and Templates.</li>
+              <li><strong>Center Interactive Canvas:</strong> A 4-stage pipeline hierarchy (Variables, Databases, Preflight Checks, Pipeline Flow) with instant reordering and editing.</li>
+              <li><strong>Right Live XML Preview:</strong> True bidirectional synchronization: visual modifications immediately regenerate valid, Git-friendly XML.</li>
+            </ul>
+          </div>
+          <div class="info-block">
+            <h4>🚀 Zero Runtimes, Zero Bloat</h4>
+            <p>
+              Unlike Airflow (requiring Python environments, Celery, Redis) or SSIS (heavy server runtimes), Flow runs anywhere as a standalone binary with zero external dependencies.
+            </p>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-block">
+            <h4>🖥️ Launching the Studio</h4>
+            <pre class="code-box"># Start builder on default ephemeral port:
+flow -builder
+
+# Or specify a custom port:
+flow -builder -builder-port 8080</pre>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-pill">
+              <div class="stat-val">0</div>
+              <div class="stat-label">External Deps</div>
+            </div>
+            <div class="stat-pill">
+              <div class="stat-val">6+</div>
+              <div class="stat-label">DB Dialects</div>
+            </div>
+            <div class="stat-pill">
+              <div class="stat-val">&lt; 10ms</div>
+              <div class="stat-label">Startup Time</div>
+            </div>
+          </div>
+          <div class="info-block">
+            <h4>🧭 What We Will Cover in this Deck</h4>
+            <ul class="feature-list">
+              <li>Unified Workspace & Multi-Theme Switching (Slate, VS Light, VS Dark)</li>
+              <li>Component Search & Deep Nested Branching (<code>&lt;if&gt;</code>, <code>&lt;then&gt;</code>, <code>&lt;else&gt;</code>)</li>
+              <li>Database Connection Pooling & Secret Interpolation (<code>{{log_db_cs}}</code>)</li>
+              <li>Multi-Pipeline Catalog & SQLite Draft Management</li>
+              <li>Interactive Execution Dashboard & Step Telemetry</li>
+              <li>Preflight Quality Gates & Assertion Testing</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SLIDE 3: Default Slate Theme ================= -->
+    <section class="slide" data-index="2">
+      <div class="slide-header">
+        <div class="slide-badge">Designer Workspace</div>
+        <h2 class="slide-title">Unified 3-Panel Studio (Slate Theme)</h2>
+        <div class="slide-subtitle">High-level view of the component toolbox, pipeline stages, and live XML sync</div>
+      </div>
+      <div class="slide-body-split">
+        <div class="media-card">
+          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+            <img src="screenshots/Builder_Default_Theme.png" alt="Builder Default Theme" onerror="this.onerror=null; this.src='docs/screenshots/Builder_Default_Theme.png';">
+            <div class="media-overlay-hint">🔍 Click to zoom</div>
+          </div>
+          <div class="media-caption">
+            <span>Visual Pipeline Designer · Slate (Default) Theme</span>
+            <span><code>Builder_Default_Theme.png</code></span>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-block">
+            <h4>🎯 What It's Doing</h4>
+            <p>
+              Provides an all-in-one authoring environment where data engineers can see the full execution graph, edit individual parameters, and audit the output XML side-by-side.
+            </p>
+          </div>
+          <div class="info-block">
+            <h4>✨ Key Features Highlighted</h4>
+            <ul class="feature-list">
+              <li><strong>Left Component Palette:</strong> Quick access to <code>&lt;variable&gt;</code>, <code>&lt;database&gt;</code>, <code>&lt;preflight&gt;</code>, <code>&lt;script&gt;</code>, <code>&lt;group&gt;</code>, <code>&lt;if&gt;</code>, <code>&lt;foreach&gt;</code>, <code>&lt;while&gt;</code>, <code>&lt;parallel&gt;</code>, <code>&lt;sql&gt;</code>, and <code>&lt;kv&gt;</code>.</li>
+              <li><strong>Ordered Execution Stages:</strong> Center canvas clearly isolates configuration variables, database connection pools, preflight diagnostic checks, and production flow steps.</li>
+              <li><strong>Card Reordering:</strong> Drag handles and up/down arrows (▲/▼) allow rapid resequencing of pipeline steps.</li>
+              <li><strong>Live XML Engine:</strong> The right pane renders real-time syntax-checked XML code, ready to copy or download at any moment.</li>
+            </ul>
+          </div>
+          <div class="info-block">
+            <h4>🛠️ Top Utility Bar</h4>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">
+              Quick-action buttons for <strong>+ New</strong>, <strong>Copy</strong>, <strong>Import</strong>, <strong>Manage</strong>, <strong>Delete</strong>, tab switching, and <strong>Save to File</strong>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SLIDE 4: VS Light Theme ================= -->
+    <section class="slide" data-index="3">
+      <div class="slide-header">
+        <div class="slide-badge">Theme Engine</div>
+        <h2 class="slide-title">Visual Studio Light Theme</h2>
+        <div class="slide-subtitle">Crisp daytime ergonomics with high-contrast borders and readable typography</div>
+      </div>
+      <div class="slide-body-split">
+        <div class="media-card">
+          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+            <img src="screenshots/Builder_VS_Light_Theme.png" alt="Builder VS Light Theme" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Light_Theme.png';">
+            <div class="media-overlay-hint">🔍 Click to zoom</div>
+          </div>
+          <div class="media-caption">
+            <span>Dynamic Re-theming · Visual Studio Light</span>
+            <span><code>Builder_VS_Light_Theme.png</code></span>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-block">
+            <h4>🎯 What It's Doing</h4>
+            <p>
+              Demonstrates Flow Builder's multi-theme engine. Users working in brightly lit environments or conducting team presentations can switch instantly to a high-contrast light theme.
+            </p>
+          </div>
+          <div class="info-block">
+            <h4>✨ Key Features Highlighted</h4>
+            <ul class="feature-list">
+              <li><strong>Instant Switch Without Reload:</strong> Powered by HTMX and CSS custom properties; no state loss or page refresh needed.</li>
+              <li><strong>Enhanced Readability:</strong> High-contrast borders delineate nested conditional cards and execution sections clearly.</li>
+              <li><strong>Lightweight Syntax Highlighting:</strong> The Live XML preview updates its syntax theme dynamically to match the active workspace.</li>
+              <li><strong>Accessibility:</strong> Adheres to standard accessibility contrast ratios for text and UI controls.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SLIDE 5: VS Dark Theme ================= -->
+    <section class="slide" data-index="4">
+      <div class="slide-header">
+        <div class="slide-badge">Theme Engine</div>
+        <h2 class="slide-title">Visual Studio Dark Theme</h2>
+        <div class="slide-subtitle">Low-glare developer aesthetic inspired by modern code editors</div>
+      </div>
+      <div class="slide-body-split">
+        <div class="media-card">
+          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+            <img src="screenshots/Builder_VS_Dark_Theme.png" alt="Builder VS Dark Theme" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Theme.png';">
+            <div class="media-overlay-hint">🔍 Click to zoom</div>
+          </div>
+          <div class="media-caption">
+            <span>Developer Dark Mode · Visual Studio Dark</span>
+            <span><code>Builder_VS_Dark_Theme.png</code></span>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-block">
+            <h4>🎯 What It's Doing</h4>
+            <p>
+              Provides a dark, low-glare visual theme matching Visual Studio Code and modern IDEs. Designed for extended pipeline authoring and monitoring sessions.
+            </p>
+          </div>
+          <div class="info-block">
+            <h4>✨ Key Features Highlighted</h4>
+            <ul class="feature-list">
+              <li><strong>Dark Charcoal Surfaces:</strong> Reduces eye fatigue during long ETL development sessions.</li>
+              <li><strong>Vibrant Status Accents:</strong> Neon blue, cyan, and emerald badges clearly distinguish node categories (Control Flow vs. Databases vs. Setup).</li>
+              <li><strong>Code View Contrast:</strong> Rich syntax highlighting in the live XML viewer makes reading tags and attributes effortless.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SLIDE 6: Component Search & Editing ================= -->
+    <section class="slide" data-index="5">
+      <div class="slide-header">
+        <div class="slide-badge">Palette Search & Logic</div>
+        <h2 class="slide-title">Component Search & Conditional Branching</h2>
+        <div class="slide-subtitle">Real-time palette filtering and visualization of branching execution logic</div>
+      </div>
+      <div class="slide-body-split">
+        <div class="media-card">
+          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+            <img src="screenshots/Builder_VS_Dark_Loaded_Saved_if_testing_with_search.png" alt="Loaded Pipeline with Component Search" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Loaded_Saved_if_testing_with_search.png';">
+            <div class="media-overlay-hint">🔍 Click to zoom</div>
+          </div>
+          <div class="media-caption">
+            <span>Active Pipeline: if_testing · Palette Search "sql"</span>
+            <span><code>Builder_VS_Dark_Loaded_Saved_if_testing_with_search.png</code></span>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-block">
+            <h4>🎯 What It's Doing</h4>
+            <p>
+              The user has loaded the active pipeline <code>if_testing</code> from the database and typed <code>"sql"</code> in the search bar. The component toolbox instantly filters to only SQL-related nodes.
+            </p>
+          </div>
+          <div class="info-block">
+            <h4>✨ Key Features Highlighted</h4>
+            <ul class="feature-list">
+              <li><strong>Real-Time Search:</strong> Typing in the search input instantly narrows the component catalog down to matching cards.</li>
+              <li><strong>Visual Conditional Logic (<code>&lt;if&gt;</code>):</strong>
+                Shows card <code>PRE_IF_TABLE_COUNT_GT_0</code> with condition <code>var: PRE_TABLE_AVAIL == '1'</code>.
+              </li>
+              <li><strong>Green & Red Sub-Pipelines:</strong>
+                Split view displaying the green <strong>✓ THEN</strong> branch (holding <code>PRE_SUCCESS_STEP</code>) and red <strong>✕ ELSE</strong> branch (holding <code>PRE_FAIL_STEP</code>).
+              </li>
+              <li><strong>Preflight Diagnostics:</strong> Illustrates complex pre-execution checks checking table availability before downstream tasks proceed.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SLIDE 7: Nested Step Insertion ================= -->
+    <section class="slide" data-index="6">
+      <div class="slide-header">
+        <div class="slide-badge">Control Flow Composition</div>
+        <h2 class="slide-title">Nested Step Insertion Modal</h2>
+        <div class="slide-subtitle">Inserting tasks, queries, scripts, and containers directly into conditional blocks</div>
+      </div>
+      <div class="slide-body-split">
+        <div class="media-card">
+          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+            <img src="screenshots/Builder_VS_Dark_Add_Step_To_IF_THEN.png" alt="Add Step to IF THEN Modal" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Add_Step_To_IF_THEN.png';">
+            <div class="media-overlay-hint">🔍 Click to zoom</div>
+          </div>
+          <div class="media-caption">
+            <span>Modal: Add Step to &lt;then&gt; container</span>
+            <span><code>Builder_VS_Dark_Add_Step_To_IF_THEN.png</code></span>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-block">
+            <h4>🎯 What It's Doing</h4>
+            <p>
+              When a user clicks <strong>+ Add Step</strong> inside an <code>&lt;if&gt;</code> condition's <code>&lt;then&gt;</code> container, this modal opens to select exactly which task or sub-container to nest inside.
+            </p>
+          </div>
+          <div class="info-block">
+            <h4>✨ Key Features Highlighted</h4>
+            <ul class="feature-list">
+              <li><strong>Deeply Nested Containers:</strong> Supports inserting any primitive into nested blocks:
+                <ul>
+                  <li><code>&lt;script&gt;</code>: Dynamic Go, PowerShell, Bash, Cmd, or C# (.NET CSX) code.</li>
+                  <li><code>&lt;group&gt;</code>: Scoped retries, transaction boundaries, and error policies.</li>
+                  <li><code>&lt;foreach&gt;</code> / <code>&lt;while&gt;</code>: Iterative streaming data loops.</li>
+                  <li><code>&lt;parallel&gt;</code>: Multi-threaded parallel execution across goroutines.</li>
+                  <li><code>&lt;sql&gt;</code> / <code>&lt;sql_bulk&gt;</code>: Direct queries and high-speed streaming bulk copies.</li>
+                  <li><code>&lt;kv&gt;</code> / <code>&lt;kv_bulk&gt;</code>: Key-value caching in BBolt, Badger, or Redis.</li>
+                  <li><code>&lt;template&gt;</code>: Go text/HTML templates with contextual escaping.</li>
+                </ul>
+              </li>
+              <li><strong>Filter Input:</strong> Quickly locate step types with instant keyword matching.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SLIDE 8: Database Connection Pooling ================= -->
+    <section class="slide" data-index="7">
+      <div class="slide-header">
+        <div class="slide-badge">Database Management</div>
+        <h2 class="slide-title">Database Connection Configuration</h2>
+        <div class="slide-subtitle">Multi-engine driver abstraction, dynamic secrets, and connection pool tuning</div>
+      </div>
+      <div class="slide-body-split">
+        <div class="media-card">
+          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+            <img src="screenshots/Builder_VS_Dark_Edit_Database_Connection.png" alt="Edit Database Connection Modal" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Edit_Database_Connection.png';">
+            <div class="media-overlay-hint">🔍 Click to zoom</div>
+          </div>
+          <div class="media-caption">
+            <span>Modal: Edit &lt;database&gt; Connection Pool</span>
+            <span><code>Builder_VS_Dark_Edit_Database_Connection.png</code></span>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-block">
+            <h4>🎯 What It's Doing</h4>
+            <p>
+              Configuring the <code>log_db</code> database connection pool. Flow abstracts cross-dialect SQL queries, dynamic parameters, and secret interpolation seamlessly.
+            </p>
+          </div>
+          <div class="info-block">
+            <h4>✨ Key Features Highlighted</h4>
+            <ul class="feature-list">
+              <li><strong>Multi-Engine Support:</strong> Connects to Microsoft SQL Server, PostgreSQL, MySQL, SQLite, Oracle, and Key-Value stores.</li>
+              <li><strong>Dynamic Secret Interpolation:</strong>
+                The DSN uses <code>{{log_db_cs}}</code>, allowing secrets to be resolved up to 3 levels deep from environment overrides or CLI flags—preventing hardcoded credentials in source control.
+              </li>
+              <li><strong>Workload Profiles:</strong> Pre-set tuning profiles for <code>oltp</code>, <code>bulk</code>, <code>analytics</code>, and <code>batch</code>.</li>
+              <li><strong>Enterprise Pool Controls:</strong> Max Open Conns (<code>25</code>), Max Idle Conns (<code>10</code>), and Max Lifetime (<code>300s</code>).</li>
+              <li><strong>Custom Attributes:</strong> Add key-value attributes such as descriptions, timeouts, or custom driver parameters.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SLIDE 9: Pipeline Catalog & Storage ================= -->
+    <section class="slide" data-index="8">
+      <div class="slide-header">
+        <div class="slide-badge">Pipeline Catalog</div>
+        <h2 class="slide-title">Manage Loaded Pipelines</h2>
+        <div class="slide-subtitle">Centralized draft catalog stored in embedded SQLite (flow_builder.db)</div>
+      </div>
+      <div class="slide-body-split">
+        <div class="media-card">
+          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+            <img src="screenshots/Builder_VS_Dark_Manage_Import_New_Scripts.png" alt="Manage Loaded Pipelines Modal" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Manage_Import_New_Scripts.png';">
+            <div class="media-overlay-hint">🔍 Click to zoom</div>
+          </div>
+          <div class="media-caption">
+            <span>Modal: Pipeline Catalog & Switching</span>
+            <span><code>Builder_VS_Dark_Manage_Import_New_Scripts.png</code></span>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-block">
+            <h4>🎯 What It's Doing</h4>
+            <p>
+              Opening the <strong>Manage</strong> dialog to view, switch between, import, and delete pipeline definitions persisted in the builder's local SQLite database.
+            </p>
+          </div>
+          <div class="info-block">
+            <h4>✨ Key Features Highlighted</h4>
+            <ul class="feature-list">
+              <li><strong>Multi-Pipeline Workspace:</strong> Switch between multiple pipeline drafts with a single click of <strong>Switch To</strong>.
+                <ul>
+                  <li><code>default_pipeline</code>: Starter pipeline draft.</li>
+                  <li><code>github_billing</code>: Production pipeline to fetch GitHub billing data and load into SQL Server.</li>
+                  <li><code>if_testing</code>: Active pipeline imported from <code>if_testing.xml</code>.</li>
+                </ul>
+              </li>
+              <li><strong>One-Click Import:</strong> Ingest existing pipeline XML files from the filesystem into the visual studio.</li>
+              <li><strong>New Pipeline Creation:</strong> Spin up a clean draft workspace with <strong>+ New</strong>.</li>
+              <li><strong>Safe Deletion:</strong> Clean up deprecated drafts without touching underlying source files.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SLIDE 10: CLI Options File Picker ================= -->
+    <section class="slide" data-index="9">
+      <div class="slide-header">
+        <div class="slide-badge">Runtime Configuration</div>
+        <h2 class="slide-title">CLI Options File Navigator</h2>
+        <div class="slide-subtitle">Pre-baked CLI profiles for seamless execution without repetitive terminal flags</div>
+      </div>
+      <div class="slide-body-split">
+        <div class="media-card">
+          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+            <img src="screenshots/Builder_VS_Dark_Select_Options_File_Runner.png" alt="Select CLI Options File Modal" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Select_Options_File_Runner.png';">
+            <div class="media-overlay-hint">🔍 Click to zoom</div>
+          </div>
+          <div class="media-caption">
+            <span>Modal: Filesystem Navigator for CLI Options XML</span>
+            <span><code>Builder_VS_Dark_Select_Options_File_Runner.png</code></span>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-block">
+            <h4>🎯 What It's Doing</h4>
+            <p>
+              Navigating directory structures (such as <code>.private/</code>) via the embedded file browser to select an <code>-options</code> XML configuration file for test execution.
+            </p>
+          </div>
+          <div class="info-block">
+            <h4>✨ Key Features Highlighted</h4>
+            <ul class="feature-list">
+              <li><strong>Pre-Baked Option Profiles:</strong> Options XML files encapsulate CLI flags, connection overrides, and runtime variables for specific environments.</li>
+              <li><strong>Available Profiles Shown:</strong>
+                <ul>
+                  <li><code>options_github_ai_credit_usage.xml</code></li>
+                  <li><code>options_gcloud_billing.xml</code></li>
+                  <li><code>github_billing.xml</code>, <code>if_testing.xml</code></li>
+                </ul>
+              </li>
+              <li><strong>Eliminates Manual CLI Typing:</strong> Select profiles visually in the web UI to test production-like runtime arguments immediately.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SLIDE 11: Live Execution & Telemetry ================= -->
+    <section class="slide" data-index="10">
+      <div class="slide-header">
+        <div class="slide-badge">Execution & Observability</div>
+        <h2 class="slide-title">Live Execution & Real-Time Telemetry</h2>
+        <div class="slide-subtitle">Step-by-step audit grid and live stream logs with row count tracking</div>
+      </div>
+      <div class="slide-body-split">
+        <div class="media-card">
+          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+            <img src="screenshots/Builder_VS_Dark_Execute_Options_File_Runner.png" alt="Execute Pipeline Runner with Stream Logs" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Execute_Options_File_Runner.png';">
+            <div class="media-overlay-hint">🔍 Click to zoom</div>
+          </div>
+          <div class="media-caption">
+            <span>Pipeline Runner · Full Execution & Live Stream</span>
+            <span><code>Builder_VS_Dark_Execute_Options_File_Runner.png</code></span>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-block">
+            <h4>🎯 What It's Doing</h4>
+            <p>
+              Executing <code>options_github_ai_credit_usage.xml</code> against the live database directly from the browser. The runner streams real-time telemetry back into the dashboard.
+            </p>
+          </div>
+          <div class="info-block">
+            <h4>✨ Execution Results</h4>
+            <div class="stats-grid">
+              <div class="stat-pill">
+                <div class="stat-val">536ms</div>
+                <div class="stat-label">Total Time</div>
+              </div>
+              <div class="stat-pill">
+                <div class="stat-val">3 / 3</div>
+                <div class="stat-label">Tasks Passed</div>
+              </div>
+              <div class="stat-pill">
+                <div class="stat-val">9</div>
+                <div class="stat-label">Rows Loaded</div>
+              </div>
+            </div>
+          </div>
+          <div class="info-block">
+            <h4>✨ Per-Step Status Grid</h4>
+            <ul class="feature-list">
+              <li><strong><code>CREATE_GITHUB_COPILOT_BILLING_TABLE</code>:</strong> SQL node, SUCCEEDED in 43ms.</li>
+              <li><strong><code>GET_GITHUB_BILLING</code>:</strong> SCRIPT node, SUCCEEDED in 374ms.</li>
+              <li><strong><code>LOAD_GITHUB_COPILOT_BILLING_TO_SQL</code>:</strong> SQL node, SUCCEEDED in 33ms (<strong>Affected: 9 rows</strong>).</li>
+            </ul>
+          </div>
+          <div class="info-block">
+            <h4>📜 Stream Telemetry Logs</h4>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">
+              Streams structured events with UTC timestamps, run IDs, node kinds, statuses, and precise row counts (<code>rows_read</code>, <code>rows_written</code>, <code>rows_affected</code>).
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SLIDE 12: Preflight Validation Runner ================= -->
+    <section class="slide" data-index="11">
+      <div class="slide-header">
+        <div class="slide-badge">Quality Gates</div>
+        <h2 class="slide-title">Preflight Mode: Non-Destructive Quality Gates</h2>
+        <div class="slide-subtitle">Failing fast before touching production data or triggering long-running ETL loads</div>
+      </div>
+      <div class="slide-body-split">
+        <div class="media-card">
+          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+            <img src="screenshots/Builder_VS_Dark_PreFlight_Runner.png" alt="PreFlight Runner" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_PreFlight_Runner.png';">
+            <div class="media-overlay-hint">🔍 Click to zoom</div>
+          </div>
+          <div class="media-caption">
+            <span>Preflight Only Runner · Draft Validation</span>
+            <span><code>Builder_VS_Dark_PreFlight_Runner.png</code></span>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-block">
+            <h4>🎯 What It's Doing</h4>
+            <p>
+              Running the pipeline in <strong>Preflight Only (<code>-preflight</code>)</strong> mode. The engine tests pre-execution diagnostic tasks while completely skipping downstream <code>&lt;flow&gt;</code> tasks.
+            </p>
+          </div>
+          <div class="info-block">
+            <h4>🛡️ Non-Destructive Safety Guarantee</h4>
+            <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.45;">
+              Preflight checks verify database reachability, permissions, schema readiness, and input variables. It will never insert or truncate production tables.
+            </p>
+          </div>
+          <div class="info-block">
+            <h4>✨ Verified Preflight Steps (172ms total)</h4>
+            <ul class="feature-list">
+              <li><strong><code>pre_select_from_db_1</code>:</strong> SQL connectivity check (26ms, Read: 1).</li>
+              <li><strong><code>PRE_TABLE_RUN_CHECK</code>:</strong> Table existence check (3ms, Read: 1).</li>
+              <li><strong><code>PRE_RETURN_CHECK_STEP</code>:</strong> Template verification (5ms).</li>
+              <li><strong><code>f9e9740...</code>:</strong> Evaluated condition branch (28ms).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SLIDE 13: Options-Driven Preflight & Assertions ================= -->
+    <section class="slide" data-index="12">
+      <div class="slide-header">
+        <div class="slide-badge">Assertion Testing</div>
+        <h2 class="slide-title">Options-Driven Preflight & Assertions</h2>
+        <div class="slide-subtitle">Automated structural assertions via CLI profiles for production readiness</div>
+      </div>
+      <div class="slide-body-split">
+        <div class="media-card">
+          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+            <img src="screenshots/Builder_VS_Dark_PreFlight_From_Options_File_Runner.png" alt="PreFlight From Options File Runner" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_PreFlight_From_Options_File_Runner.png';">
+            <div class="media-overlay-hint">🔍 Click to zoom</div>
+          </div>
+          <div class="media-caption">
+            <span>Preflight via Options File · Assertion Checks</span>
+            <span><code>Builder_VS_Dark_PreFlight_From_Options_File_Runner.png</code></span>
+          </div>
+        </div>
+        <div class="info-card">
+          <div class="info-block">
+            <h4>🎯 What It's Doing</h4>
+            <p>
+              Executing preflight quality checks defined in a CLI options file (<code>options_github_ai_credit_usage.xml -preflight -format stream</code>).
+            </p>
+          </div>
+          <div class="info-block">
+            <h4>✨ Automated &lt;assert&gt; Quality Gates</h4>
+            <ul class="feature-list">
+              <li><strong><code>preflight_check</code> & <code>preflight_check_2</code>:</strong> SQL diagnostic queries verifying target table presence in 30ms and 12ms.</li>
+              <li><strong><code>database_check</code>:</strong> <strong>ASSERT</strong> node verifying connection integrity (11ms, Succeeded).</li>
+              <li><strong><code>user_check</code>:</strong> <strong>ASSERT</strong> node verifying security/permissions (12ms, Succeeded).</li>
+            </ul>
+          </div>
+          <div class="info-block">
+            <h4>🚀 Ready for Automated Deployment</h4>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">
+              Once preflight assertions pass with zero warnings, CI/CD runners can safely execute the production batch job without fear of mid-pipeline crashes.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SLIDE 14: Summary & Command Cheatsheet ================= -->
+    <section class="slide" data-index="13">
+      <div class="slide-header">
+        <div class="slide-badge">Summary & Reference</div>
+        <h2 class="slide-title">Flow Engine & Builder Quick Reference</h2>
+        <div class="slide-subtitle">Ready to conquer your data pipelines with Go-powered speed</div>
+      </div>
+      <div class="slide-body-split">
+        <div class="info-card">
+          <div class="info-block">
+            <h4>🏆 Summary of What Flow Builder Delivers</h4>
+            <ul class="feature-list">
+              <li><strong>Zero Dependencies:</strong> Single Go binary with embedded HTMX UI and SQLite storage.</li>
+              <li><strong>Declarative XML Pipelines:</strong> Clean version-controllable schemas compatible with CI/CD.</li>
+              <li><strong>Native Dialect Translation:</strong> SQL Server, Postgres, MySQL, Oracle, SQLite, and KV stores.</li>
+              <li><strong>Interactive Testing:</strong> Isolated preflight validation runs and live console telemetry.</li>
+              <li><strong>Enterprise Observability:</strong> Automatic audit logging to <code>pipeline_runs</code> and <code>pipeline_events</code>.</li>
+            </ul>
+          </div>
+          <div class="info-block">
+            <h4>⌨️ Essential CLI Commands</h4>
+            <pre class="code-box"># 1. Launch Visual Web Studio
+flow -builder -builder-port 8080
+
+# 2. Run Preflight validation checks only
+flow -file pipeline.xml -preflight
+
+# 3. Execute with pre-baked options profile
+flow -file pipeline.xml -options options.xml
+
+# 4. Run with runtime variable overrides
+flow -file pipeline.xml -vars "TargetTable=prod_orders"</pre>
+          </div>
+        </div>
+        <div class="info-card" style="align-items: center; justify-content: center; text-align: center;">
+          <img src="../flow-mascot.jpg" alt="Flow Pirate Mascot" style="width: 220px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin-bottom: 1rem;" onerror="this.onerror=null; this.src='flow-mascot.jpg';">
+          <h3 style="color: #fff; font-size: 1.3rem; margin-bottom: 0.5rem;">Ready to Slash ETL Madness?</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 380px; margin-bottom: 1.25rem;">
+            Run <code>flow -builder</code> in your terminal and begin orchestrating enterprise data flows visually!
+          </p>
+          <div style="display: flex; gap: 0.75rem;">
+            <button class="btn primary" onclick="goToSlide(0)">↺ Restart Presentation</button>
+            <button class="btn" onclick="toggleOverview()">🗂️ View All Slides</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Overview Modal Grid -->
+  <div class="overview-modal" id="overviewModal">
+    <div class="overview-header">
+      <h2 style="font-size: 1.4rem; color: #fff;">Presentation Overview</h2>
+      <button class="btn" onclick="toggleOverview()">✕ Close (Esc)</button>
+    </div>
+    <div class="overview-grid" id="overviewGrid">
+      <!-- Injected by JavaScript -->
+    </div>
+  </div>
+
+  <!-- Lightbox Modal -->
+  <div class="lightbox-modal" id="lightboxModal" onclick="closeLightbox()">
+    <span class="lightbox-close">&times;</span>
+    <img src="" alt="Zoomed Screenshot" class="lightbox-img" id="lightboxImg">
+  </div>
+
+  <!-- Keyboard Shortcuts Help Modal -->
+  <div class="shortcuts-modal" id="shortcutsModal">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+      <h3 style="color: #fff; font-size: 1.1rem;">Keyboard Shortcuts</h3>
+      <button class="btn" onclick="toggleHelp()" style="padding: 2px 8px;">✕</button>
+    </div>
+    <div class="shortcuts-grid">
+      <div class="shortcut-item">
+        <span>Next Slide</span>
+        <span><kbd>→</kbd> <kbd>Space</kbd> <kbd>PgDn</kbd></span>
+      </div>
+      <div class="shortcut-item">
+        <span>Previous Slide</span>
+        <span><kbd>←</kbd> <kbd>PgUp</kbd></span>
+      </div>
+      <div class="shortcut-item">
+        <span>First / Last Slide</span>
+        <span><kbd>Home</kbd> / <kbd>End</kbd></span>
+      </div>
+      <div class="shortcut-item">
+        <span>Toggle Overview</span>
+        <span><kbd>O</kbd> or <kbd>G</kbd></span>
+      </div>
+      <div class="shortcut-item">
+        <span>Toggle Fullscreen</span>
+        <span><kbd>F</kbd></span>
+      </div>
+      <div class="shortcut-item">
+        <span>Close Modal</span>
+        <span><kbd>Esc</kbd></span>
+      </div>
+    </div>
+    <p style="font-size: 0.75rem; color: var(--text-dim); text-align: center;">Click anywhere outside or press Esc to close</p>
+  </div>
+
+  <script>
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const totalSlides = slides.length;
+    let currentIndex = 0;
+
+    const progressBar = document.getElementById('progressBar');
+    const slideCounter = document.getElementById('slideCounter');
+    const overviewModal = document.getElementById('overviewModal');
+    const overviewGrid = document.getElementById('overviewGrid');
+    const lightboxModal = document.getElementById('lightboxModal');
+    const lightboxImg = document.getElementById('lightboxImg');
+    const shortcutsModal = document.getElementById('shortcutsModal');
+
+    function updatePresentation(index) {
+      if (index < 0) index = 0;
+      if (index >= totalSlides) index = totalSlides - 1;
+
+      slides.forEach((slide, i) => {
+        slide.classList.remove('active', 'prev');
+        if (i === index) {
+          slide.classList.add('active');
+        } else if (i < index) {
+          slide.classList.add('prev');
+        }
+      });
+
+      currentIndex = index;
+
+      // Update progress bar
+      const progressPercent = ((currentIndex + 1) / totalSlides) * 100;
+      progressBar.style.width = `${progressPercent}%`;
+
+      // Update slide counter
+      slideCounter.textContent = `Slide ${currentIndex + 1} / ${totalSlides}`;
+
+      // Update overview active card
+      document.querySelectorAll('.overview-card').forEach((card, i) => {
+        if (i === currentIndex) {
+          card.classList.add('active');
+        } else {
+          card.classList.remove('active');
+        }
+      });
+    }
+
+    function nextSlide() {
+      if (currentIndex < totalSlides - 1) {
+        updatePresentation(currentIndex + 1);
+      }
+    }
+
+    function prevSlide() {
+      if (currentIndex > 0) {
+        updatePresentation(currentIndex - 1);
+      }
+    }
+
+    function goToSlide(index) {
+      updatePresentation(index);
+      if (overviewModal.classList.contains('open')) {
+        toggleOverview();
+      }
+    }
+
+    // Fullscreen Toggle
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    // Overview Grid Generation
+    function buildOverview() {
+      overviewGrid.innerHTML = '';
+      slides.forEach((slide, i) => {
+        const titleEl = slide.querySelector('.slide-title') || slide.querySelector('.hero-title');
+        const title = titleEl ? titleEl.textContent : `Slide ${i + 1}`;
+        const imgEl = slide.querySelector('img');
+        const imgSrc = imgEl ? imgEl.src : '../flow-mascot.jpg';
+
+        const card = document.createElement('div');
+        card.className = `overview-card ${i === currentIndex ? 'active' : ''}`;
+        card.onclick = () => goToSlide(i);
+        card.innerHTML = `
+          <img src="${imgSrc}" alt="${title}" class="overview-card-img" onerror="this.onerror=null; this.src='../flow-mascot.jpg';">
+          <div class="overview-card-title">
+            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;">${title}</span>
+            <span class="overview-card-num">#${i + 1}</span>
+          </div>
+        `;
+        overviewGrid.appendChild(card);
+      });
+    }
+
+    function toggleOverview() {
+      if (overviewModal.classList.contains('open')) {
+        overviewModal.classList.remove('open');
+      } else {
+        buildOverview();
+        overviewModal.classList.add('open');
+      }
+    }
+
+    // Lightbox modal
+    function openLightbox(wrapperEl) {
+      const img = wrapperEl.querySelector('img');
+      if (img) {
+        lightboxImg.src = img.src;
+        lightboxModal.classList.add('open');
+      }
+    }
+
+    function closeLightbox() {
+      lightboxModal.classList.remove('open');
+    }
+
+    // Help modal
+    function toggleHelp() {
+      shortcutsModal.classList.toggle('open');
+    }
+
+    // Keyboard navigation
+    window.addEventListener('keydown', (e) => {
+      // Don't intercept if inside input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      if (e.key === 'Escape') {
+        if (lightboxModal.classList.contains('open')) closeLightbox();
+        else if (overviewModal.classList.contains('open')) toggleOverview();
+        else if (shortcutsModal.classList.contains('open')) toggleHelp();
+        return;
+      }
+
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        goToSlide(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        goToSlide(totalSlides - 1);
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === 'o' || e.key === 'O' || e.key === 'g' || e.key === 'G') {
+        e.preventDefault();
+        toggleOverview();
+      } else if (e.key === '?' || e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        toggleHelp();
+      }
+    });
+
+    // Touch Swipe Support
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    window.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, false);
+
+    window.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, false);
+
+    function handleSwipe() {
+      const threshold = 50;
+      if (touchEndX < touchStartX - threshold) {
+        nextSlide();
+      } else if (touchEndX > touchStartX + threshold) {
+        prevSlide();
+      }
+    }
+
+    // Initialize
+    updatePresentation(0);
+  </script>
+</body>
+</html>

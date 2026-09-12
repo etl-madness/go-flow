@@ -1251,13 +1251,13 @@ func TestNestedContainersAndConditionalsStorage(t *testing.T) {
 func TestRecursiveXMLGeneration(t *testing.T) {
 	// Construct an in-memory tree
 	sql1 := PipelineNode{
-		NodeType:   "sql",
-		Attributes: map[string]string{"id": "StepParallel1"},
+		NodeType:    "sql",
+		Attributes:  map[string]string{"id": "StepParallel1"},
 		ContentText: "SELECT 1;",
 	}
 	sql2 := PipelineNode{
-		NodeType:   "sql",
-		Attributes: map[string]string{"id": "StepParallel2"},
+		NodeType:    "sql",
+		Attributes:  map[string]string{"id": "StepParallel2"},
 		ContentText: "SELECT 2;",
 	}
 	parallel := PipelineNode{
@@ -1270,8 +1270,8 @@ func TestRecursiveXMLGeneration(t *testing.T) {
 		Children: []PipelineNode{parallel},
 	}
 	elseScript := PipelineNode{
-		NodeType:   "script",
-		Attributes: map[string]string{"id": "fallback_script", "language": "powershell"},
+		NodeType:    "script",
+		Attributes:  map[string]string{"id": "fallback_script", "language": "powershell"},
 		ContentText: "Write-Output 'fallback executed'",
 	}
 	elseBranch := PipelineNode{
@@ -1284,8 +1284,8 @@ func TestRecursiveXMLGeneration(t *testing.T) {
 		Children:   []PipelineNode{thenBranch, elseBranch},
 	}
 	whileSql := PipelineNode{
-		NodeType:   "sql",
-		Attributes: map[string]string{"id": "loop_step"},
+		NodeType:    "sql",
+		Attributes:  map[string]string{"id": "loop_step"},
 		ContentText: "SELECT loop_batch();",
 	}
 	whileNode := PipelineNode{
@@ -1294,13 +1294,13 @@ func TestRecursiveXMLGeneration(t *testing.T) {
 		Children:   []PipelineNode{whileSql},
 	}
 	foreachSql := PipelineNode{
-		NodeType:   "sql",
-		Attributes: map[string]string{"id": "fe_step"},
+		NodeType:    "sql",
+		Attributes:  map[string]string{"id": "fe_step"},
 		ContentText: "INSERT INTO sink VALUES ({{.row.id}});",
 	}
 	foreachNode := PipelineNode{
 		NodeType:    "foreach",
-		Attributes: map[string]string{"var": "row", "stream": "true"},
+		Attributes:  map[string]string{"var": "row", "stream": "true"},
 		ContentText: "SELECT id FROM source_stream;",
 		Children:    []PipelineNode{foreachSql},
 	}
@@ -1519,7 +1519,6 @@ func TestServerNestedNodeAPI(t *testing.T) {
 	if recSql.Code != http.StatusOK {
 		t.Fatalf("handleAddNode failed for child sql node: code %d: %s", recSql.Code, recSql.Body.String())
 	}
-
 
 	// Request canvas rendering via /api/canvas
 	reqCanvas := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/canvas?script_id=%d", sc.ID), nil)
@@ -2066,6 +2065,7 @@ func TestXMLPreviewAdjustablePanel(t *testing.T) {
 		`flow_builder_preview_width`,
 		`cursor-col-resize`,
 		`resizing-active`,
+		`/flow-mascot.jpg`,
 	}
 
 	for _, snippet := range requiredSnippets {
@@ -2106,4 +2106,3 @@ func TestXMLPreviewAdjustablePanel(t *testing.T) {
 		}
 	}
 }
-

@@ -161,7 +161,7 @@ const IndexHTML = `<!DOCTYPE html>
     <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between shadow-md">
         <div class="flex items-center space-x-4">
             <div class="flex items-center space-x-2">
-                <span class="text-2xl">🌊</span>
+                <img src="/flow-mascot.jpg" alt="FLOW mascot" class="h-8 w-8 rounded-md object-cover border border-slate-700 bg-slate-800 shadow-sm" />
                 <div>
                     <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">FLOW BUILDER</h1>
                     <p class="text-xs text-slate-400">Visual Pipeline Designer</p>

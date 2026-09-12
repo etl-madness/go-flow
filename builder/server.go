@@ -1228,6 +1228,7 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
+	mux.Handle("/flow-mascot.jpg", http.FileServer(http.Dir(".")))
 	mux.HandleFunc("/", s.requireAuth(s.handleIndex))
 	mux.HandleFunc("/api/canvas", s.requireAuth(s.handleCanvas))
 	mux.HandleFunc("/api/preview", s.requireAuth(s.handlePreview))
