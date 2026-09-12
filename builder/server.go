@@ -18,14 +18,45 @@ import (
 	"strings"
 	"time"
 
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/hex"
+	"net"
+	"sync"
+
 	"github.com/etl-madness/flow"
 )
 
 type Server struct {
-	storage  *Storage
-	catalog  *ComponentCatalog
-	template *template.Template
-	port     int
+	storage    *Storage
+	catalog    *ComponentCatalog
+	template   *template.Template
+	port       int
+	authToken  string
+	sessions   map[string]time.Time
+	sessionsMu sync.Mutex
+}
+
+const sessionCookieName = "flow_builder_session"
+
+func generateSecureToken(byteLen int) (string, error) {
+	b := make([]byte, byteLen)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+func (s *Server) GetAuthToken() string {
+	return s.authToken
+}
+
+func (s *Server) SetAuthToken(token string) {
+	s.authToken = token
+}
+
+func (s *Server) Port() int {
+	return s.port
 }
 
 func (s *Server) generateCSRFToken() string {
@@ -39,11 +70,18 @@ func NewServer(storage *Storage, port int) (*Server, error) {
 		return nil, fmt.Errorf("failed to build templates: %w", err)
 	}
 
+	token, err := generateSecureToken(32)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate secure auth token: %w", err)
+	}
+
 	s := &Server{
-		storage:  storage,
-		catalog:  GetCatalog(),
-		template: tmpl,
-		port:     port,
+		storage:   storage,
+		catalog:   GetCatalog(),
+		template:  tmpl,
+		port:      port,
+		authToken: token,
+		sessions:  make(map[string]time.Time),
 	}
 	return s, nil
 }
@@ -190,6 +228,124 @@ type NodeRequest struct {
 	Section      string            `json:"section"`
 	Attributes   map[string]string `json:"attributes"`
 	Content      string            `json:"content"`
+}
+
+func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// If authToken is explicitly empty, bypass authentication
+		if s.authToken == "" {
+			next(w, r)
+			return
+		}
+
+		// 1. Check query parameter ?token=...
+		reqToken := r.URL.Query().Get("token")
+		if reqToken != "" && subtle.ConstantTimeCompare([]byte(reqToken), []byte(s.authToken)) == 1 {
+			// Generate and store session cookie
+			sessionID, err := generateSecureToken(24)
+			if err == nil {
+				s.sessionsMu.Lock()
+				if len(s.sessions) > 100 {
+					now := time.Now()
+					for k, exp := range s.sessions {
+						if now.After(exp) {
+							delete(s.sessions, k)
+						}
+					}
+				}
+				s.sessions[sessionID] = time.Now().Add(24 * time.Hour)
+				s.sessionsMu.Unlock()
+
+				http.SetCookie(w, &http.Cookie{
+					Name:     sessionCookieName,
+					Value:    sessionID,
+					Path:     "/",
+					HttpOnly: true,
+					SameSite: http.SameSiteStrictMode,
+				})
+			}
+
+			// If visiting root with token, redirect to clean the URL
+			if r.URL.Path == "/" {
+				q := r.URL.Query()
+				q.Del("token")
+				target := "/"
+				if len(q) > 0 {
+					target += "?" + q.Encode()
+				}
+				http.Redirect(w, r, target, http.StatusSeeOther)
+				return
+			}
+
+			next(w, r)
+			return
+		}
+
+		// 2. Check Authorization header: Bearer <token>
+		authHeader := r.Header.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			bearerToken := strings.TrimPrefix(authHeader, "Bearer ")
+			if subtle.ConstantTimeCompare([]byte(bearerToken), []byte(s.authToken)) == 1 {
+				next(w, r)
+				return
+			}
+		}
+
+		// 3. Check Session Cookie
+		if cookie, err := r.Cookie(sessionCookieName); err == nil && cookie.Value != "" {
+			s.sessionsMu.Lock()
+			expiry, exists := s.sessions[cookie.Value]
+			s.sessionsMu.Unlock()
+
+			if exists {
+				if time.Now().Before(expiry) {
+					next(w, r)
+					return
+				}
+				s.sessionsMu.Lock()
+				delete(s.sessions, cookie.Value)
+				s.sessionsMu.Unlock()
+			}
+		}
+
+		// Deny access
+		w.Header().Set("WWW-Authenticate", `Bearer realm="FlowBuilder"`)
+		if strings.HasPrefix(r.URL.Path, "/api/") || strings.Contains(r.Header.Get("Accept"), "application/json") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error": "Unauthorized: valid session cookie or token required",
+			})
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintf(w, `<!DOCTYPE html>
+<html>
+<head><title>401 Unauthorized - Flow Builder</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+.card { background: #1e293b; padding: 2rem; border-radius: 0.75rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-width: 450px; width: 100%%; text-align: center; border: 1px solid #334155; }
+h1 { color: #ef4444; font-size: 1.5rem; margin-bottom: 0.5rem; }
+p { color: #94a3b8; font-size: 0.875rem; line-height: 1.5; margin-bottom: 1.5rem; }
+input[type=text] { width: 100%%; box-sizing: border-box; padding: 0.6rem 0.8rem; background: #0f172a; border: 1px solid #475569; border-radius: 0.375rem; color: #fff; margin-bottom: 1rem; font-family: monospace; font-size: 0.875rem; }
+button { background: #2563eb; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 0.375rem; font-weight: 600; cursor: pointer; width: 100%%; }
+button:hover { background: #1d4ed8; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Access Restricted</h1>
+  <p>Flow Builder is running in single-user mode. Only the user who launched this process may access the interface and filesystem APIs.</p>
+  <form method="GET" action="/">
+    <input type="text" name="token" placeholder="Enter session token..." required autofocus />
+    <button type="submit">Authenticate</button>
+  </form>
+</div>
+</body>
+</html>`)
+	}
 }
 
 func (s *Server) validateCSRF(r *http.Request) bool {
@@ -1062,40 +1218,60 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) Start() error {
+func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", s.handleIndex)
-	mux.HandleFunc("/api/canvas", s.handleCanvas)
-	mux.HandleFunc("/api/preview", s.handlePreview)
-	mux.HandleFunc("/api/nodes/add", s.handleAddNode)
-	mux.HandleFunc("/api/nodes/get", s.handleGetNode)
-	mux.HandleFunc("/api/nodes/update", s.handleUpdateNode)
-	mux.HandleFunc("/api/nodes/delete", s.handleDeleteNode)
-	mux.HandleFunc("/api/nodes/move", s.handleMoveNode)
-	mux.HandleFunc("/api/nodes/reorder", s.handleReorderNodes)
-	mux.HandleFunc("/api/scripts/new", s.handleNewScript)
-	mux.HandleFunc("/api/scripts/copy", s.handleCopyScript)
-	mux.HandleFunc("/api/scripts/delete", s.handleDeleteScript)
-	mux.HandleFunc("/api/scripts/import", s.handleImportScript)
-	mux.HandleFunc("/api/scripts/list", s.handleListScripts)
-	mux.HandleFunc("/api/db/purge", s.handlePurgeDatabase)
-	mux.HandleFunc("/api/save_file", s.handleSaveFile)
-	mux.HandleFunc("/api/config/save", s.handleSaveConfig)
-	mux.HandleFunc("/api/options/save", s.handleSaveOptions)
-	mux.HandleFunc("/api/execute/stream", s.handleExecuteStream)
-	mux.HandleFunc("/api/files/browse", s.handleBrowseFiles)
-	mux.HandleFunc("/api/files/quick", s.handleQuickFiles)
+	mux.HandleFunc("/", s.requireAuth(s.handleIndex))
+	mux.HandleFunc("/api/canvas", s.requireAuth(s.handleCanvas))
+	mux.HandleFunc("/api/preview", s.requireAuth(s.handlePreview))
+	mux.HandleFunc("/api/nodes/add", s.requireAuth(s.handleAddNode))
+	mux.HandleFunc("/api/nodes/get", s.requireAuth(s.handleGetNode))
+	mux.HandleFunc("/api/nodes/update", s.requireAuth(s.handleUpdateNode))
+	mux.HandleFunc("/api/nodes/delete", s.requireAuth(s.handleDeleteNode))
+	mux.HandleFunc("/api/nodes/move", s.requireAuth(s.handleMoveNode))
+	mux.HandleFunc("/api/nodes/reorder", s.requireAuth(s.handleReorderNodes))
+	mux.HandleFunc("/api/scripts/new", s.requireAuth(s.handleNewScript))
+	mux.HandleFunc("/api/scripts/copy", s.requireAuth(s.handleCopyScript))
+	mux.HandleFunc("/api/scripts/delete", s.requireAuth(s.handleDeleteScript))
+	mux.HandleFunc("/api/scripts/import", s.requireAuth(s.handleImportScript))
+	mux.HandleFunc("/api/scripts/list", s.requireAuth(s.handleListScripts))
+	mux.HandleFunc("/api/db/purge", s.requireAuth(s.handlePurgeDatabase))
+	mux.HandleFunc("/api/save_file", s.requireAuth(s.handleSaveFile))
+	mux.HandleFunc("/api/config/save", s.requireAuth(s.handleSaveConfig))
+	mux.HandleFunc("/api/options/save", s.requireAuth(s.handleSaveOptions))
+	mux.HandleFunc("/api/execute/stream", s.requireAuth(s.handleExecuteStream))
+	mux.HandleFunc("/api/files/browse", s.requireAuth(s.handleBrowseFiles))
+	mux.HandleFunc("/api/files/quick", s.requireAuth(s.handleQuickFiles))
 
-	addr := fmt.Sprintf(":%d", s.port)
-	log.Printf("Starting Flow Visual Builder at http://localhost:%d\n", s.port)
+	return mux
+}
 
-	srv := &http.Server{
-		Addr:    addr,
-		Handler: mux,
+func (s *Server) Start() error {
+	addr := fmt.Sprintf("127.0.0.1:%d", s.port)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("failed to bind builder server to %s: %w", addr, err)
+	}
+	defer listener.Close()
+
+	if tcpAddr, ok := listener.Addr().(*net.TCPAddr); ok {
+		s.port = tcpAddr.Port
 	}
 
-	return srv.ListenAndServe()
+	log.Printf("Starting Flow Visual Builder at http://127.0.0.1:%d/?token=%s\n", s.port, s.authToken)
+	return s.Serve(listener)
+}
+
+func (s *Server) Serve(listener net.Listener) error {
+	if tcpAddr, ok := listener.Addr().(*net.TCPAddr); ok {
+		s.port = tcpAddr.Port
+	}
+
+	srv := &http.Server{
+		Handler: s.Handler(),
+	}
+
+	return srv.Serve(listener)
 }
 
 func StartServer(port int, dbPath string) error {
@@ -1110,13 +1286,26 @@ func StartServer(port int, dbPath string) error {
 		return fmt.Errorf("failed to create builder server: %w", err)
 	}
 
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		storage.Close()
+		return fmt.Errorf("failed to bind builder server to %s: %w", addr, err)
+	}
+	defer listener.Close()
+
+	actualPort := listener.Addr().(*net.TCPAddr).Port
+	srv.port = actualPort
+
+	url := fmt.Sprintf("http://127.0.0.1:%d/?token=%s", actualPort, srv.authToken)
+	log.Printf("Starting Flow Visual Builder at %s\n", url)
+
 	go func() {
-		url := fmt.Sprintf("http://localhost:%d", port)
 		time.Sleep(500 * time.Millisecond)
 		openBrowser(url)
 	}()
 
-	err = srv.Start()
+	err = srv.Serve(listener)
 	storage.Close()
 	return err
 }

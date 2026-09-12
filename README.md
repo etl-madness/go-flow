@@ -22,7 +22,7 @@ Whether you are looking to streamline database batch jobs, replace fragile shell
 
 ### 1. Visual Web UI & Git-Friendly Declarative Pipelines
 
-* **Embedded HTMX Builder:** Launch an interactive local web interface using `-builder` (port `8080`) backed by `flow_builder.db` to visually design and manage workflows.
+* **Embedded HTMX Builder:** Launch an interactive local web interface using `-builder` (dynamically assigned ephemeral port or configurable via `-builder-port`) backed by `flow_builder.db` to visually design and manage workflows.
 
 
 * **Clean XML Schema:** Store pipeline configurations in XML for standard version control, code reviews, and automated CI/CD deployment.
@@ -190,7 +190,7 @@ flow -file pipelines/daily_etl.xml \
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `-builder` | `bool` | `false` | Starts the embedded HTMX pipeline builder web server. |
-| `-builder-port` | `int` | `8080` | Specifies the port for the builder web server. |
+| `-builder-port` | `int` | `0` | Specifies the port for the builder web server (default `0` for dynamic ephemeral port). |
 | `-file` | `string` | `scripts.xml` | Path to the XML file containing scripts, variables, and databases. |
 | `-config` | `string` | `""` | Optional path to an override XML config file (variables, databases). |
 | `-options` | `string` | `""` | XML file containing pre-configured default CLI option parameters. |

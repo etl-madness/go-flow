@@ -9,7 +9,7 @@ The application functions as a zero-dependency binary CLI runner and interactive
 | Flag / Parameter | Type | Default | Automation & ETL Purpose |
 | --- | --- | --- | --- |
 | `-builder` | `bool` | `false` | Launches the interactive HTMX web server backed by `flow_builder.db` for visual pipeline design. |
-| `-builder-port` | `int` | `8080` | Specifies the listening port for the visual builder web server. |
+| `-builder-port` | `int` | `0` | Specifies the listening port for the visual builder web server (default `0` for dynamic ephemeral port). |
 | `-file` | `string` | `scripts.xml` | Specifies the primary XML configuration file containing pipeline nodes, variables, and DB definitions. |
 | `-config` | `string` | `""` | Secondary XML configuration file path for environment-specific overrides (DBs, variables, preflight nodes). |
 | `-vars` | `string` | `""` | Comma-separated `key=value` runtime variable overrides (e.g., `-vars "TargetTable=foo,Limit=100"`). |

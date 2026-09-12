@@ -10,7 +10,7 @@ By combining traditional relational database support with high-performance Key-V
 
 ### 1. Interactive Web Builder & Low-Code Orchestration
 
-* **Embedded HTMX Web Builder:** Features a standalone visual management web interface (`-builder`) running on a configurable port (default `8080`) backed by a embedded metadata storage engine (`flow_builder.db`). Data engineers and analysts can visually design, inspect, and configure data pipelines without hand-crafting XML.
+* **Embedded HTMX Web Builder:** Features a standalone visual management web interface (`-builder`) running on a dynamically assigned ephemeral port (or user-configured via `-builder-port`) backed by an embedded metadata storage engine (`flow_builder.db`). Data engineers and analysts can visually design, inspect, and configure data pipelines without hand-crafting XML.
 
 
 * **Declarative XML Workflows:** Pipelines, scripts, connection strings, and variables are stored in structured XML definitions, enabling seamless version control and automated deployment pipelines.

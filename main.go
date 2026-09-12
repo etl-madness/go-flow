@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -33,7 +34,7 @@ const (
 
 func main() {
 	builderFlag := flag.Bool("builder", false, "Start the local HTMX pipeline builder web server")
-	builderPort := flag.Int("builder-port", 8080, "Port for the builder web server")
+	builderPort := flag.Int("builder-port", 0, "Port for the builder web server (default 0 for dynamic ephemeral port)")
 	builderDb := flag.String("builder-db", "flow_builder.db", "SQLite database file path for the visual builder")
 	purgeDb := flag.Bool("purge-db", false, "Purge all data from the SQLite visual builder database and exit")
 	importFile := flag.String("import-file", "", "Import a pipeline XML file into the SQLite builder database")
@@ -51,6 +52,35 @@ func main() {
 	xsltPath := flag.String("xslt", "", "Path to custom XSLT stylesheet (optional)")
 	outFile := flag.String("out", "", "Path to output file for transformed XML (optional)")
 	flag.Parse()
+
+	// Apply XML load file options if specified
+	if *optionsPath != "" {
+		if err := applyXMLOptions(*optionsPath); err != nil {
+			outputJSON(&[]flow.ScriptResult{{
+				ScriptID:      "system",
+				ReturnCode:    1,
+				ResultsString: fmt.Sprintf("Error applying load XML: %v", err),
+			}})
+			os.Exit(1)
+		}
+	}
+
+	// Allow environment variable override for builder port if not explicitly set on CLI
+	cliSetFlags := make(map[string]bool)
+	flag.Visit(func(f *flag.Flag) {
+		cliSetFlags[f.Name] = true
+	})
+	if !cliSetFlags["builder-port"] {
+		if envPort := os.Getenv("FLOW_BUILDER_PORT"); envPort != "" {
+			if p, err := strconv.Atoi(envPort); err == nil && p >= 0 {
+				*builderPort = p
+			}
+		} else if envPort := os.Getenv("PORT"); envPort != "" {
+			if p, err := strconv.Atoi(envPort); err == nil && p >= 0 {
+				*builderPort = p
+			}
+		}
+	}
 
 	// Handle -purge-db flag: wipes all data from the SQLite visual builder database
 	if *purgeDb {
@@ -92,18 +122,6 @@ func main() {
 			log.Fatalf("Failed to start builder: %v", err)
 		}
 		return
-	}
-
-	// Apply XML load file options if specified
-	if *optionsPath != "" {
-		if err := applyXMLOptions(*optionsPath); err != nil {
-			outputJSON(&[]flow.ScriptResult{{
-				ScriptID:      "system",
-				ReturnCode:    1,
-				ResultsString: fmt.Sprintf("Error applying load XML: %v", err),
-			}})
-			os.Exit(1)
-		}
 	}
 
 	// 1. Optional XSD Validation Pass (runs xmllint if -xsd flag is provided)
