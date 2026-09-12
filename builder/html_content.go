@@ -659,7 +659,7 @@ const IndexHTML = `<!DOCTYPE html>
         const catalogData = Array.isArray(rawCatalog) ? rawCatalog : (typeof rawCatalog === 'string' ? JSON.parse(rawCatalog || '[]') : []);
         let currentScriptId = {{.ActiveScript.ID}};
 
-        // Transparently attach CSRF token to all non-GET fetch requests
+        // Transparently attach CSRF and AJAX headers to all non-GET fetch requests
         const originalFetch = window.fetch;
         window.fetch = function(url, options) {
             options = options || {};
@@ -669,13 +669,16 @@ const IndexHTML = `<!DOCTYPE html>
                     options.headers = {};
                 }
                 if (options.headers instanceof Headers) {
+                    options.headers.set('X-Requested-With', 'XMLHttpRequest');
                     if (!options.headers.has('X-CSRF-Token') && csrfToken) {
                         options.headers.set('X-CSRF-Token', csrfToken);
                     }
                 } else if (Array.isArray(options.headers)) {
-                    options.headers.push(['X-CSRF-Token', csrfToken]);
+                    options.headers.push(['X-Requested-With', 'XMLHttpRequest']);
+                    if (csrfToken) options.headers.push(['X-CSRF-Token', csrfToken]);
                 } else {
-                    options.headers['X-CSRF-Token'] = csrfToken;
+                    options.headers['X-Requested-With'] = 'XMLHttpRequest';
+                    if (csrfToken) options.headers['X-CSRF-Token'] = csrfToken;
                 }
             }
             return originalFetch.call(this, url, options);
@@ -1162,9 +1165,8 @@ const IndexHTML = `<!DOCTYPE html>
             const nodeType = form.querySelector('#modal-node-type').value;
             const section = form.querySelector('#modal-node-section').value;
             const contentBox = document.getElementById('modal-content-container');
-            const meta = catalogData.find(c => c.type === nodeType);
-            const content = (!contentBox.classList.contains('hidden') && meta && meta.has_content)
-                ? form.querySelector('#modal-content-text').value
+            const content = !contentBox.classList.contains('hidden')
+                ? (form.querySelector('#modal-content-text') ? form.querySelector('#modal-content-text').value : '')
                 : '';
             const attrs = {};
 
@@ -1176,6 +1178,7 @@ const IndexHTML = `<!DOCTYPE html>
                 }
             });
 
+            // Custom attributes
             form.querySelectorAll('.custom-attr-row').forEach(row => {
                 const selectEl = row.querySelector('.custom-attr-key-select');
                 const customInput = row.querySelector('.custom-attr-key-input');
@@ -1208,32 +1211,44 @@ const IndexHTML = `<!DOCTYPE html>
 
             fetch(endpoint, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: JSON.stringify(body)
-            }).then(() => {
+            }).then(r => {
+                if (!r.ok) {
+                    return r.text().then(t => { throw new Error(t || ('HTTP ' + r.status)); });
+                }
                 closeNodeModal();
                 htmx.trigger(document.body, 'refreshCanvas');
                 setTimeout(updatePreview, 100);
             }).catch(err => {
-                alert('Save failed: ' + err);
+                alert('Save failed: ' + (err.message || err));
             });
         }
 
         function deleteNode(id) {
             if (!confirm('Remove this step?')) return;
-            fetch('/api/nodes/delete?id=' + id, {method: 'POST'})
-                .then(() => {
-                    htmx.trigger(document.body, 'refreshCanvas');
-                    setTimeout(updatePreview, 100);
-                });
+            fetch('/api/nodes/delete?id=' + id, {
+                method: 'POST',
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            }).then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                htmx.trigger(document.body, 'refreshCanvas');
+                setTimeout(updatePreview, 100);
+            }).catch(err => alert('Failed to delete step: ' + (err.message || err)));
         }
 
         function moveNode(id, dir) {
-            fetch('/api/nodes/move?id=' + id + '&dir=' + dir, {method: 'POST'})
-                .then(() => {
-                    htmx.trigger(document.body, 'refreshCanvas');
-                    setTimeout(updatePreview, 100);
-                });
+            fetch('/api/nodes/move?id=' + id + '&dir=' + dir, {
+                method: 'POST',
+                headers: {'X-Requested-With': 'XMLHttpRequest'}
+            }).then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                htmx.trigger(document.body, 'refreshCanvas');
+                setTimeout(updatePreview, 100);
+            }).catch(err => alert('Failed to move step: ' + (err.message || err)));
         }
 
         function saveToFileOnDisk() {
@@ -1241,9 +1256,16 @@ const IndexHTML = `<!DOCTYPE html>
             if (!filename) return;
             fetch('/api/save_file', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: JSON.stringify({script_id: currentScriptId, filename: filename})
-            }).then(r => r.text()).then(msg => alert(msg));
+            }).then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                return r.text();
+            }).then(msg => alert(msg))
+            .catch(err => alert('Failed to save file: ' + (err.message || err)));
         }
 
         function downloadActiveXML() {
@@ -1267,18 +1289,30 @@ const IndexHTML = `<!DOCTYPE html>
             const content = document.getElementById('config-editor').value;
             fetch('/api/config/save', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: JSON.stringify({name: 'CONFIG.xml', content: content})
-            }).then(() => alert('CONFIG.xml saved successfully!'));
+            }).then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                alert('CONFIG.xml saved successfully!');
+            }).catch(err => alert('Failed to save CONFIG.xml: ' + (err.message || err)));
         }
 
         function saveOptionsFile() {
             const content = document.getElementById('options-editor').value;
             fetch('/api/options/save', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: JSON.stringify({name: 'options.xml', content: content})
-            }).then(() => alert('options.xml saved successfully!'));
+            }).then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                alert('options.xml saved successfully!');
+            }).catch(err => alert('Failed to save options.xml: ' + (err.message || err)));
         }
 
         function submitNewScript(e) {
@@ -1289,12 +1323,16 @@ const IndexHTML = `<!DOCTYPE html>
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-Token': csrfToken
                 },
                 body: JSON.stringify({name: name, description: desc})
-            }).then(r => r.json()).then(sc => {
+            }).then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                return r.json();
+            }).then(sc => {
                 window.location.href = '/?script_id=' + sc.id;
-            });
+            }).catch(err => alert('Failed to create pipeline: ' + (err.message || err)));
         }
 
         function openCopyScriptModal() {
@@ -1318,6 +1356,7 @@ const IndexHTML = `<!DOCTYPE html>
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-Token': csrfToken
                 },
                 body: JSON.stringify({id: currentScriptId, new_name: newName})
@@ -1357,6 +1396,7 @@ const IndexHTML = `<!DOCTYPE html>
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-Token': csrfToken
                 },
                 body: JSON.stringify({file_path: filePath, name: customName})
@@ -1483,6 +1523,7 @@ const IndexHTML = `<!DOCTYPE html>
             fetch('/api/scripts/delete?id=' + targetId, {
                 method: 'POST',
                 headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-Token': csrfToken
                 }
             }).then(function(r) {
@@ -1516,6 +1557,7 @@ const IndexHTML = `<!DOCTYPE html>
             fetch('/api/db/purge', {
                 method: 'POST',
                 headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-Token': csrfToken
                 }
             }).then(function(r) {

@@ -3,8 +3,6 @@ package builder
 import (
 	"bufio"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -28,15 +26,11 @@ type Server struct {
 	catalog  *ComponentCatalog
 	template *template.Template
 	port     int
-	csrfToken string
 }
 
 func (s *Server) generateCSRFToken() string {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "fallback-token-error"
-	}
-	return hex.EncodeToString(b)
+	// Deprecated: CSRF validation now relies on X-Requested-With header
+	return ""
 }
 
 func NewServer(storage *Storage, port int) (*Server, error) {
@@ -51,7 +45,6 @@ func NewServer(storage *Storage, port int) (*Server, error) {
 		template: tmpl,
 		port:     port,
 	}
-	s.csrfToken = s.generateCSRFToken()
 	return s, nil
 }
 
@@ -96,15 +89,35 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	varNodes, _ := s.storage.GetNodes(activeScript.ID, "variables")
-	dbNodes, _ := s.storage.GetNodes(activeScript.ID, "databases")
-	preNodes, _ := s.storage.GetNodeTree(activeScript.ID, "preflight")
-	flowNodes, _ := s.storage.GetNodeTree(activeScript.ID, "flow")
+	varNodes, err := s.storage.GetNodes(activeScript.ID, "variables")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get variable nodes: %v", err), http.StatusInternalServerError)
+		return
+	}
+	dbNodes, err := s.storage.GetNodes(activeScript.ID, "databases")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get database nodes: %v", err), http.StatusInternalServerError)
+		return
+	}
+	preNodes, err := s.storage.GetNodeTree(activeScript.ID, "preflight")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get preflight nodes: %v", err), http.StatusInternalServerError)
+		return
+	}
+	flowNodes, err := s.storage.GetNodeTree(activeScript.ID, "flow")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get flow nodes: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 	configContent := s.storage.GetOrCreateDefaultConfig()
 	optionsContent := s.storage.GetOrCreateDefaultOptions()
 
-	catJSON, _ := json.Marshal(s.catalog.Components)
+	catJSON, err := json.Marshal(s.catalog.Components)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to marshal catalog: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 	data := PageData{
 		AllScripts:            scripts,
@@ -118,7 +131,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		FlowNodes:             flowNodes,
 		DefaultConfigContent:  configContent,
 		DefaultOptionsContent: optionsContent,
-		CSRFToken:             s.csrfToken,
+		CSRFToken:             "",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -134,10 +147,26 @@ func (s *Server) handleCanvas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	varNodes, _ := s.storage.GetNodes(activeScript.ID, "variables")
-	dbNodes, _ := s.storage.GetNodes(activeScript.ID, "databases")
-	preNodes, _ := s.storage.GetNodeTree(activeScript.ID, "preflight")
-	flowNodes, _ := s.storage.GetNodeTree(activeScript.ID, "flow")
+	varNodes, err := s.storage.GetNodes(activeScript.ID, "variables")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get variable nodes: %v", err), http.StatusInternalServerError)
+		return
+	}
+	dbNodes, err := s.storage.GetNodes(activeScript.ID, "databases")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get database nodes: %v", err), http.StatusInternalServerError)
+		return
+	}
+	preNodes, err := s.storage.GetNodeTree(activeScript.ID, "preflight")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get preflight nodes: %v", err), http.StatusInternalServerError)
+		return
+	}
+	flowNodes, err := s.storage.GetNodeTree(activeScript.ID, "flow")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get flow nodes: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 	data := PageData{
 		ActiveScript:   activeScript,
@@ -167,11 +196,7 @@ func (s *Server) validateCSRF(r *http.Request) bool {
 	if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
 		return true
 	}
-	token := r.Header.Get("X-CSRF-Token")
-	if token == "" {
-		token = r.FormValue("csrf_token")
-	}
-	return token == s.csrfToken
+	return strings.EqualFold(r.Header.Get("X-Requested-With"), "xmlhttprequest")
 }
 
 func (s *Server) sanitizePath(path string) (string, error) {
@@ -255,7 +280,7 @@ func (s *Server) handleUpdateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := s.storage.UpdateNode(req.NodeID, req.Attributes, req.Content)
+	err := s.storage.UpdateNodeWithSection(req.NodeID, req.Section, req.Attributes, req.Content)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1064,7 +1089,13 @@ func (s *Server) Start() error {
 
 	addr := fmt.Sprintf(":%d", s.port)
 	log.Printf("Starting Flow Visual Builder at http://localhost:%d\n", s.port)
-	return http.ListenAndServe(addr, mux)
+
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+
+	return srv.ListenAndServe()
 }
 
 func StartServer(port int, dbPath string) error {
@@ -1072,20 +1103,22 @@ func StartServer(port int, dbPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize sqlite storage: %w", err)
 	}
-	defer storage.Close()
 
 	srv, err := NewServer(storage, port)
 	if err != nil {
+		storage.Close()
 		return fmt.Errorf("failed to create builder server: %w", err)
 	}
 
-	url := fmt.Sprintf("http://localhost:%d", port)
 	go func() {
+		url := fmt.Sprintf("http://localhost:%d", port)
 		time.Sleep(500 * time.Millisecond)
 		openBrowser(url)
 	}()
 
-	return srv.Start()
+	err = srv.Start()
+	storage.Close()
+	return err
 }
 
 func openBrowser(url string) {

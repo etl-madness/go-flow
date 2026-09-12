@@ -418,7 +418,7 @@ func (s *Storage) GetNodeTree(scriptID int64, section string) ([]PipelineNode, e
 	return rootNodes, nil
 }
 
-func (s *Storage) UpdateNode(id int64, attributes map[string]string, content string) error {
+func (s *Storage) UpdateNodeWithSection(id int64, section string, attributes map[string]string, content string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -427,8 +427,45 @@ func (s *Storage) UpdateNode(id int64, attributes map[string]string, content str
 		attrJSON = []byte("{}")
 	}
 
+	if section != "" {
+		_, err = s.db.Exec("UPDATE pipeline_nodes SET section = ?, attributes_json = ?, content_text = ? WHERE id = ?", section, string(attrJSON), content, id)
+		if err != nil {
+			return err
+		}
+		// Also cascade section update to descendants
+		var updateChildSections func(parentID int64) error
+		updateChildSections = func(parentID int64) error {
+			rows, err := s.db.Query("SELECT id FROM pipeline_nodes WHERE parent_node_id = ?", parentID)
+			if err != nil {
+				return err
+			}
+			var childIDs []int64
+			for rows.Next() {
+				var cid int64
+				if err := rows.Scan(&cid); err == nil {
+					childIDs = append(childIDs, cid)
+				}
+			}
+			rows.Close()
+			for _, cid := range childIDs {
+				if _, err := s.db.Exec("UPDATE pipeline_nodes SET section = ? WHERE id = ?", section, cid); err != nil {
+					return err
+				}
+				if err := updateChildSections(cid); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		return updateChildSections(id)
+	}
+
 	_, err = s.db.Exec("UPDATE pipeline_nodes SET attributes_json = ?, content_text = ? WHERE id = ?", string(attrJSON), content, id)
 	return err
+}
+
+func (s *Storage) UpdateNode(id int64, attributes map[string]string, content string) error {
+	return s.UpdateNodeWithSection(id, "", attributes, content)
 }
 
 func (s *Storage) DeleteNode(id int64) error {

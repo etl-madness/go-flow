@@ -940,7 +940,7 @@ func TestPipelineManagementAPIs(t *testing.T) {
 	// 1. Copy API
 	copyReqBody, _ := json.Marshal(map[string]any{"id": sc.ID, "new_name": "API Cloned Pipeline"})
 	reqCopy := httptest.NewRequest(http.MethodPost, "/api/scripts/copy", bytes.NewReader(copyReqBody))
-	reqCopy.Header.Set("X-CSRF-Token", server.csrfToken)
+	reqCopy.Header.Set("X-Requested-With", "XMLHttpRequest")
 	recCopy := httptest.NewRecorder()
 	server.handleCopyScript(recCopy, reqCopy)
 	if recCopy.Code != http.StatusOK {
@@ -965,7 +965,7 @@ func TestPipelineManagementAPIs(t *testing.T) {
 	_ = os.WriteFile(tmpXML, []byte("<pipeline name=\"api_import_pipe\"><flow><sql id=\"1\">SELECT 1</sql></flow></pipeline>"), 0644)
 	importReqBody, _ := json.Marshal(map[string]any{"file_path": tmpXML, "name": "Imported via API"})
 	reqImport := httptest.NewRequest(http.MethodPost, "/api/scripts/import", bytes.NewReader(importReqBody))
-	reqImport.Header.Set("X-CSRF-Token", server.csrfToken)
+	reqImport.Header.Set("X-Requested-With", "XMLHttpRequest")
 	recImport := httptest.NewRecorder()
 	server.handleImportScript(recImport, reqImport)
 	if recImport.Code != http.StatusOK {
@@ -974,7 +974,7 @@ func TestPipelineManagementAPIs(t *testing.T) {
 
 	// 3. Delete API
 	reqDelete := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/scripts/delete?id=%d", copyResp.Script.ID), nil)
-	reqDelete.Header.Set("X-CSRF-Token", server.csrfToken)
+	reqDelete.Header.Set("X-Requested-With", "XMLHttpRequest")
 	recDelete := httptest.NewRecorder()
 	server.handleDeleteScript(recDelete, reqDelete)
 	if recDelete.Code != http.StatusOK {
@@ -983,7 +983,7 @@ func TestPipelineManagementAPIs(t *testing.T) {
 
 	// 4. Purge API
 	reqPurge := httptest.NewRequest(http.MethodPost, "/api/db/purge", nil)
-	reqPurge.Header.Set("X-CSRF-Token", server.csrfToken)
+	reqPurge.Header.Set("X-Requested-With", "XMLHttpRequest")
 	recPurge := httptest.NewRecorder()
 	server.handlePurgeDatabase(recPurge, reqPurge)
 	if recPurge.Code != http.StatusOK {
@@ -1485,7 +1485,7 @@ func TestServerNestedNodeAPI(t *testing.T) {
 		Attributes: map[string]string{"condition": "x == 1"},
 	})
 	reqIf := httptest.NewRequest(http.MethodPost, "/api/nodes/add", bytes.NewReader(addIfBody))
-	reqIf.Header.Set("X-CSRF-Token", server.csrfToken)
+	reqIf.Header.Set("X-Requested-With", "XMLHttpRequest")
 	recIf := httptest.NewRecorder()
 	server.handleAddNode(recIf, reqIf)
 	if recIf.Code != http.StatusOK {
@@ -1513,12 +1513,13 @@ func TestServerNestedNodeAPI(t *testing.T) {
 		Content:      "SELECT 'inside then';",
 	})
 	reqSql := httptest.NewRequest(http.MethodPost, "/api/nodes/add", bytes.NewReader(addSqlBody))
-	reqSql.Header.Set("X-CSRF-Token", server.csrfToken)
+	reqSql.Header.Set("X-Requested-With", "XMLHttpRequest")
 	recSql := httptest.NewRecorder()
 	server.handleAddNode(recSql, reqSql)
 	if recSql.Code != http.StatusOK {
 		t.Fatalf("handleAddNode failed for child sql node: code %d: %s", recSql.Code, recSql.Body.String())
 	}
+
 
 	// Request canvas rendering via /api/canvas
 	reqCanvas := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/canvas?script_id=%d", sc.ID), nil)
@@ -1625,7 +1626,7 @@ func TestDeleteLoadedPipelineScripts(t *testing.T) {
 
 	// 4. Successful deletion of non-active loaded script with valid CSRF token
 	reqValidCSRF := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/scripts/delete?id=%d", s2.ID), nil)
-	reqValidCSRF.Header.Set("X-CSRF-Token", server.csrfToken)
+	reqValidCSRF.Header.Set("X-Requested-With", "XMLHttpRequest")
 	recValidCSRF := httptest.NewRecorder()
 	server.handleDeleteScript(recValidCSRF, reqValidCSRF)
 	if recValidCSRF.Code != http.StatusOK {
@@ -1658,7 +1659,7 @@ func TestDeleteLoadedPipelineScripts(t *testing.T) {
 	// 5. Delete via JSON body payload instead of query param
 	delBody, _ := json.Marshal(map[string]int64{"id": s3.ID})
 	reqJSONBody := httptest.NewRequest(http.MethodPost, "/api/scripts/delete", bytes.NewReader(delBody))
-	reqJSONBody.Header.Set("X-CSRF-Token", server.csrfToken)
+	reqJSONBody.Header.Set("X-Requested-With", "XMLHttpRequest")
 	recJSONBody := httptest.NewRecorder()
 	server.handleDeleteScript(recJSONBody, reqJSONBody)
 	if recJSONBody.Code != http.StatusOK {
@@ -1670,7 +1671,7 @@ func TestDeleteLoadedPipelineScripts(t *testing.T) {
 
 	// 6. Delete the last remaining script (s1) -> must re-seed default_pipeline
 	reqDelLast := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/scripts/delete?id=%d", s1.ID), nil)
-	reqDelLast.Header.Set("X-CSRF-Token", server.csrfToken)
+	reqDelLast.Header.Set("X-Requested-With", "XMLHttpRequest")
 	recDelLast := httptest.NewRecorder()
 	server.handleDeleteScript(recDelLast, reqDelLast)
 	if recDelLast.Code != http.StatusOK {
@@ -1699,9 +1700,6 @@ func TestDeleteLoadedPipelineScripts(t *testing.T) {
 		t.Fatalf("handleIndex failed: %d", recIndex.Code)
 	}
 	indexHTML := recIndex.Body.String()
-	if !strings.Contains(indexHTML, fmt.Sprintf(`const csrfToken = "%s";`, server.csrfToken)) {
-		t.Errorf("index HTML does not contain expected csrfToken declaration with value %s", server.csrfToken)
-	}
 	if !strings.Contains(indexHTML, "manage-pipelines-modal") {
 		t.Errorf("index HTML does not contain manage-pipelines-modal")
 	}
@@ -1954,5 +1952,95 @@ func TestExecuteStreamPreflightOption(t *testing.T) {
 	}
 }
 
+func TestUpdateNodeEndpointAndSaveComponent(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_update_node.db")
 
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
 
+	server, err := NewServer(storage, 0)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	sc, err := storage.CreateScript("SaveTest", "Pipeline for save component testing")
+	if err != nil {
+		t.Fatalf("failed to create script: %v", err)
+	}
+
+	node, err := storage.AddNode(sc.ID, "flow", "sql", map[string]string{"id": "OldId", "db": "main"}, "SELECT 1;")
+	if err != nil {
+		t.Fatalf("failed to add initial node: %v", err)
+	}
+
+	// 1. Mutating POST without X-Requested-With should be rejected with 403 Forbidden
+	updatePayload := map[string]interface{}{
+		"script_id":  sc.ID,
+		"node_id":    node.ID,
+		"node_type":  "sql",
+		"section":    "preflight",
+		"attributes": map[string]string{"id": "NewId", "db": "analytics"},
+		"content":    "SELECT 42;",
+	}
+	payloadBytes, _ := json.Marshal(updatePayload)
+
+	reqForbidden := httptest.NewRequest(http.MethodPost, "/api/nodes/update", bytes.NewReader(payloadBytes))
+	reqForbidden.Header.Set("Content-Type", "application/json")
+	recForbidden := httptest.NewRecorder()
+	server.handleUpdateNode(recForbidden, reqForbidden)
+
+	if recForbidden.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 Forbidden without CSRF header, got: %d", recForbidden.Code)
+	}
+
+	// 2. Mutating POST with X-Requested-With: XMLHttpRequest should succeed and update attributes, section, and content
+	reqValid := httptest.NewRequest(http.MethodPost, "/api/nodes/update", bytes.NewReader(payloadBytes))
+	reqValid.Header.Set("Content-Type", "application/json")
+	reqValid.Header.Set("X-Requested-With", "XMLHttpRequest")
+	recValid := httptest.NewRecorder()
+	server.handleUpdateNode(recValid, reqValid)
+
+	if recValid.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK with CSRF header, got: %d, body: %s", recValid.Code, recValid.Body.String())
+	}
+
+	// Verify persistence in storage
+	updatedNode, err := storage.GetNode(node.ID)
+	if err != nil {
+		t.Fatalf("failed to get updated node: %v", err)
+	}
+	if updatedNode.Section != "preflight" {
+		t.Errorf("expected section 'preflight', got '%s'", updatedNode.Section)
+	}
+	if updatedNode.Attributes["id"] != "NewId" || updatedNode.Attributes["db"] != "analytics" {
+		t.Errorf("unexpected attributes: %+v", updatedNode.Attributes)
+	}
+	if updatedNode.ContentText != "SELECT 42;" {
+		t.Errorf("expected content 'SELECT 42;', got '%s'", updatedNode.ContentText)
+	}
+
+	// 3. Test template files contain X-Requested-With and proper error handling in fetch
+	indexBytes, err := os.ReadFile("tmpl/index.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/index.html: %v", err)
+	}
+	indexStr := string(indexBytes)
+
+	if !strings.Contains(indexStr, "options.headers.set('X-Requested-With', 'XMLHttpRequest')") {
+		t.Errorf("expected tmpl/index.html to set X-Requested-With in window.fetch interceptor")
+	}
+	if !strings.Contains(indexStr, "alert('Save failed: ' + (err.message || err))") {
+		t.Errorf("expected tmpl/index.html to alert errors in submitNodeModal")
+	}
+
+	if !strings.Contains(IndexHTML, "options.headers.set('X-Requested-With', 'XMLHttpRequest')") {
+		t.Errorf("expected IndexHTML in html_content.go to set X-Requested-With in window.fetch interceptor")
+	}
+	if !strings.Contains(IndexHTML, "alert('Save failed: ' + (err.message || err))") {
+		t.Errorf("expected IndexHTML in html_content.go to alert errors in submitNodeModal")
+	}
+}
