@@ -19,6 +19,7 @@ This release introduces critical single-user security hardening, dynamic port ma
 - **Session Cookie Authentication & URL Sanitization:**
   - On the first request with `?token=...`, the server verifies the token in constant-time (`crypto/subtle.ConstantTimeCompare`) to defend against timing attacks.
   - Generates a secure session identifier stored in an in-memory session registry and sets an `HttpOnly`, `SameSite=Strict` cookie (`flow_builder_session`).
+  - Automatically detects HTTPS / reverse proxies via `r.TLS != nil` or `X-Forwarded-Proto: https` to set `Secure: true` dynamically, while safely leaving it `false` on standard `http://127.0.0.1` to avoid browser cookie rejection.
   - Automatically redirects to clean `/` to strip the token from the browser's address bar and history.
   - All subsequent page loads, HTMX AJAX calls, and EventSource SSE execution streams authenticate transparently via the session cookie.
 
@@ -54,7 +55,7 @@ This release introduces critical single-user security hardening, dynamic port ma
 
 - **Test Suite (`builder/auth_test.go`):**
   - `TestBuilderAuth_RejectUnauthorized`: Asserts 401 Unauthorized for unauthenticated browser visits (HTML error card) and API calls (JSON error).
-  - `TestBuilderAuth_QueryTokenAndSessionCookie`: Tests the `?token=` parameter exchange, verifies `HttpOnly` session cookie issuance, tests clean 303 redirection, and validates that cookie-authenticated subsequent requests succeed.
+  - `TestBuilderAuth_QueryTokenAndSessionCookie`: Tests the `?token=` parameter exchange, verifies `HttpOnly` session cookie issuance, asserts `Secure: false` on plain HTTP and `Secure: true` when `X-Forwarded-Proto: https`, tests clean 303 redirection, and validates that cookie-authenticated subsequent requests succeed.
   - `TestBuilderAuth_BearerToken`: Validates `Authorization: Bearer <token>` header on protected API endpoints.
   - `TestBuilderAuth_InvalidTokenAndFakeCookie`: Tests rejection of invalid query tokens and forged session cookies.
   - `TestBuilderAuth_PortOverrideAndDynamicPort`: Validates that binding to port `0` dynamically assigns a valid ephemeral port and updates the server instance state.

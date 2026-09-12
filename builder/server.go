@@ -256,12 +256,14 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 				s.sessions[sessionID] = time.Now().Add(24 * time.Hour)
 				s.sessionsMu.Unlock()
 
+				isSecure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 				http.SetCookie(w, &http.Cookie{
 					Name:     sessionCookieName,
 					Value:    sessionID,
 					Path:     "/",
 					HttpOnly: true,
 					SameSite: http.SameSiteStrictMode,
+					Secure:   isSecure,
 				})
 			}
 

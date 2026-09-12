@@ -99,6 +99,29 @@ func TestBuilderAuth_QueryTokenAndSessionCookie(t *testing.T) {
 	if !sessionCookie.HttpOnly {
 		t.Errorf("expected session cookie to be HttpOnly")
 	}
+	if sessionCookie.Secure {
+		t.Errorf("expected session cookie Secure attribute to be false on plain HTTP")
+	}
+
+	// 1b. Visit root with ?token=... and X-Forwarded-Proto: https
+	httpsReq := httptest.NewRequest(http.MethodGet, "/?token="+token, nil)
+	httpsReq.Header.Set("X-Forwarded-Proto", "https")
+	httpsRec := httptest.NewRecorder()
+	handler.ServeHTTP(httpsRec, httpsReq)
+
+	var httpsCookie *http.Cookie
+	for _, c := range httpsRec.Result().Cookies() {
+		if c.Name == sessionCookieName {
+			httpsCookie = c
+			break
+		}
+	}
+	if httpsCookie == nil {
+		t.Fatalf("expected %q cookie to be set for HTTPS request", sessionCookieName)
+	}
+	if !httpsCookie.Secure {
+		t.Errorf("expected session cookie Secure attribute to be true when X-Forwarded-Proto is https")
+	}
 
 	// 2. Follow redirect to "/" using the session cookie
 	followReq := httptest.NewRequest(http.MethodGet, "/", nil)
