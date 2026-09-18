@@ -64,7 +64,7 @@ func TestDatabaseSinkRunDetails(t *testing.T) {
 	err = sink.Emit(ctx, flow.ExecutionEvent{
 		RunID:      "run-abc-123",
 		Type:       flow.EventRunStarted,
-		OccurredAt: time.Now(),
+		OccurredAt: time.Now().UTC(),
 		Status:     flow.RunStatusSucceeded,
 	})
 	if err != nil {
@@ -79,7 +79,7 @@ func TestDatabaseSinkRunDetails(t *testing.T) {
 	err = sink.Emit(ctx, flow.ExecutionEvent{
 		RunID:        "run-abc-123",
 		Type:         flow.EventRunFinished,
-		OccurredAt:   time.Now(),
+		OccurredAt:   time.Now().UTC(),
 		Status:       flow.RunStatusFailed,
 		ErrorClass:   flow.ErrorClassDatabase,
 		ErrorMessage: "connection timed out",
@@ -130,7 +130,7 @@ func TestLogRunSummaryToDB_PrimaryKeyConstraint(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	now := time.Now()
+	now := time.Now().UTC()
 
 	// 1. Insert first record with empty RunID - should auto-generate unique RunID
 	summary1 := RunSummaryRecord{

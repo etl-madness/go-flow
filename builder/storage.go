@@ -180,8 +180,8 @@ func (s *Storage) CreateScript(name, description string) (*Script, error) {
 		ID:          id,
 		Name:        name,
 		Description: description,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
 	}, nil
 }
 

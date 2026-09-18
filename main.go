@@ -252,8 +252,8 @@ func main() {
 	}
 
 	// 4. Initialize State and Execute Pipeline
-	start := time.Now()
-	fmt.Println("Pipeline Start Time:", start.Format("2006-01-02 15:04:05.000"))
+	start := time.Now().UTC()
+	fmt.Println("Pipeline Start Time:", start.Format("2006-01-02 15:04:05.000 UTC"))
 	registry := flow.NewRegistry()
 
 	if err := registry.InitVariables(varConfigs); err != nil {
@@ -428,8 +428,8 @@ func main() {
 				ConfigPath:   *configPath,
 				Status:       status,
 				StartedAt:    start,
-				FinishedAt:   time.Now(),
-				Duration:     time.Since(start),
+				FinishedAt:   time.Now().UTC(),
+				Duration:     time.Now().UTC().Sub(start),
 				TaskCount:    len(nodes),
 				ErrorClass:   errClass,
 				ErrorMessage: errMsg,
@@ -459,10 +459,10 @@ func main() {
 		}
 	}
 
-	end := time.Now()
+	end := time.Now().UTC()
 	duration := end.Sub(start)
 
-	fmt.Println("Pipeline End Time:  ", end.Format("2006-01-02 15:04:05.000"))
+	fmt.Println("Pipeline End Time:  ", end.Format("2006-01-02 15:04:05.000 UTC"))
 	fmt.Println("Pipeline Duration:  ", duration)
 }
 

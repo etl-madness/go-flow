@@ -246,14 +246,14 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			if err == nil {
 				s.sessionsMu.Lock()
 				if len(s.sessions) > 100 {
-					now := time.Now()
+					now := time.Now().UTC()
 					for k, exp := range s.sessions {
 						if now.After(exp) {
 							delete(s.sessions, k)
 						}
 					}
 				}
-				s.sessions[sessionID] = time.Now().Add(24 * time.Hour)
+				s.sessions[sessionID] = time.Now().UTC().Add(24 * time.Hour)
 				s.sessionsMu.Unlock()
 
 				isSecure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
@@ -300,7 +300,7 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			s.sessionsMu.Unlock()
 
 			if exists {
-				if time.Now().Before(expiry) {
+				if time.Now().UTC().Before(expiry) {
 					next(w, r)
 					return
 				}
@@ -1150,7 +1150,7 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 
 	sendSSE("log", map[string]any{"type": "log", "message": fmt.Sprintf("[FLOW] Running: %s %v", filepath.Base(exePath), args)})
 
-	startTime := time.Now()
+	startTime := time.Now().UTC()
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
 	defer cancel()
 
