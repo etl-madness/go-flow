@@ -10,7 +10,6 @@ import (
 // GenerateXML constructs a valid Flow XML scripts file from database nodes.
 func GenerateXML(pipelineName string, varNodes, dbNodes, preflightNodes, flowNodes []PipelineNode) string {
 	var buf bytes.Buffer
-	buf.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
 	buf.WriteString(`<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"` + "\n")
 	buf.WriteString(`          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">` + "\n")
 	// buf.WriteString(fmt.Sprintf(`          id=%q>`+"\n", pipelineName))

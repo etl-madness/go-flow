@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <pipeline
     description="ETL pipeline for extracting GitHub AI credit usage and loading it into SQL Server"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

@@ -8,9 +8,35 @@ import (
 	"log"
 	"os"
 	"time"
+	"unicode/utf16"
 
 	_ "github.com/microsoft/go-mssqldb"
 )
+
+func resolveImportTarget(table string) (string, string, error) {
+	switch table {
+	case "options":
+		return "dbo.flow_options_content", "OptionsXML", nil
+	case "config":
+		return "dbo.flow_config_content", "ConfigXML", nil
+	case "pipeline", "":
+		return "dbo.flow_pipeline_content", "PipelineXML", nil
+	default:
+		return "", "", fmt.Errorf("unsupported import table %q: expected pipeline, options, or config", table)
+	}
+}
+
+func buildImportQuery(tableName, xmlColumn string) string {
+	return fmt.Sprintf(`
+		MERGE INTO %s AS target
+		USING (SELECT @p1 AS Name) AS source
+		ON (target.Name = source.Name)
+		WHEN MATCHED THEN
+			UPDATE SET Description = @p2, %s = @p3
+		WHEN NOT MATCHED THEN
+			INSERT (Name, Description, %s) VALUES (@p1, @p2, @p3);
+	`, tableName, xmlColumn, xmlColumn)
+}
 
 func main() {
 	dsn := flag.String("dsn", "sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true", "SQL Server connection string")
@@ -37,32 +63,16 @@ func main() {
 	defer cancel()
 
 	// 3. Determine table and column targets
-	var tableName, xmlColumn string
-	switch *table {
-	case "options":
-		tableName = "dbo.flow_options_content"
-		xmlColumn = "OptionsXML"
-	case "config":
-		tableName = "dbo.flow_config_content"
-		xmlColumn = "ConfigXML"
-	default:
-		tableName = "dbo.flow_pipeline_content"
-		xmlColumn = "PipelineXML"
+	tableName, xmlColumn, err := resolveImportTarget(*table)
+	if err != nil {
+		log.Fatalf("Invalid import target: %v", err)
 	}
 
 	// 4. Parameterized MERGE (Upsert) query
-	query := fmt.Sprintf(`
-		MERGE INTO %s AS target
-		USING (SELECT @p1 AS Name) AS source
-		ON (target.Name = source.Name)
-		WHEN MATCHED THEN
-			UPDATE SET Description = @p2, %s = @p3
-		WHEN NOT MATCHED THEN
-			INSERT (Name, Description, %s) VALUES (@p1, @p2, @p3);
-	`, tableName, xmlColumn, xmlColumn)
+	query := buildImportQuery(tableName, xmlColumn)
 
 	// 5. Execute with raw string parameter binding
-	res, err := db.ExecContext(ctx, query, *name, *desc, string(xmlBytes))
+	res, err := db.ExecContext(ctx, query, *name, *desc, decodeFileContent(xmlBytes))
 	if err != nil {
 		log.Fatalf("Failed to import XML into %s: %v", tableName, err)
 	}
@@ -70,3 +80,27 @@ func main() {
 	rows, _ := res.RowsAffected()
 	fmt.Printf("Successfully imported '%s' (%s) into %s (%d row(s) affected).\n", *name, *filePath, tableName, rows)
 }
+
+func decodeFileContent(data []byte) string {
+	if len(data) >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF {
+		return string(data[3:])
+	}
+	if len(data) >= 2 {
+		if data[0] == 0xFF && data[1] == 0xFE && len(data)%2 == 0 {
+			codeUnits := make([]uint16, 0, len(data)/2-1)
+			for i := 2; i+1 < len(data); i += 2 {
+				codeUnits = append(codeUnits, uint16(data[i])|uint16(data[i+1])<<8)
+			}
+			return string(utf16.Decode(codeUnits))
+		}
+		if data[0] == 0xFE && data[1] == 0xFF && len(data)%2 == 0 {
+			codeUnits := make([]uint16, 0, len(data)/2-1)
+			for i := 2; i+1 < len(data); i += 2 {
+				codeUnits = append(codeUnits, uint16(data[i+1])|uint16(data[i])<<8)
+			}
+			return string(utf16.Decode(codeUnits))
+		}
+	}
+	return string(data)
+}
+

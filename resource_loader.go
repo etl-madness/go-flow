@@ -22,14 +22,26 @@ import (
 func LoadResource(ctx context.Context, source string) ([]byte, error) {
 	switch {
 	case strings.HasPrefix(source, "sql://") || strings.HasPrefix(source, "db://"):
-		return loadFromDatabase(ctx, source)
+		content, err := loadFromDatabase(ctx, source)
+		if err != nil {
+			return nil, err
+		}
+		return normalizeXMLBytes(content), nil
 
 	case strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://"):
-		return loadFromHTTP(ctx, source)
+		content, err := loadFromHTTP(ctx, source)
+		if err != nil {
+			return nil, err
+		}
+		return normalizeXMLBytes(content), nil
 
 	default:
 		// Fallback to standard local filesystem
-		return os.ReadFile(source)
+		content, err := os.ReadFile(source)
+		if err != nil {
+			return nil, err
+		}
+		return normalizeXMLBytes(content), nil
 	}
 }
 

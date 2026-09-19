@@ -384,7 +384,6 @@ Allows scripts to fetch active SQL connections and perform bulk streaming operat
 Demonstrates how to configure and query multiple database servers of different types and perform cross-engine streaming.
 
 ```xml
-<?xml version="1.0" encoding="UTF-8"?>
 <pipeline>
     <variables>
         <variable name="BatchSize" type="int" value="500" />
