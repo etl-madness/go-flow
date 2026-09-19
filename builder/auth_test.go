@@ -283,4 +283,3 @@ func TestBuilderSecurity_HeadersAndSaveFileJSON(t *testing.T) {
 		t.Errorf("expected error message to not reflect raw directory traversal path, got: %s", browseRec.Body.String())
 	}
 }
-

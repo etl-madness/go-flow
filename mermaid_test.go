@@ -164,4 +164,3 @@ func TestProcessXSLTWithSchemaLocation(t *testing.T) {
 		t.Fatalf("expected output to contain 'test_var', got: %s", outStr)
 	}
 }
-

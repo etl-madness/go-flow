@@ -1,0 +1,10 @@
+<flow_cli_options xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/go-flow/main/xsd/options.xsd">
+  <options>
+    <file>sql://sqlserver@sqlserver://localhost:1433?database=example_db&amp;integrated+security=true&amp;trustServerCertificate=true#SELECT PipelineXML from dbo.flow_pipeline_content where Name = ''github_ai_credit_usage''</file>
+    <format>stream</format>
+    <config>sql://sqlserver@sqlserver://localhost:1433?database=example_db&amp;integrated+security=true&amp;trustServerCertificate=true#SELECT ConfigXML from dbo.flow_config_content where Name = ''CONFIG_DEV_GITHUB''</config>
+    <validate>false</validate>
+    <preflight>false</preflight>
+    <debug>false</debug>
+  </options>
+</flow_cli_options>

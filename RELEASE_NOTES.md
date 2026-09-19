@@ -1,5 +1,21 @@
 # Release Notes
 
+## Release Notes (v1.1.18) - Initial Overview
+
+### Overview
+
+This release focuses on storing XML content in the database efficiently.
+Include in this release:
+
+- Ability to import XML files into the database using the new DB importer tool.
+- Support for importing pipeline, options, and config XML files separately into the database.
+- Allows for Options files to be stored in the database and reference both flat-file and database-stored XML content.
+- Maintains ability to store and retrieve XML content in flat files.
+
+Import updates include the new DB importer tool and enhanced support for XML content management in the database, and is located under db_importer. This tool allows users to seamlessly import XML files into the database, manage their content efficiently, and maintain compatibility with existing flat-file storage. It also handles quote issues by importing files directly as raw content into the database.
+
+See db_importer/README_DB_IMPORTER.md for detailed usage instructions.
+
 ## Release Notes (v1.1.17) - Resizable Live XML Preview & Offline XSLT Schema Resolution
 
 ### Overview

@@ -137,7 +137,8 @@ func main() {
 	}
 
 	// 2. Load and Parse XML File
-	fileBytes, err := os.ReadFile(*filePath)
+	ctx := context.Background()
+	fileBytes, err := LoadResource(ctx, *filePath)
 	if err != nil {
 		outputJSON(&[]flow.ScriptResult{{
 			ScriptID:      "system",
@@ -200,7 +201,7 @@ func main() {
 	flowNodes := cfg.FlowNodes
 
 	if *configPath != "" {
-		configBytes, err := os.ReadFile(*configPath)
+		configBytes, err := LoadResource(ctx, *configPath)
 		if err != nil {
 			outputJSON(&[]flow.ScriptResult{{
 				ScriptID:      "system",

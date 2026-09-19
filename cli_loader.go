@@ -1,10 +1,10 @@
 package main
 
 import (
+	"context"
 	"encoding/xml"
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 )
 
@@ -25,7 +25,8 @@ type FlowCLIOptions struct {
 // applyXMLOptions parses the specified XML file wrapped in <flow_cli_options><options>
 // and sets any flags that were not explicitly passed on the command line.
 func applyXMLOptions(optionsPath string) error {
-	data, err := os.ReadFile(optionsPath)
+	ctx := context.Background()
+	data, err := LoadResource(ctx, optionsPath)
 	if err != nil {
 		return fmt.Errorf("error reading load file: %w", err)
 	}
