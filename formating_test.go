@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 
@@ -138,6 +139,84 @@ func TestDatabaseSinkRunDetails(t *testing.T) {
 	}
 }
 
+func TestLogRunSummaryToDB_MasksSensitiveSourceInNonDebugMode(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open in-memory sqlite: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`
+		CREATE TABLE pipeline_runs (
+			run_id VARCHAR(64) PRIMARY KEY,
+			file_path VARCHAR(4000) NOT NULL,
+			config_path VARCHAR(4000),
+			status VARCHAR(32) NOT NULL,
+			started_at DATETIME NOT NULL,
+			finished_at DATETIME NOT NULL,
+			duration_ms BIGINT NOT NULL,
+			task_count INT NOT NULL,
+			user_name VARCHAR(256),
+			hostname VARCHAR(256),
+			options_path VARCHAR(2048),
+			error_class VARCHAR(128),
+			error_message TEXT
+		);
+	`)
+	if err != nil {
+		t.Fatalf("failed to create pipeline_runs table: %v", err)
+	}
+
+	rec := RunSummaryRecord{
+		RunID:       "run-mask-1",
+		FilePath:    "sql://postgres@postgres://app_user:Password123!@prod-db:5432/appdb?sslmode=require#SELECT xml FROM t",
+		ConfigPath:  "sql://mysql@mysql://ops:Secret!@db.example.com:3306/etl#SELECT xml FROM cfg",
+		Status:      "succeeded",
+		StartedAt:   time.Now().UTC(),
+		FinishedAt:  time.Now().UTC().Add(time.Second),
+		Duration:    time.Second,
+		TaskCount:   3,
+		UserName:    "alice",
+		Hostname:    "etl-host",
+		OptionsPath: "https://user:supersecret@example.com/options.xml",
+	}
+
+	if err := LogRunSummaryToDB(context.Background(), db, "sqlite", rec, false); err != nil {
+		t.Fatalf("LogRunSummaryToDB failed: %v", err)
+	}
+
+	var filePath, configPath, optionsPath string
+	if err := db.QueryRow("SELECT file_path, config_path, options_path FROM pipeline_runs WHERE run_id = ?", rec.RunID).Scan(&filePath, &configPath, &optionsPath); err != nil {
+		t.Fatalf("failed to read masked summary values: %v", err)
+	}
+	if strings.Contains(filePath, "Password123!") || strings.Contains(filePath, "app_user:Password123!") {
+		t.Fatalf("expected password to be masked in file_path, got %q", filePath)
+	}
+	if strings.Contains(configPath, "Secret!") || strings.Contains(configPath, "ops:Secret!") {
+		t.Fatalf("expected password to be masked in config_path, got %q", configPath)
+	}
+	if strings.Contains(optionsPath, "supersecret") {
+		t.Fatalf("expected password to be masked in options_path, got %q", optionsPath)
+	}
+	if !strings.Contains(filePath, "******") || !strings.Contains(configPath, "******") || !strings.Contains(optionsPath, "******") {
+		t.Fatalf("expected masked password placeholder in all recorded sources, got file=%q config=%q options=%q", filePath, configPath, optionsPath)
+	}
+
+	debugRec := rec
+	debugRec.RunID = "run-mask-debug"
+	if err := LogRunSummaryToDB(context.Background(), db, "sqlite", debugRec, true); err != nil {
+		t.Fatalf("LogRunSummaryToDB failed in debug mode: %v", err)
+	}
+
+	var debugFilePath string
+	if err := db.QueryRow("SELECT file_path FROM pipeline_runs WHERE run_id = ?", debugRec.RunID).Scan(&debugFilePath); err != nil {
+		t.Fatalf("failed to read debug-mode row: %v", err)
+	}
+	if !strings.Contains(debugFilePath, "Password123!") {
+		t.Fatalf("expected debug-mode value to remain unmasked, got %q", debugFilePath)
+	}
+}
+
 func TestLogRunSummaryToDB_PrimaryKeyConstraint(t *testing.T) {
 	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
@@ -184,7 +263,7 @@ func TestLogRunSummaryToDB_PrimaryKeyConstraint(t *testing.T) {
 		OptionsPath: "/tmp/options.xml",
 	}
 
-	if err := LogRunSummaryToDB(ctx, db, "sqlite", summary1); err != nil {
+	if err := LogRunSummaryToDB(ctx, db, "sqlite", summary1, false); err != nil {
 		t.Fatalf("first LogRunSummaryToDB failed: %v", err)
 	}
 
@@ -199,7 +278,7 @@ func TestLogRunSummaryToDB_PrimaryKeyConstraint(t *testing.T) {
 		TaskCount:  5,
 	}
 
-	if err := LogRunSummaryToDB(ctx, db, "sqlite", summary2); err != nil {
+	if err := LogRunSummaryToDB(ctx, db, "sqlite", summary2, false); err != nil {
 		t.Fatalf("second LogRunSummaryToDB failed (possible duplicate key): %v", err)
 	}
 

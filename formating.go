@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -39,6 +40,7 @@ type DatabaseSink struct {
 	status      string
 	errorClass  string
 	errorMsg    string
+	debug       bool
 }
 
 // MultiSink fans out execution events to multiple sinks (e.g., Database + Stdout)
@@ -102,6 +104,8 @@ func NewDatabaseSink(db *sql.DB, driver string) *DatabaseSink {
 
 // Emit satisfies the flow.EventSink interface and persists execution events to the database
 func (s *DatabaseSink) Emit(ctx context.Context, event flow.ExecutionEvent) error {
+	event.OptionsPath = maskSensitiveSourceForDB(event.OptionsPath, s.debug)
+
 	s.mu.Lock()
 	if event.RunID != "" {
 		s.runID = event.RunID
@@ -288,6 +292,69 @@ func outputStreamSummary(run flow.RunResult, file *string, config *string) {
 	)
 }
 
+func maskSensitiveSourceForDB(source string, debug bool) string {
+	source = strings.TrimSpace(source)
+	if source == "" || debug {
+		return source
+	}
+
+	if strings.HasPrefix(source, "sql://") || strings.HasPrefix(source, "db://") {
+		raw := strings.TrimPrefix(strings.TrimPrefix(source, "sql://"), "db://")
+		parts := strings.SplitN(raw, "#", 2)
+		if len(parts) == 2 && strings.Contains(parts[0], "@") {
+			prefix := "sql://"
+			if strings.HasPrefix(source, "db://") {
+				prefix = "db://"
+			}
+			driverAndDSN := strings.SplitN(parts[0], "@", 2)
+			if len(driverAndDSN) == 2 {
+				maskedDSN := maskURLUserInfo(driverAndDSN[1])
+				if maskedDSN != driverAndDSN[1] {
+					return prefix + driverAndDSN[0] + "@" + maskedDSN + "#" + parts[1]
+				}
+			}
+		}
+	}
+
+	return maskURLUserInfo(source)
+}
+
+func maskURLUserInfo(source string) string {
+	parsed, err := url.Parse(source)
+	if err != nil || parsed.User == nil {
+		return source
+	}
+
+	username := parsed.User.Username()
+	if username == "" {
+		return source
+	}
+
+	maskedUserInfo := "******"
+	if _, hasPassword := parsed.User.Password(); hasPassword {
+		maskedUserInfo = username + ":******"
+	}
+
+	var b strings.Builder
+	b.WriteString(parsed.Scheme)
+	b.WriteString("://")
+	b.WriteString(maskedUserInfo)
+	b.WriteString("@")
+	b.WriteString(parsed.Host)
+	if p := parsed.EscapedPath(); p != "" {
+		b.WriteString(p)
+	}
+	if parsed.RawQuery != "" {
+		b.WriteString("?")
+		b.WriteString(parsed.RawQuery)
+	}
+	if parsed.Fragment != "" {
+		b.WriteString("#")
+		b.WriteString(parsed.Fragment)
+	}
+	return b.String()
+}
+
 type RunSummaryRecord struct {
 	RunID        string
 	FilePath     string
@@ -305,10 +372,14 @@ type RunSummaryRecord struct {
 }
 
 // LogRunSummaryToDB executes dynamic insert into pipeline_runs table
-func LogRunSummaryToDB(ctx context.Context, db *sql.DB, driverType string, rec RunSummaryRecord) error {
+func LogRunSummaryToDB(ctx context.Context, db *sql.DB, driverType string, rec RunSummaryRecord, debug bool) error {
 	if rec.RunID == "" {
 		rec.RunID = generateRunID()
 	}
+
+	rec.FilePath = maskSensitiveSourceForDB(rec.FilePath, debug)
+	rec.ConfigPath = maskSensitiveSourceForDB(rec.ConfigPath, debug)
+	rec.OptionsPath = maskSensitiveSourceForDB(rec.OptionsPath, debug)
 
 	cols := []string{
 		"run_id", "file_path", "config_path", "status", "started_at",

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -114,10 +115,44 @@ func loadFromDatabase(ctx context.Context, uri string) ([]byte, error) {
 	return content, nil
 }
 
-func loadFromHTTP(ctx context.Context, url string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func loadFromHTTP(ctx context.Context, rawURL string) ([]byte, error) {
+	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, err
+	}
+
+	requestURL := parsedURL.String()
+	requestAuthHeader := ""
+
+	if parsedURL.User != nil {
+		username := parsedURL.User.Username()
+		if strings.HasPrefix(strings.ToLower(username), "basic ") {
+			requestAuthHeader = username
+			parsedURL.User = nil
+			requestURL = parsedURL.String()
+		} else if password, hasPassword := parsedURL.User.Password(); hasPassword {
+			parsedURL.User = nil
+			requestURL = parsedURL.String()
+			// We delay setting the Basic auth header until after the request is created,
+			// to avoid net/http re-encoding the URL userinfo and creating a duplicate header.
+			requestAuthHeader = "__basic_user_pass__" + username + "\x00" + password
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if requestAuthHeader != "" {
+		if strings.HasPrefix(requestAuthHeader, "__basic_user_pass__") {
+			parts := strings.SplitN(strings.TrimPrefix(requestAuthHeader, "__basic_user_pass__"), "\x00", 2)
+			if len(parts) == 2 {
+				req.SetBasicAuth(parts[0], parts[1])
+			}
+		} else {
+			req.Header.Set("Authorization", requestAuthHeader)
+		}
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
@@ -128,7 +163,7 @@ func loadFromHTTP(ctx context.Context, url string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("HTTP GET %s failed with status code %d", url, resp.StatusCode)
+		return nil, fmt.Errorf("HTTP GET %s failed with status code %d", rawURL, resp.StatusCode)
 	}
 
 	return io.ReadAll(resp.Body)

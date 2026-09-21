@@ -26,6 +26,18 @@ This is useful for the main pipeline file, the options file, and the config over
 .\flow.exe --file "https://example.com/pipeline.xml" --config "https://example.com/config.xml"
 ```
 
+For Basic auth, the `Authorization` header value can be embedded directly in the URL itself instead of using `user:pass` syntax. Example:
+
+```powershell
+.\flow.exe --file "https://Basic%20dXNlcjpwYXNz@example.com/pipeline.xml"
+```
+
+This is translated to an HTTP header of:
+
+```text
+Authorization: Basic dXNlcjpwYXNz
+```
+
 ### SQL / database DSN
 
 The SQL URI format is:
@@ -43,6 +55,14 @@ Examples:
 
 .\flow.exe --config "sql://postgres@postgres://app_user:Password123!@prod-db:5432/appdb?sslmode=require#SELECT config_xml FROM flow_config WHERE name = 'PROD'"
 ```
+
+SQL Server with Windows integrated security / trusted connection:
+
+```powershell
+.\flow.exe --options "sql://sqlserver@sqlserver://T15P:1433?database=PROTO&integrated+security=true&trustServerCertificate=true#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name = 'OPTIONS_GITHUB_AI_CREDIT_USAGE'"
+```
+
+This pattern is useful when the SQL Server instance is running on a named host and you want to authenticate using a trusted Windows login instead of a username/password in the DSN itself.
 
 ### Database alias form
 

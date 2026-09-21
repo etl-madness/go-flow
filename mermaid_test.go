@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -238,6 +240,27 @@ func TestLoadResourceNormalizesUTF16XML(t *testing.T) {
 	}
 }
 
+func TestLoadResourceHTTPBasicAuthHeaderInURI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		if auth != "Basic dXNlcjpwYXNz" {
+			t.Fatalf("expected Authorization header to be %q, got %q", "Basic dXNlcjpwYXNz", auth)
+		}
+		w.Header().Set("Content-Type", "application/xml")
+		_, _ = w.Write([]byte(`<?xml version="1.0"?><pipeline><flow><script id="ok">echo hello</script></flow></pipeline>`))
+	}))
+	defer server.Close()
+
+	uri := strings.Replace(server.URL, "http://", "http://Basic%20dXNlcjpwYXNz@", 1)
+	content, err := LoadResource(t.Context(), uri)
+	if err != nil {
+		t.Fatalf("LoadResource with Basic auth in URI returned error: %v", err)
+	}
+	if !strings.Contains(string(content), "<pipeline>") {
+		t.Fatalf("expected XML content from authenticated HTTP source, got %q", string(content))
+	}
+}
+
 func TestNormalizeXMLBytes(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -329,4 +352,3 @@ func TestNormalizeXMLBytes(t *testing.T) {
 		})
 	}
 }
-

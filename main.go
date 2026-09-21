@@ -395,6 +395,7 @@ func main() {
 			}
 
 			dbSink = NewDatabaseSink(logDB, driverType)
+			dbSink.debug = *debug
 			sinks = append(sinks, dbSink)
 			defer logDB.Close()
 		}
@@ -449,7 +450,7 @@ func main() {
 				ErrorClass:   string(results.ErrorClass),
 				ErrorMessage: results.ErrorMessage,
 			}
-			if err := LogRunSummaryToDB(ctx, logDB, driverType, summary); err != nil {
+			if err := LogRunSummaryToDB(ctx, logDB, driverType, summary, *debug); err != nil {
 				log.Printf("Failed to log run summary to database: %v", err)
 			}
 		}
@@ -504,7 +505,7 @@ func main() {
 				ErrorClass:   errClass,
 				ErrorMessage: errMsg,
 			}
-			if err := LogRunSummaryToDB(ctx, logDB, driverType, summary); err != nil {
+			if err := LogRunSummaryToDB(ctx, logDB, driverType, summary, *debug); err != nil {
 				log.Printf("Failed to log run summary to database: %v", err)
 			}
 		}
