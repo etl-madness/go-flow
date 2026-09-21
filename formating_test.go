@@ -25,6 +25,21 @@ func TestGenerateRunID(t *testing.T) {
 	}
 }
 
+func TestConfigureExecutorOptionsPath(t *testing.T) {
+	executor := flow.NewExecutor(flow.NewRegistry())
+	dsn := "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name = 'OPTIONS_GLOBAL'"
+
+	configureExecutorOptionsPath(executor, dsn)
+
+	result, err := executor.ExecuteRun(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("expected successful empty execution, got error: %v", err)
+	}
+	if result.OptionsPath != dsn {
+		t.Fatalf("expected options path %q, got %q", dsn, result.OptionsPath)
+	}
+}
+
 func TestDatabaseSinkRunDetails(t *testing.T) {
 	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
@@ -42,6 +57,9 @@ func TestDatabaseSinkRunDetails(t *testing.T) {
 			node_kind VARCHAR(64) NOT NULL,
 			node_id VARCHAR(128) NOT NULL,
 			status VARCHAR(32) NOT NULL,
+			user_name VARCHAR(256),
+			hostname VARCHAR(256),
+			options_path VARCHAR(2048),
 			error_message TEXT,
 			rows_read BIGINT,
 			rows_written BIGINT,
@@ -62,10 +80,13 @@ func TestDatabaseSinkRunDetails(t *testing.T) {
 
 	// Emit run.started event
 	err = sink.Emit(ctx, flow.ExecutionEvent{
-		RunID:      "run-abc-123",
-		Type:       flow.EventRunStarted,
-		OccurredAt: time.Now().UTC(),
-		Status:     flow.RunStatusSucceeded,
+		RunID:       "run-abc-123",
+		Type:        flow.EventRunStarted,
+		OccurredAt:  time.Now().UTC(),
+		Status:      flow.RunStatusSucceeded,
+		UserName:    "alice",
+		Hostname:    "etl-worker.example.com",
+		OptionsPath: "/tmp/options.xml",
 	})
 	if err != nil {
 		t.Fatalf("failed to emit event: %v", err)
@@ -101,6 +122,20 @@ func TestDatabaseSinkRunDetails(t *testing.T) {
 	if errMsg != "connection timed out" {
 		t.Errorf("expected errorMessage 'connection timed out', got: %s", errMsg)
 	}
+
+	var userName, hostname, optionsPath string
+	if err := db.QueryRow("SELECT user_name, hostname, options_path FROM pipeline_events WHERE run_id = ? ORDER BY sequence_num DESC LIMIT 1", "run-abc-123").Scan(&userName, &hostname, &optionsPath); err != nil {
+		t.Fatalf("failed to read event identity columns: %v", err)
+	}
+	if userName != "alice" {
+		t.Fatalf("expected user_name 'alice', got: %s", userName)
+	}
+	if hostname != "etl-worker.example.com" {
+		t.Fatalf("expected hostname 'etl-worker.example.com', got: %s", hostname)
+	}
+	if optionsPath != "/tmp/options.xml" {
+		t.Fatalf("expected options_path '/tmp/options.xml', got: %s", optionsPath)
+	}
 }
 
 func TestLogRunSummaryToDB_PrimaryKeyConstraint(t *testing.T) {
@@ -121,6 +156,9 @@ func TestLogRunSummaryToDB_PrimaryKeyConstraint(t *testing.T) {
 			finished_at DATETIME NOT NULL,
 			duration_ms BIGINT NOT NULL,
 			task_count INT NOT NULL,
+			user_name VARCHAR(256),
+			hostname VARCHAR(256),
+			options_path VARCHAR(2048),
 			error_class VARCHAR(128),
 			error_message TEXT
 		);
@@ -134,13 +172,16 @@ func TestLogRunSummaryToDB_PrimaryKeyConstraint(t *testing.T) {
 
 	// 1. Insert first record with empty RunID - should auto-generate unique RunID
 	summary1 := RunSummaryRecord{
-		RunID:      "",
-		FilePath:   "scripts.xml",
-		Status:     "succeeded",
-		StartedAt:  now,
-		FinishedAt: now.Add(time.Second),
-		Duration:   time.Second,
-		TaskCount:  5,
+		RunID:       "",
+		FilePath:    "scripts.xml",
+		Status:      "succeeded",
+		StartedAt:   now,
+		FinishedAt:  now.Add(time.Second),
+		Duration:    time.Second,
+		TaskCount:   5,
+		UserName:    "alice",
+		Hostname:    "etl-worker.example.com",
+		OptionsPath: "/tmp/options.xml",
 	}
 
 	if err := LogRunSummaryToDB(ctx, db, "sqlite", summary1); err != nil {
@@ -186,5 +227,19 @@ func TestLogRunSummaryToDB_PrimaryKeyConstraint(t *testing.T) {
 	}
 	if runIDs[0] == runIDs[1] {
 		t.Fatalf("expected distinct run IDs, got duplicates: %s and %s", runIDs[0], runIDs[1])
+	}
+
+	var userName, hostname, optionsPath string
+	if err := db.QueryRow("SELECT user_name, hostname, options_path FROM pipeline_runs ORDER BY started_at DESC LIMIT 1").Scan(&userName, &hostname, &optionsPath); err != nil {
+		t.Fatalf("failed to read run identity columns: %v", err)
+	}
+	if userName != "alice" {
+		t.Fatalf("expected user_name 'alice', got: %s", userName)
+	}
+	if hostname != "etl-worker.example.com" {
+		t.Fatalf("expected hostname 'etl-worker.example.com', got: %s", hostname)
+	}
+	if optionsPath != "/tmp/options.xml" {
+		t.Fatalf("expected options_path '/tmp/options.xml', got: %s", optionsPath)
 	}
 }

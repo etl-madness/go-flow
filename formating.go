@@ -84,6 +84,9 @@ func NewDatabaseSink(db *sql.DB, driver string) *DatabaseSink {
 		"node_kind",
 		"node_id",
 		"status",
+		"user_name",
+		"hostname",
+		"options_path",
 		"error_message",
 		"rows_read",
 		"rows_written",
@@ -115,7 +118,8 @@ func (s *DatabaseSink) Emit(ctx context.Context, event flow.ExecutionEvent) erro
 		cols := []string{
 			"run_id", "execution_id", "sequence_num", "occurred_at",
 			"event_type", "node_kind", "node_id", "status",
-			"error_message", "rows_read", "rows_written", "rows_affected",
+			"user_name", "hostname", "options_path", "error_message",
+			"rows_read", "rows_written", "rows_affected",
 		}
 		query = buildInsertQuery(s.Driver, pipeline_events, cols)
 	}
@@ -129,6 +133,9 @@ func (s *DatabaseSink) Emit(ctx context.Context, event flow.ExecutionEvent) erro
 		event.NodeKind,
 		event.NodeID,
 		event.Status,
+		event.UserName,
+		event.Hostname,
+		event.OptionsPath,
 		event.ErrorMessage,
 		event.RowCounts.Read,
 		event.RowCounts.Written,
@@ -163,7 +170,7 @@ func generateRunID() string {
 func (s TextSink) Emit(_ context.Context, event flow.ExecutionEvent) error {
 	_, err := fmt.Fprintf(
 		s.Writer,
-		"%s,%s,%s,%d,%s,%s,%s,%s,%s,%d,%d,%d\n",
+		"%s,%s,%s,%d,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%d\n",
 		event.OccurredAt.UTC().Format(time.RFC3339),
 		event.RunID,
 		event.ExecutionID,
@@ -172,6 +179,9 @@ func (s TextSink) Emit(_ context.Context, event flow.ExecutionEvent) error {
 		event.NodeKind,
 		event.NodeID,
 		event.Status,
+		event.UserName,
+		event.Hostname,
+		event.OptionsPath,
 		event.ErrorMessage,
 		event.RowCounts.Read,
 		event.RowCounts.Written,
@@ -262,9 +272,9 @@ func outputStreamSummary(run flow.RunResult, file *string, config *string) {
 	if config != nil {
 		configStr = *config
 	}
-	fmt.Println("\n\nutc_runtime,file,config,status,started,finished,task_count")
+	fmt.Println("\n\nutc_runtime,file,config,status,started,finished,task_count,user_name,hostname,options_path")
 	log.Printf(
-		"%s,%s,%s,%s,%s,%s,%d",
+		"%s,%s,%s,%s,%s,%s,%d,%s,%s,%s",
 		time.Now().UTC().Format(time.RFC3339),
 		*file,
 		configStr,
@@ -272,6 +282,9 @@ func outputStreamSummary(run flow.RunResult, file *string, config *string) {
 		run.StartedAt.UTC().Format(time.RFC3339),
 		run.FinishedAt.UTC().Format(time.RFC3339),
 		len(run.Nodes),
+		run.UserName,
+		run.Hostname,
+		run.OptionsPath,
 	)
 }
 
@@ -284,6 +297,9 @@ type RunSummaryRecord struct {
 	FinishedAt   time.Time
 	Duration     time.Duration
 	TaskCount    int
+	UserName     string
+	Hostname     string
+	OptionsPath  string
 	ErrorClass   string
 	ErrorMessage string
 }
@@ -296,7 +312,8 @@ func LogRunSummaryToDB(ctx context.Context, db *sql.DB, driverType string, rec R
 
 	cols := []string{
 		"run_id", "file_path", "config_path", "status", "started_at",
-		"finished_at", "duration_ms", "task_count", "error_class", "error_message",
+		"finished_at", "duration_ms", "task_count", "user_name", "hostname",
+		"options_path", "error_class", "error_message",
 	}
 
 	query := buildInsertQuery(driverType, pipeline_runs, cols)
@@ -310,6 +327,9 @@ func LogRunSummaryToDB(ctx context.Context, db *sql.DB, driverType string, rec R
 		rec.FinishedAt.UTC(),
 		rec.Duration.Milliseconds(),
 		rec.TaskCount,
+		rec.UserName,
+		rec.Hostname,
+		rec.OptionsPath,
 		rec.ErrorClass,
 		rec.ErrorMessage,
 	)

@@ -4,7 +4,7 @@ go 1.26.5
 
 require (
 	cloud.google.com/go/bigquery v1.81.0
-	github.com/etl-madness/flow v1.2.33
+	github.com/etl-madness/flow v1.3.2
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/lestrrat-go/helium v0.7.0
 	github.com/lib/pq v1.12.3

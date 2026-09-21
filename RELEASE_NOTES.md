@@ -1,5 +1,20 @@
 # Release Notes
 
+## Release Notes (v1.1.19) - DSN and URI source tracking for observability
+
+### Overview
+
+This release fixes `options_path` and related source metadata when the pipeline is configured with remote or database-backed sources instead of a local filesystem path.
+
+### Included changes
+
+- Preserved the original DSN/URI string when `-options`, `-config`, and pipeline source paths are supplied as SQL or HTTP references.
+- Centralized source detection in the shared resource loader so file paths, database URIs, and HTTP URLs are handled consistently.
+- Updated run summary and event metadata to store the actual source label used at runtime, which keeps observability accurate for DB-backed option files.
+- Added regression coverage validating DSN-style option sources populate the execution metadata correctly.
+
+---
+
 ## Release Notes (v1.1.18) - Initial Overview
 
 ### Overview

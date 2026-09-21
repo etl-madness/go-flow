@@ -6,8 +6,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
+	"os/user"
 	"strconv"
 	"strings"
 	"syscall"
@@ -31,6 +33,56 @@ const (
 	pipeline_events = "pipeline_events"
 	pipeline_runs   = "pipeline_runs"
 )
+
+func runtimeIdentity() (string, string) {
+	userName := ""
+	if currentUser, err := user.Current(); err == nil && currentUser != nil {
+		userName = currentUser.Username
+	}
+	if userName == "" {
+		userName = os.Getenv("USER")
+	}
+	if userName == "" {
+		userName = os.Getenv("USERNAME")
+	}
+
+	hostname := fqdnHostname()
+	if hostname == "" {
+		hostname = os.Getenv("HOSTNAME")
+	}
+	if hostname == "" {
+		hostname = os.Getenv("COMPUTERNAME")
+	}
+	return userName, hostname
+}
+
+func configureExecutorOptionsPath(executor *flow.Executor, source string) {
+	if executor == nil || strings.TrimSpace(source) == "" {
+		return
+	}
+	executor.SetOptionsPath(source)
+}
+
+func fqdnHostname() string {
+	hostname, err := os.Hostname()
+	if err != nil || hostname == "" {
+		return ""
+	}
+	if strings.Contains(hostname, ".") {
+		return strings.TrimSuffix(hostname, ".")
+	}
+	if hostnames, err := net.LookupCNAME(hostname); err == nil && hostnames != "" {
+		return strings.TrimSuffix(hostnames, ".")
+	}
+	if ip, err := net.LookupIP(hostname); err == nil && len(ip) > 0 {
+		for _, value := range ip {
+			if names, err := net.LookupAddr(value.String()); err == nil && len(names) > 0 {
+				return strings.TrimSuffix(names[0], ".")
+			}
+		}
+	}
+	return strings.TrimSuffix(hostname, ".")
+}
 
 func main() {
 	builderFlag := flag.Bool("builder", false, "Start the local HTMX pipeline builder web server")
@@ -282,6 +334,7 @@ func main() {
 	defer stop()
 
 	executor := flow.NewExecutor(registry)
+	configureExecutorOptionsPath(executor, resourceSourceLabel(*optionsPath))
 	executor.SetVerbose(*debug)
 	executor.SetGoPath(*goPath)
 	executor.SetInterpHook(func(opts *interp.Options) {
@@ -349,7 +402,7 @@ func main() {
 
 	// Attach console streaming sink if output format is stream
 	if strings.ToLower(*format) == "stream" {
-		fmt.Println("\n\nutc_runtime,run_id,execution_id,sequence,type,kind,id,status,error,row_counts_read,row_counts_written,row_counts_affected")
+		fmt.Println("\n\nutc_runtime,run_id,execution_id,sequence,type,kind,id,status,user_name,hostname,options_path,error,row_counts_read,row_counts_written,row_counts_affected")
 		sinks = append(sinks, &TextSink{Writer: os.Stdout})
 	}
 
@@ -372,15 +425,27 @@ func main() {
 			if runID == "" {
 				runID = generateRunID()
 			}
+			if results.UserName == "" || results.Hostname == "" {
+				userName, hostname := runtimeIdentity()
+				if results.UserName == "" {
+					results.UserName = userName
+				}
+				if results.Hostname == "" {
+					results.Hostname = hostname
+				}
+			}
 			summary := RunSummaryRecord{
 				RunID:        runID,
-				FilePath:     *filePath,
-				ConfigPath:   *configPath,
+				FilePath:     resourceSourceLabel(*filePath),
+				ConfigPath:   resourceSourceLabel(*configPath),
 				Status:       string(results.Status),
 				StartedAt:    results.StartedAt,
 				FinishedAt:   results.FinishedAt,
 				Duration:     results.FinishedAt.Sub(results.StartedAt),
 				TaskCount:    len(results.Nodes),
+				UserName:     results.UserName,
+				Hostname:     results.Hostname,
+				OptionsPath:  results.OptionsPath,
 				ErrorClass:   string(results.ErrorClass),
 				ErrorMessage: results.ErrorMessage,
 			}
@@ -422,16 +487,20 @@ func main() {
 			if status == "" {
 				status = "succeeded"
 			}
+			userName, hostname := runtimeIdentity()
 
 			summary := RunSummaryRecord{
 				RunID:        runID,
-				FilePath:     *filePath,
-				ConfigPath:   *configPath,
+				FilePath:     resourceSourceLabel(*filePath),
+				ConfigPath:   resourceSourceLabel(*configPath),
 				Status:       status,
 				StartedAt:    start,
 				FinishedAt:   time.Now().UTC(),
 				Duration:     time.Now().UTC().Sub(start),
 				TaskCount:    len(nodes),
+				UserName:     userName,
+				Hostname:     hostname,
+				OptionsPath:  *optionsPath,
 				ErrorClass:   errClass,
 				ErrorMessage: errMsg,
 			}

@@ -1,4 +1,4 @@
-# Flow: Modern, Lightweight ETL & Workflow Orchestration Engine
+# Flow: Modern, Lightweight ETL & Workflow Orchestration Engine (v1.1.19)
 
 **Flow** is a single-binary, high-performance ETL execution engine and workflow orchestrator built in Go. Designed as a modern alternative to bloated legacy ETL tools (e.g., SSIS) and complex code-heavy orchestrators (e.g., Apache Airflow), Flow combines declarative XML pipelines, an embedded visual HTMX web builder, native cross-database execution, and automated compliance telemetry.
 
@@ -225,6 +225,9 @@ CREATE TABLE pipeline_runs (
     finished_at   TIMESTAMP,
     duration_ms   BIGINT,
     task_count    INT,
+    user_name     VARCHAR(256),
+    hostname      VARCHAR(256),
+    options_path  VARCHAR(2048),
     error_class   VARCHAR(64),
     error_message TEXT
 );
@@ -245,6 +248,9 @@ CREATE TABLE pipeline_events (
     node_kind     VARCHAR(32),   -- 'script', 'sql', 'parallel', 'if', etc.
     node_id       VARCHAR(64),
     status        VARCHAR(32),   -- 'started', 'completed', 'failed'
+    user_name     VARCHAR(256),
+    hostname      VARCHAR(256),
+    options_path  VARCHAR(2048),
     error_message TEXT,
     rows_read     BIGINT,
     rows_written  BIGINT,

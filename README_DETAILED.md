@@ -213,8 +213,8 @@ You can then replace `go run main.go` with `./flow.exe` in the examples below.
 
 | Flag | Default | Description |
 | :--- | :--- | :--- |
-| `--file` | `scripts.xml` | Path to the main XML file containing variables, databases, and scripts. |
-| `--config` | `""` | Optional path to an XML file containing environment variable overrides. |
+| `--file` | `scripts.xml` | Path to the main XML file containing variables, databases, and scripts. Supports filesystem paths, `http://` / `https://`, and `sql://` / `db://` DSN sources. |
+| `--config` | `""` | Optional path to an XML file containing environment variable overrides. Supports filesystem paths, `http://` / `https://`, and `sql://` / `db://` DSN sources. |
 | `--xsd` | `""` | Optional path to an XSD schema file to run an XML validity check via `xmllint`. |
 | `--validate`| `false` | When true, validates XML schema and semantic structure, then exits with code 0 without executing. |
 | `--preflight`| `false` | Execute preflight validation nodes only without running main pipeline flow. |
@@ -224,6 +224,8 @@ You can then replace `go run main.go` with `./flow.exe` in the examples below.
 | `--out` | `""` | Destination output file path for generated documentation (e.g., `pipeline.html` or `pipeline.md`). |
 | `--gopath` | `os.Getenv("GOPATH")` | GOPATH directory for interpreter package imports. |
 | `--format` | `json` | Output format for pipeline results: `json`, `jsonpretty`, `text`, or `markdown`. |
+
+> See [docs/flow_command_source_examples.md](docs/flow_command_source_examples.md) for concrete examples using local file, HTTP, and SQL DSN sources with `flow.exe`.
 
 ---
 

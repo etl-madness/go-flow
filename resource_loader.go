@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,6 +17,23 @@ import (
 	_ "github.com/sijms/go-ora/v2"
 	_ "modernc.org/sqlite"
 )
+
+func resourceSourceLabel(source string) string {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return ""
+	}
+
+	if strings.HasPrefix(source, "sql://") || strings.HasPrefix(source, "db://") ||
+		strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
+		return source
+	}
+
+	if absPath, err := filepath.Abs(source); err == nil {
+		return absPath
+	}
+	return source
+}
 
 // LoadResource resolves paths from filesystem, SQL databases, or HTTP endpoints.
 // Format for SQL URIs: sql://<driver>@<dsn>#<SQL_QUERY>
