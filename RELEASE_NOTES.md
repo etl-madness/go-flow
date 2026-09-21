@@ -1,5 +1,11 @@
 # Release Notes
+## Release Notes (v1.1.20) - DSN and URI source tracking for observability password masking
 
+### Overview
+
+Masks passwords in DSN and URI sources for improved observability and security.
+
+---
 ## Release Notes (v1.1.19) - DSN and URI source tracking for observability
 
 ### Overview
