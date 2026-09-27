@@ -30,8 +30,8 @@ const (
 	// note: if you change the schema, make sure to update all references
 	// to these tables the SQL create table statements.
 
-	pipeline_events = "pipeline_events"
-	pipeline_runs   = "pipeline_runs"
+	pipeline_events = builder.TablePipelineEvents
+	pipeline_runs   = builder.TablePipelineRuns
 )
 
 func runtimeIdentity() (string, string) {
@@ -170,6 +170,7 @@ func main() {
 
 	// Handle -builder flag: starts the interactive web UI
 	if *builderFlag {
+		builder.SetTelemetryTables(pipeline_runs, pipeline_events)
 		if err := builder.StartServer(*builderPort, *builderDb); err != nil {
 			log.Fatalf("Failed to start builder: %v", err)
 		}

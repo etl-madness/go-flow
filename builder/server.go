@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -20,11 +21,16 @@ import (
 
 	"crypto/rand"
 	"crypto/subtle"
+	"database/sql"
 	"encoding/hex"
 	"net"
 	"sync"
 
 	"github.com/etl-madness/flow"
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
+	_ "github.com/microsoft/go-mssqldb"
+	_ "github.com/sijms/go-ora/v2"
 )
 
 type Server struct {
@@ -792,6 +798,366 @@ func (s *Server) handlePurgeDatabase(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func testDatabaseConnection(driver, connStr string) error {
+	driver = strings.ToLower(strings.TrimSpace(driver))
+	switch driver {
+	case "sqlite", "sqlite3":
+		driver = "sqlite"
+	case "postgres", "postgresql", "pq":
+		driver = "postgres"
+	case "mysql":
+		driver = "mysql"
+	case "sqlserver", "mssql":
+		driver = "sqlserver"
+	case "oracle", "godror":
+		driver = "oracle"
+	default:
+		return fmt.Errorf("unsupported driver %q: supported drivers are postgres, sqlserver, mysql, sqlite, oracle", driver)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	db, err := sql.Open(driver, connStr)
+	if err != nil {
+		return fmt.Errorf("failed to open database handle: %w", err)
+	}
+	defer db.Close()
+
+	if err := db.PingContext(ctx); err != nil {
+		return fmt.Errorf("ping failed: %w", err)
+	}
+	return nil
+}
+
+func (s *Server) handleListDatabases(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	conns, err := s.storage.ListSavedDatabaseConnections()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to list database connections: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if conns == nil {
+		conns = []SavedDatabaseConnection{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(conns)
+}
+
+func (s *Server) handleSaveDatabase(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var conn SavedDatabaseConnection
+	if err := json.NewDecoder(r.Body).Decode(&conn); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid request payload: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	saved, err := s.storage.SaveDatabaseConnection(&conn)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to save database connection: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"success":    true,
+		"message":    "Database connection saved successfully",
+		"connection": saved,
+	})
+}
+
+func (s *Server) handleDeleteDatabase(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID <= 0 {
+		http.Error(w, "Invalid connection ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.storage.DeleteSavedDatabaseConnection(req.ID); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to delete database connection: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"message": "Database connection deleted successfully",
+	})
+}
+
+func (s *Server) handleTestDatabase(w http.ResponseWriter, r *http.Request) {
+	if !s.validateCSRF(r) {
+		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID               int64  `json:"id,omitempty"`
+		Driver           string `json:"driver"`
+		ConnectionString string `json:"connection_string"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid request payload: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	driver := strings.TrimSpace(req.Driver)
+	connStr := strings.TrimSpace(req.ConnectionString)
+
+	if req.ID > 0 && (driver == "" || connStr == "") {
+		saved, err := s.storage.GetSavedDatabaseConnection(req.ID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Database profile %d not found: %v", req.ID, err), http.StatusNotFound)
+			return
+		}
+		driver = saved.Driver
+		connStr = saved.ConnectionString
+	}
+
+	if driver == "" || connStr == "" {
+		http.Error(w, "Both driver and connection_string are required to test connection", http.StatusBadRequest)
+		return
+	}
+
+	start := time.Now()
+	testErr := testDatabaseConnection(driver, connStr)
+	latency := time.Since(start).Milliseconds()
+
+	w.Header().Set("Content-Type", "application/json")
+	if testErr != nil {
+		json.NewEncoder(w).Encode(map[string]any{
+			"success": false,
+			"error":   testErr.Error(),
+			"latency": latency,
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"message": fmt.Sprintf("Connected successfully (%dms latency)", latency),
+		"latency": latency,
+	})
+}
+
+func (s *Server) handleListLogRuns(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	dbIDStr := r.URL.Query().Get("db_id")
+	if dbIDStr == "" {
+		http.Error(w, "Missing db_id parameter", http.StatusBadRequest)
+		return
+	}
+	dbID, err := strconv.ParseInt(dbIDStr, 10, 64)
+	if err != nil || dbID <= 0 {
+		http.Error(w, "Invalid db_id parameter", http.StatusBadRequest)
+		return
+	}
+
+	conn, err := s.storage.GetSavedDatabaseConnection(dbID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "Database connection not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, fmt.Sprintf("Failed to fetch database connection: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if conn == nil {
+		http.Error(w, "Database connection not found", http.StatusNotFound)
+		return
+	}
+
+	search := r.URL.Query().Get("search")
+	status := r.URL.Query().Get("status")
+	limit := 200
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	db, err := sql.Open(conn.Driver, conn.ConnectionString)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"success": false,
+			"error":   fmt.Sprintf("Failed to open connection: %v", err),
+			"runs":    []PipelineRunRecord{},
+		})
+		return
+	}
+	defer db.Close()
+
+	if err := db.PingContext(ctx); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"success": false,
+			"error":   fmt.Sprintf("Could not connect to database: %v", err),
+			"runs":    []PipelineRunRecord{},
+		})
+		return
+	}
+
+	runsTable, _ := GetTelemetryTables()
+	runs, err := QueryPipelineRuns(ctx, db, conn.Driver, runsTable, search, status, limit)
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		if errors.Is(err, ErrTableNotFound) {
+			json.NewEncoder(w).Encode(map[string]any{
+				"success":      true,
+				"table_exists": false,
+				"runs":         []PipelineRunRecord{},
+				"message":      fmt.Sprintf("Table '%s' does not exist in the selected database yet.", runsTable),
+			})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"success": false,
+			"error":   fmt.Sprintf("Failed to query %s: %v", runsTable, err),
+			"runs":    []PipelineRunRecord{},
+		})
+		return
+	}
+
+	if runs == nil {
+		runs = []PipelineRunRecord{}
+	}
+
+	json.NewEncoder(w).Encode(map[string]any{
+		"success":      true,
+		"table_exists": true,
+		"runs":         runs,
+		"count":        len(runs),
+		"table":        runsTable,
+	})
+}
+
+func (s *Server) handleListLogEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	dbIDStr := r.URL.Query().Get("db_id")
+	runID := strings.TrimSpace(r.URL.Query().Get("run_id"))
+	if dbIDStr == "" || runID == "" {
+		http.Error(w, "Missing db_id or run_id parameter", http.StatusBadRequest)
+		return
+	}
+	dbID, err := strconv.ParseInt(dbIDStr, 10, 64)
+	if err != nil || dbID <= 0 {
+		http.Error(w, "Invalid db_id parameter", http.StatusBadRequest)
+		return
+	}
+
+	conn, err := s.storage.GetSavedDatabaseConnection(dbID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "Database connection not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, fmt.Sprintf("Failed to fetch database connection: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if conn == nil {
+		http.Error(w, "Database connection not found", http.StatusNotFound)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	db, err := sql.Open(conn.Driver, conn.ConnectionString)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"success": false,
+			"error":   fmt.Sprintf("Failed to open connection: %v", err),
+			"events":  []PipelineEventRecord{},
+		})
+		return
+	}
+	defer db.Close()
+
+	if err := db.PingContext(ctx); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"success": false,
+			"error":   fmt.Sprintf("Could not connect to database: %v", err),
+			"events":  []PipelineEventRecord{},
+		})
+		return
+	}
+
+	_, eventsTable := GetTelemetryTables()
+	events, err := QueryPipelineEvents(ctx, db, conn.Driver, eventsTable, runID)
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		if errors.Is(err, ErrTableNotFound) {
+			json.NewEncoder(w).Encode(map[string]any{
+				"success":      true,
+				"table_exists": false,
+				"events":       []PipelineEventRecord{},
+				"message":      fmt.Sprintf("Table '%s' does not exist in the selected database yet.", eventsTable),
+			})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"success": false,
+			"error":   fmt.Sprintf("Failed to query %s: %v", eventsTable, err),
+			"events":  []PipelineEventRecord{},
+		})
+		return
+	}
+
+	if events == nil {
+		events = []PipelineEventRecord{}
+	}
+
+	json.NewEncoder(w).Encode(map[string]any{
+		"success":      true,
+		"table_exists": true,
+		"events":       events,
+		"count":        len(events),
+		"table":        eventsTable,
+	})
+}
+
 func (s *Server) handleSaveFile(w http.ResponseWriter, r *http.Request) {
 	if !s.validateCSRF(r) {
 		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
@@ -1244,6 +1610,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/scripts/import", s.requireAuth(s.handleImportScript))
 	mux.HandleFunc("/api/scripts/list", s.requireAuth(s.handleListScripts))
 	mux.HandleFunc("/api/db/purge", s.requireAuth(s.handlePurgeDatabase))
+	mux.HandleFunc("/api/settings/databases", s.requireAuth(s.handleListDatabases))
+	mux.HandleFunc("/api/settings/databases/save", s.requireAuth(s.handleSaveDatabase))
+	mux.HandleFunc("/api/settings/databases/delete", s.requireAuth(s.handleDeleteDatabase))
+	mux.HandleFunc("/api/settings/databases/test", s.requireAuth(s.handleTestDatabase))
+	mux.HandleFunc("/api/logs/runs", s.requireAuth(s.handleListLogRuns))
+	mux.HandleFunc("/api/logs/events", s.requireAuth(s.handleListLogEvents))
 	mux.HandleFunc("/api/save_file", s.requireAuth(s.handleSaveFile))
 	mux.HandleFunc("/api/config/save", s.requireAuth(s.handleSaveConfig))
 	mux.HandleFunc("/api/options/save", s.requireAuth(s.handleSaveOptions))

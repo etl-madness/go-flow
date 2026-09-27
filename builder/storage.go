@@ -20,6 +20,20 @@ type Script struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// SavedDatabaseConnection represents a reusable database connection profile saved in SQLite.
+type SavedDatabaseConnection struct {
+	ID                     int64     `json:"id"`
+	Name                   string    `json:"name"`
+	Driver                 string    `json:"driver"`
+	ConnectionString       string    `json:"connection_string"`
+	MaxOpenConns           int       `json:"max_open_conns"`
+	MaxIdleConns           int       `json:"max_idle_conns"`
+	ConnMaxLifetimeSeconds int       `json:"conn_max_lifetime_seconds"`
+	Description            string    `json:"description"`
+	CreatedAt              time.Time `json:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at"`
+}
+
 // PipelineNode represents a node step within a pipeline draft.
 type PipelineNode struct {
 	ID            int64             `json:"id"`
@@ -119,6 +133,19 @@ func (s *Storage) migrate() error {
 			content TEXT NOT NULL DEFAULT '',
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);`,
+		`CREATE TABLE IF NOT EXISTS saved_database_connections (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE,
+			driver TEXT NOT NULL,
+			connection_string TEXT NOT NULL,
+			max_open_conns INTEGER NOT NULL DEFAULT 10,
+			max_idle_conns INTEGER NOT NULL DEFAULT 5,
+			conn_max_lifetime_seconds INTEGER NOT NULL DEFAULT 300,
+			description TEXT NOT NULL DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_saved_db_name ON saved_database_connections(name);`,
 	}
 
 	for _, q := range queries {
@@ -653,14 +680,14 @@ func (s *Storage) PurgeDatabase() (*Script, error) {
 	}
 	defer tx.Rollback()
 
-	tables := []string{"pipeline_nodes", "scripts", "config_files", "options_files"}
+	tables := []string{"pipeline_nodes", "scripts", "config_files", "options_files", "saved_database_connections"}
 	for _, tbl := range tables {
 		if _, err := tx.Exec("DELETE FROM " + tbl); err != nil {
 			s.mu.Unlock()
 			return nil, fmt.Errorf("failed to clear table %s: %w", tbl, err)
 		}
 	}
-	_, _ = tx.Exec("DELETE FROM sqlite_sequence WHERE name IN ('scripts', 'pipeline_nodes', 'config_files', 'options_files')")
+	_, _ = tx.Exec("DELETE FROM sqlite_sequence WHERE name IN ('scripts', 'pipeline_nodes', 'config_files', 'options_files', 'saved_database_connections')")
 
 	if err := tx.Commit(); err != nil {
 		s.mu.Unlock()
@@ -801,3 +828,122 @@ func (s *Storage) CopyScript(sourceID int64, newName string) (*Script, error) {
 
 	return newScript, nil
 }
+
+// ListSavedDatabaseConnections returns all saved database connection profiles ordered by name.
+func (s *Storage) ListSavedDatabaseConnections() ([]SavedDatabaseConnection, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	rows, err := s.db.Query(`SELECT id, name, driver, connection_string, max_open_conns, max_idle_conns, conn_max_lifetime_seconds, description, created_at, updated_at 
+		FROM saved_database_connections ORDER BY name ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var conns []SavedDatabaseConnection
+	for rows.Next() {
+		var c SavedDatabaseConnection
+		if err := rows.Scan(&c.ID, &c.Name, &c.Driver, &c.ConnectionString, &c.MaxOpenConns, &c.MaxIdleConns, &c.ConnMaxLifetimeSeconds, &c.Description, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			return nil, err
+		}
+		conns = append(conns, c)
+	}
+	return conns, nil
+}
+
+// GetSavedDatabaseConnection retrieves a database connection profile by ID.
+func (s *Storage) GetSavedDatabaseConnection(id int64) (*SavedDatabaseConnection, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var c SavedDatabaseConnection
+	err := s.db.QueryRow(`SELECT id, name, driver, connection_string, max_open_conns, max_idle_conns, conn_max_lifetime_seconds, description, created_at, updated_at 
+		FROM saved_database_connections WHERE id = ?`, id).
+		Scan(&c.ID, &c.Name, &c.Driver, &c.ConnectionString, &c.MaxOpenConns, &c.MaxIdleConns, &c.ConnMaxLifetimeSeconds, &c.Description, &c.CreatedAt, &c.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+// GetSavedDatabaseConnectionByName retrieves a database connection profile by unique name.
+func (s *Storage) GetSavedDatabaseConnectionByName(name string) (*SavedDatabaseConnection, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var c SavedDatabaseConnection
+	err := s.db.QueryRow(`SELECT id, name, driver, connection_string, max_open_conns, max_idle_conns, conn_max_lifetime_seconds, description, created_at, updated_at 
+		FROM saved_database_connections WHERE LOWER(name) = LOWER(?)`, strings.TrimSpace(name)).
+		Scan(&c.ID, &c.Name, &c.Driver, &c.ConnectionString, &c.MaxOpenConns, &c.MaxIdleConns, &c.ConnMaxLifetimeSeconds, &c.Description, &c.CreatedAt, &c.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+// SaveDatabaseConnection creates or updates a saved database connection record.
+func (s *Storage) SaveDatabaseConnection(conn *SavedDatabaseConnection) (*SavedDatabaseConnection, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if strings.TrimSpace(conn.Name) == "" {
+		return nil, fmt.Errorf("connection name is required")
+	}
+	if strings.TrimSpace(conn.Driver) == "" {
+		return nil, fmt.Errorf("driver is required")
+	}
+	if strings.TrimSpace(conn.ConnectionString) == "" {
+		return nil, fmt.Errorf("connection string is required")
+	}
+	if conn.MaxOpenConns <= 0 {
+		conn.MaxOpenConns = 10
+	}
+	if conn.MaxIdleConns <= 0 {
+		conn.MaxIdleConns = 5
+	}
+	if conn.ConnMaxLifetimeSeconds <= 0 {
+		conn.ConnMaxLifetimeSeconds = 300
+	}
+
+	now := time.Now().UTC()
+
+	if conn.ID > 0 {
+		_, err := s.db.Exec(`UPDATE saved_database_connections SET 
+			name = ?, driver = ?, connection_string = ?, max_open_conns = ?, max_idle_conns = ?, conn_max_lifetime_seconds = ?, description = ?, updated_at = ?
+			WHERE id = ?`,
+			conn.Name, conn.Driver, conn.ConnectionString, conn.MaxOpenConns, conn.MaxIdleConns, conn.ConnMaxLifetimeSeconds, conn.Description, now, conn.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update database connection: %w", err)
+		}
+		conn.UpdatedAt = now
+		return conn, nil
+	}
+
+	res, err := s.db.Exec(`INSERT INTO saved_database_connections 
+		(name, driver, connection_string, max_open_conns, max_idle_conns, conn_max_lifetime_seconds, description, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		conn.Name, conn.Driver, conn.ConnectionString, conn.MaxOpenConns, conn.MaxIdleConns, conn.ConnMaxLifetimeSeconds, conn.Description, now, now)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert database connection: %w", err)
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+	conn.ID = id
+	conn.CreatedAt = now
+	conn.UpdatedAt = now
+	return conn, nil
+}
+
+// DeleteSavedDatabaseConnection removes a database connection by ID.
+func (s *Storage) DeleteSavedDatabaseConnection(id int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.db.Exec("DELETE FROM saved_database_connections WHERE id = ?", id)
+	return err
+}
+

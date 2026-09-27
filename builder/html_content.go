@@ -3,8 +3,8 @@ package builder
 const IndexHTML = `<!DOCTYPE html>
 <html lang="en" class="h-full bg-slate-950 text-slate-100">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Flow Pipeline Builder</title>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -66,6 +66,10 @@ const IndexHTML = `<!DOCTYPE html>
         }
         html[data-theme="visual-studio-blue"] {
             --bg-body: #1d3354;
+            filter: none;
+        }
+        html[data-theme="soft-white"] {
+            --bg-body: #f8fafc;
             filter: none;
         }
         html[data-theme="light"] {
@@ -151,6 +155,107 @@ const IndexHTML = `<!DOCTYPE html>
         html[data-theme="visual-studio-blue"] .text-blue-500 {
             color: #dfeeff !important;
         }
+
+        /* Soft White Theme: Soft white background with blue and black primary colors */
+        html[data-theme="soft-white"],
+        html[data-theme="soft-white"] body {
+            background-color: #f8fafc !important;
+            color: #0f172a !important;
+        }
+        html[data-theme="soft-white"] .bg-slate-950 {
+            background-color: #f8fafc !important;
+        }
+        html[data-theme="soft-white"] .bg-slate-900,
+        html[data-theme="soft-white"] header,
+        html[data-theme="soft-white"] aside {
+            background-color: #ffffff !important;
+        }
+        html[data-theme="soft-white"] .node-card,
+        html[data-theme="soft-white"] .component-card {
+            background-color: #ffffff !important;
+        }
+        html[data-theme="soft-white"] .component-card:hover,
+        html[data-theme="soft-white"] .node-card:hover {
+            background-color: #f8fafc !important;
+            border-color: #2563eb !important;
+        }
+        html[data-theme="soft-white"] .bg-slate-800,
+        html[data-theme="soft-white"] .bg-slate-700,
+        html[data-theme="soft-white"] .bg-slate-800\/70,
+        html[data-theme="soft-white"] .bg-slate-950\/60,
+        html[data-theme="soft-white"] .bg-slate-900\/70,
+        html[data-theme="soft-white"] .bg-slate-900\/80 {
+            background-color: #f1f5f9 !important;
+        }
+        html[data-theme="soft-white"] .bg-slate-800:hover,
+        html[data-theme="soft-white"] .bg-slate-700:hover {
+            background-color: #e2e8f0 !important;
+        }
+        html[data-theme="soft-white"] .border-slate-800,
+        html[data-theme="soft-white"] .border-slate-700,
+        html[data-theme="soft-white"] .border-slate-800\/80,
+        html[data-theme="soft-white"] .border-slate-800\/60,
+        html[data-theme="soft-white"] .border-slate-700\/60,
+        html[data-theme="soft-white"] .border-slate-800\/70 {
+            border-color: #cbd5e1 !important;
+        }
+        html[data-theme="soft-white"] .border-blue-900\/40 {
+            border-color: #93c5fd !important;
+        }
+        html[data-theme="soft-white"] .text-slate-100,
+        html[data-theme="soft-white"] .text-slate-200,
+        html[data-theme="soft-white"] .text-slate-300,
+        html[data-theme="soft-white"] .text-white,
+        html[data-theme="soft-white"] h1,
+        html[data-theme="soft-white"] h2,
+        html[data-theme="soft-white"] h3 {
+            color: #0f172a !important;
+        }
+        html[data-theme="soft-white"] .text-slate-400,
+        html[data-theme="soft-white"] .text-slate-500 {
+            color: #334155 !important;
+        }
+        html[data-theme="soft-white"] .text-cyan-400,
+        html[data-theme="soft-white"] .text-cyan-300,
+        html[data-theme="soft-white"] .text-blue-400,
+        html[data-theme="soft-white"] .text-blue-300 {
+            color: #1d4ed8 !important;
+        }
+        html[data-theme="soft-white"] .text-cyan-500 {
+            color: #2563eb !important;
+        }
+        html[data-theme="soft-white"] .bg-blue-600,
+        html[data-theme="soft-white"] .bg-blue-500 {
+            background-color: #1d4ed8 !important;
+            color: #ffffff !important;
+        }
+        html[data-theme="soft-white"] .bg-blue-600:hover,
+        html[data-theme="soft-white"] .bg-blue-500:hover {
+            background-color: #1e40af !important;
+        }
+        html[data-theme="soft-white"] input,
+        html[data-theme="soft-white"] textarea,
+        html[data-theme="soft-white"] select {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+        }
+        html[data-theme="soft-white"] select option {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+        }
+        html[data-theme="soft-white"] #terminal-log {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+            border: 1px solid #cbd5e1 !important;
+        }
+        html[data-theme="soft-white"] #live-xml-preview {
+            color: #0f172a !important;
+        }
+        html[data-theme="soft-white"] .tab-btn.bg-blue-600 {
+            background-color: #1d4ed8 !important;
+            color: #ffffff !important;
+        }
         html[data-theme="light"] img, html[data-theme="light"] video {
             filter: invert(100%) hue-rotate(180deg);
         }
@@ -185,6 +290,12 @@ const IndexHTML = `<!DOCTYPE html>
             <button onclick="switchTab('runner')" id="tab-btn-runner" class="tab-btn px-4 py-1.5 text-xs font-semibold rounded-md transition-colors text-slate-300 hover:text-white">
                 🚀 Pipeline Runner
             </button>
+            <button onclick="switchTab('logs')" id="tab-btn-logs" class="tab-btn px-4 py-1.5 text-xs font-semibold rounded-md transition-colors text-slate-300 hover:text-white">
+                📋 Execution Logs
+            </button>
+            <button onclick="switchTab('settings')" id="tab-btn-settings" class="tab-btn px-4 py-1.5 text-xs font-semibold rounded-md transition-colors text-slate-300 hover:text-white">
+                ⚙️ Settings
+            </button>
         </div>
         <div class="flex items-center space-x-3">
             <div class="flex items-center space-x-1.5 bg-slate-800 border border-slate-700 rounded-md px-2 py-1">
@@ -203,6 +314,7 @@ const IndexHTML = `<!DOCTYPE html>
                     <option value="visual-studio-dark" class="bg-slate-900 text-slate-200">Visual Studio Dark</option>
                     <option value="visual-studio-light" class="bg-slate-900 text-slate-200">Visual Studio Light</option>
                     <option value="visual-studio-blue" class="bg-slate-900 text-slate-200">Visual Studio Blue</option>
+                    <option value="soft-white" class="bg-slate-900 text-slate-200">Soft White (Blue & Black)</option>
                     <option value="light" class="bg-slate-900 text-slate-200">Clean Light</option>
                 </select>
             </div>
@@ -336,7 +448,7 @@ const IndexHTML = `<!DOCTYPE html>
                         <div class="flex items-center space-x-3">
                             <div class="bg-slate-950 border border-slate-800 rounded-lg p-0.5 flex items-center space-x-1">
                                 <button type="button" onclick="setRunnerSource('file')" id="source-btn-file" class="px-3 py-1 text-xs font-semibold rounded-md transition-colors bg-blue-600 text-white shadow">
-                                    📂 Filesystem Script
+                                    📁 Filesystem Script
                                 </button>
                                 <button type="button" onclick="setRunnerSource('builder')" id="source-btn-builder" class="px-3 py-1 text-xs font-semibold rounded-md transition-colors text-slate-400 hover:text-white">
                                     🎨 Builder Draft
@@ -359,7 +471,7 @@ const IndexHTML = `<!DOCTYPE html>
                             <div class="flex items-center">
                                 <input type="text" id="runner-script-file" list="quick-xml-files" value="scripts.xml" placeholder="scripts.xml" class="bg-slate-950 border border-slate-700 rounded-l px-2.5 py-1.5 text-xs text-slate-200 w-full focus:outline-none focus:border-blue-500 font-mono">
                                 <button type="button" onclick="openFileBrowser('runner-script-file', '.xml')" title="Browse filesystem for script XML" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border-y border-r border-slate-700 rounded-r px-2.5 py-1.5 text-xs font-medium transition flex items-center space-x-1 whitespace-nowrap cursor-pointer">
-                                    <span>📂 Browse</span>
+                                    <span>📁 Browse</span>
                                 </button>
                             </div>
                         </div>
@@ -372,7 +484,7 @@ const IndexHTML = `<!DOCTYPE html>
                                 <input type="text" id="runner-config-file" list="quick-xml-files" value="" placeholder="CONFIG.xml (optional)" class="bg-slate-950 border border-slate-700 rounded-l px-2.5 py-1.5 text-xs text-slate-200 w-full focus:outline-none focus:border-blue-500 font-mono">
                                 <button type="button" onclick="document.getElementById('runner-config-file').value=''" title="Clear config file" class="bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-y border-slate-700 px-2 py-1.5 text-xs transition cursor-pointer">✕</button>
                                 <button type="button" onclick="openFileBrowser('runner-config-file', '.xml')" title="Browse filesystem for CONFIG.xml" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border-y border-r border-slate-700 rounded-r px-2.5 py-1.5 text-xs font-medium transition flex items-center space-x-1 whitespace-nowrap cursor-pointer">
-                                    <span>📂 Browse</span>
+                                    <span>📁 Browse</span>
                                 </button>
                             </div>
                         </div>
@@ -385,7 +497,7 @@ const IndexHTML = `<!DOCTYPE html>
                                 <input type="text" id="runner-options-file" list="quick-xml-files" value="" placeholder="options.xml (optional)" class="bg-slate-950 border border-slate-700 rounded-l px-2.5 py-1.5 text-xs text-slate-200 w-full focus:outline-none focus:border-blue-500 font-mono">
                                 <button type="button" onclick="document.getElementById('runner-options-file').value=''" title="Clear options file" class="bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-y border-slate-700 px-2 py-1.5 text-xs transition cursor-pointer">✕</button>
                                 <button type="button" onclick="openFileBrowser('runner-options-file', '.xml')" title="Browse filesystem for options.xml" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border-y border-r border-slate-700 rounded-r px-2.5 py-1.5 text-xs font-medium transition flex items-center space-x-1 whitespace-nowrap cursor-pointer">
-                                    <span>📂 Browse</span>
+                                    <span>📁 Browse</span>
                                 </button>
                             </div>
                         </div>
@@ -438,6 +550,215 @@ const IndexHTML = `<!DOCTYPE html>
                         </div>
                         <pre id="terminal-log" class="flex-1 p-3 overflow-y-auto custom-scrollbar text-[11px] font-mono text-emerald-400 whitespace-pre-wrap leading-relaxed select-text bg-black/50"></pre>
                     </div>
+                </div>
+            </div>
+        </div>
+        <div id="tab-logs" class="hidden flex-1 flex flex-col w-full h-full overflow-hidden p-6 space-y-4">
+            <!-- Header bar -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-800 gap-3 flex-shrink-0">
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+                        <span>📋 Execution Logs</span>
+                        <span id="log-selected-db-badge" class="hidden px-2 py-0.5 text-[10px] font-semibold bg-blue-900/60 text-blue-300 rounded-full border border-blue-700/50"></span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Select a saved database connection to search pipeline runs (<code class="text-cyan-400 font-mono">pipeline_runs</code>) and inspect step-level events (<code class="text-cyan-400 font-mono">pipeline_events</code>).
+                    </p>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    <!-- Database Dropdown -->
+                    <div class="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 shadow-sm">
+                        <span class="text-xs text-slate-400 font-medium">🗄️ Database:</span>
+                        <select id="log-db-select" onchange="onLogDatabaseChanged(this.value)" class="bg-transparent text-xs text-slate-200 font-semibold focus:outline-none cursor-pointer min-w-[170px]">
+                            <option value="">Select a database...</option>
+                        </select>
+                    </div>
+
+                    <!-- Refresh Button -->
+                    <button type="button" onclick="refreshLogRuns()" id="log-refresh-btn" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition shadow-sm flex items-center space-x-1.5 cursor-pointer" title="Refresh runs from database">
+                        <span>🔄 Refresh</span>
+                    </button>
+
+                    <!-- Settings Button -->
+                    <button type="button" onclick="switchTab('settings')" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg transition shadow-sm flex items-center space-x-1 cursor-pointer" title="Manage database connection profiles">
+                        <span>⚙️ Settings</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Logs Layout: 2 Panels (Left: Pipeline Runs, Right: Pipeline Events) -->
+            <div class="flex-1 flex flex-col lg:flex-row gap-4 min-h-0 overflow-hidden">
+                <!-- LEFT PANEL: Pipeline Runs -->
+                <div class="lg:w-1/2 flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
+                    <!-- Runs Header & Filters -->
+                    <div class="p-3 bg-slate-950/70 border-b border-slate-800 space-y-2.5 flex-shrink-0">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white flex items-center space-x-1.5">
+                                <span>🏃 Pipeline Runs (<code class="text-cyan-400 font-mono text-[11px]">pipeline_runs</code>)</span>
+                            </span>
+                            <span id="log-runs-count-badge" class="px-2 py-0.5 text-[10px] font-semibold bg-slate-800 text-slate-300 rounded-full border border-slate-700">0 Runs</span>
+                        </div>
+
+                        <!-- Search and Status Filter Controls -->
+                        <div class="flex items-center space-x-2">
+                            <div class="relative flex-1">
+                                <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400 text-xs">🔍</span>
+                                <input type="text" id="log-runs-search" placeholder="Search Run ID, script, host, user, error..." oninput="filterLogRuns()" class="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-md text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
+                            </div>
+                            <select id="log-runs-status-filter" onchange="filterLogRuns()" class="bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-md px-2.5 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer">
+                                <option value="all">All Statuses</option>
+                                <option value="succeeded">Succeeded</option>
+                                <option value="failed">Failed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Runs Table Container -->
+                    <div id="log-runs-container" class="flex-1 overflow-y-auto custom-scrollbar">
+                        <table class="w-full text-left text-xs text-slate-300">
+                            <thead class="sticky top-0 z-10 bg-slate-950 border-b border-slate-800 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                                <tr>
+                                    <th class="p-2.5">Status</th>
+                                    <th class="p-2.5">Run ID</th>
+                                    <th class="p-2.5">Pipeline / Script</th>
+                                    <th class="p-2.5">Started At</th>
+                                    <th class="p-2.5">Duration</th>
+                                    <th class="p-2.5">User & Host</th>
+                                </tr>
+                            </thead>
+                            <tbody id="log-runs-tbody" class="divide-y divide-slate-800/80">
+                                <tr>
+                                    <td colspan="6" class="p-8 text-center text-slate-500">Select a database above to load pipeline runs.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- RIGHT PANEL: Pipeline Events & Details -->
+                <div class="lg:w-1/2 flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
+                    <!-- Events Header & Active Run Info -->
+                    <div id="log-events-header" class="p-3 bg-slate-950/70 border-b border-slate-800 space-y-2 flex-shrink-0">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white flex items-center space-x-1.5">
+                                <span>⚡ Step Events (<code class="text-cyan-400 font-mono text-[11px]">pipeline_events</code>)</span>
+                            </span>
+                            <span id="log-events-count-badge" class="px-2 py-0.5 text-[10px] font-semibold bg-slate-800 text-slate-300 rounded-full border border-slate-700">0 Events</span>
+                        </div>
+
+                        <!-- Selected Run Summary Bar -->
+                        <div id="log-active-run-summary" class="hidden text-xs bg-slate-900 border border-slate-800 rounded-lg p-2.5 space-y-1.5">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <span id="active-run-status-badge" class="px-2 py-0.5 text-[10px] font-bold rounded"></span>
+                                    <span class="font-mono text-slate-200 text-xs font-semibold" id="active-run-id-display"></span>
+                                </div>
+                                <span class="text-[11px] text-slate-400" id="active-run-time-display"></span>
+                            </div>
+                            <div id="active-run-error-box" class="hidden text-[11px] text-rose-300 bg-rose-950/40 border border-rose-900/50 rounded p-1.5 font-mono"></div>
+                            <div class="flex items-center space-x-4 text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
+                                <span>Total Rows Read: <b id="sum-rows-read" class="text-cyan-400 font-mono">0</b></span>
+                                <span>Written: <b id="sum-rows-written" class="text-emerald-400 font-mono">0</b></span>
+                                <span>Affected: <b id="sum-rows-affected" class="text-purple-400 font-mono">0</b></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Events Table Container -->
+                    <div id="log-events-container" class="flex-1 overflow-y-auto custom-scrollbar">
+                        <table class="w-full text-left text-xs text-slate-300">
+                            <thead class="sticky top-0 z-10 bg-slate-950 border-b border-slate-800 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                                <tr>
+                                    <th class="p-2.5">Seq</th>
+                                    <th class="p-2.5">Time</th>
+                                    <th class="p-2.5">Node ID</th>
+                                    <th class="p-2.5">Kind</th>
+                                    <th class="p-2.5">Type</th>
+                                    <th class="p-2.5">Status</th>
+                                    <th class="p-2.5 text-right">Rows</th>
+                                    <th class="p-2.5 text-center">Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="log-events-tbody" class="divide-y divide-slate-800/80">
+                                <tr>
+                                    <td colspan="8" class="p-8 text-center text-slate-500">Select a pipeline run on the left to inspect its events.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="tab-settings" class="hidden flex-1 flex flex-col w-full h-full overflow-y-auto custom-scrollbar p-6 space-y-6">
+            <!-- Header banner -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+                        <span>⚙️ Studio Settings</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Configure saved database profiles for execution audit logging and manage local builder SQLite storage.</p>
+                </div>
+            </div>
+
+            <!-- Database Connections Section -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                            <span>🗄️ Database Connections</span>
+                            <span id="saved-db-count-badge" class="px-2 py-0.5 text-[10px] font-semibold bg-blue-900/60 text-blue-300 rounded-full border border-blue-700/50">0 Saved</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Database connections saved in SQLite for pipeline telemetry (<code class="text-cyan-400 font-mono">pipeline_runs</code>, <code class="text-cyan-400 font-mono">pipeline_events</code>) and pipeline execution.</p>
+                    </div>
+                    <button type="button" onclick="openAddDatabaseModal()" class="px-3.5 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-md transition shadow flex items-center space-x-1.5 cursor-pointer">
+                        <span>➕ Add Connection</span>
+                    </button>
+                </div>
+
+                <!-- Database Connections Table / Empty State -->
+                <div id="saved-databases-container" class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-950/60">
+                                <th class="p-3">Connection Name</th>
+                                <th class="p-3">Driver</th>
+                                <th class="p-3">Connection String (DSN)</th>
+                                <th class="p-3">Description</th>
+                                <th class="p-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="saved-databases-tbody" class="divide-y divide-slate-800">
+                            <tr>
+                                <td colspan="5" class="p-6 text-center text-slate-500">Loading saved database connections...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- SQLite Database Maintenance / Danger Zone -->
+            <div class="bg-slate-900 border border-rose-900/40 rounded-xl p-5 shadow-lg space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div>
+                        <h3 class="text-sm font-bold text-rose-300 flex items-center space-x-2">
+                            <span>⚠️ SQLite Storage Maintenance</span>
+                            <span class="px-2 py-0.5 text-[10px] font-semibold bg-rose-950/80 text-rose-400 rounded-full border border-rose-800/60">Danger Zone</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Reset the embedded visual builder SQLite database (<code class="text-slate-300 font-mono">flow_builder.db</code>) to initial factory defaults.</p>
+                    </div>
+                    <button type="button" onclick="confirmPurgeDatabase()" class="px-3.5 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition shadow flex items-center space-x-1.5 cursor-pointer">
+                        <span>🧹 Purge SQLite Database</span>
+                    </button>
+                </div>
+                <div class="p-4 bg-rose-950/20 border border-rose-900/30 rounded-lg text-xs text-slate-300 space-y-2">
+                    <p class="font-medium text-rose-200">What happens when you purge the database?</p>
+                    <ul class="list-disc list-inside space-y-1 text-slate-400 text-[11px]">
+                        <li>All draft pipeline scripts and visual node trees are permanently cleared.</li>
+                        <li>Config overrides (<code class="text-slate-300">CONFIG.xml</code>) and options files (<code class="text-slate-300">options.xml</code>) are reset to factory templates.</li>
+                        <li>All saved database connection profiles are reset.</li>
+                        <li>Auto-increment sequence counters are reset and a fresh default pipeline script is seeded.</li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -528,7 +849,7 @@ const IndexHTML = `<!DOCTYPE html>
         <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 shadow-2xl flex flex-col space-y-4">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div class="flex items-center space-x-2">
-                    <span class="text-base">📂</span>
+                    <span class="text-base">📁</span>
                     <h3 class="text-sm font-bold text-white">Import Pipeline from Filesystem</h3>
                 </div>
                 <button onclick="document.getElementById('import-pipeline-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">&times;</button>
@@ -613,6 +934,157 @@ const IndexHTML = `<!DOCTYPE html>
             </div>
         </div>
     </div>
+    <div id="database-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[90vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                    <h3 id="database-modal-title" class="text-sm font-bold text-white">Add Database Connection</h3>
+                    <p class="text-xs text-slate-400">Save connection profile in SQLite for audit logging and execution</p>
+                </div>
+                <button onclick="closeDatabaseModal()" class="text-slate-400 hover:text-white">&times;</button>
+            </div>
+            <form id="database-form" onsubmit="submitDatabaseForm(event)" class="flex-1 overflow-y-auto custom-scrollbar space-y-3.5 pr-1">
+                <input type="hidden" id="db-conn-id" name="id">
+                <div class="space-y-1">
+                    <label class="text-xs font-medium text-slate-300">Connection Name (<span class="text-amber-400">*</span>)</label>
+                    <input type="text" id="db-conn-name" name="name" required placeholder="e.g. log_db, analytics_db, local_sqlite" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500 font-mono">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-medium text-slate-300">Driver (<span class="text-amber-400">*</span>)</label>
+                    <select id="db-conn-driver" name="driver" onchange="updateDriverPlaceholder(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
+                        <option value="postgres">PostgreSQL (postgres / postgresql)</option>
+                        <option value="sqlserver">Microsoft SQL Server (sqlserver / mssql)</option>
+                        <option value="mysql">MySQL / MariaDB (mysql)</option>
+                        <option value="sqlite">SQLite (sqlite / sqlite3)</option>
+                        <option value="oracle">Oracle Database (oracle / godror)</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-medium text-slate-300">Connection String / DSN (<span class="text-amber-400">*</span>)</label>
+                        <button type="button" onclick="testModalDatabaseConnection()" id="btn-modal-test-db" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium">⚡ Test Ping</button>
+                    </div>
+                    <textarea id="db-conn-str" name="connection_string" rows="3" required placeholder="postgresql://user:pass@localhost:5432/dbname?sslmode=disable" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500 custom-scrollbar"></textarea>
+                    <p id="db-conn-hint" class="text-[10px] text-slate-400">Example: postgresql://user:pass@localhost:5432/dbname?sslmode=disable</p>
+                </div>
+                <div id="db-test-result" class="hidden text-xs p-2.5 rounded border"></div>
+                <div class="space-y-1">
+                    <label class="text-xs font-medium text-slate-300">Description (optional)</label>
+                    <input type="text" id="db-conn-desc" name="description" placeholder="e.g. Primary audit logging database for pipeline_runs" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-300">Max Open Conns</label>
+                        <input type="number" id="db-conn-max-open" name="max_open_conns" value="10" min="1" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-xs font-medium text-slate-300">Max Idle Conns</label>
+                        <input type="number" id="db-conn-max-idle" name="max_idle_conns" value="5" min="1" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
+                <div class="flex items-center justify-end space-x-2.5 pt-4 border-t border-slate-800">
+                    <button type="button" onclick="closeDatabaseModal()" class="px-3.5 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition">Cancel</button>
+                    <button type="submit" class="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-md transition shadow">Save Connection</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- EVENT DETAIL MODAL -->
+    <div id="event-detail-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full p-5 shadow-2xl flex flex-col space-y-4 max-h-[90vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2">
+                    <span class="text-base">🔍</span>
+                    <div>
+                        <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                            <span>Step Event Inspector</span>
+                            <span id="event-detail-seq" class="px-2 py-0.5 text-[10px] font-mono bg-blue-900/60 text-blue-300 rounded border border-blue-700/50">Seq #0</span>
+                        </h3>
+                        <p class="text-xs text-slate-400">Detailed metadata and telemetry for step execution.</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeEventDetailModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-1 text-xs text-slate-300">
+                <!-- Status & Node Info Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-950/60 p-3 rounded-lg border border-slate-800">
+                    <div>
+                        <span class="text-[10px] text-slate-500 uppercase tracking-wider block">Node ID</span>
+                        <span id="event-detail-node" class="font-mono text-cyan-300 font-semibold truncate block"></span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-500 uppercase tracking-wider block">Kind</span>
+                        <span id="event-detail-kind" class="font-mono text-slate-200"></span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-500 uppercase tracking-wider block">Event Type</span>
+                        <span id="event-detail-type" class="text-slate-200 font-semibold"></span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-500 uppercase tracking-wider block">Status</span>
+                        <span id="event-detail-status" class="font-bold uppercase text-slate-200"></span>
+                    </div>
+                </div>
+
+                <!-- Row Telemetry Metrics -->
+                <div class="grid grid-cols-3 gap-2.5 bg-slate-950/60 p-3 rounded-lg border border-slate-800 text-center">
+                    <div>
+                        <span class="text-[10px] text-slate-500 uppercase tracking-wider block">Rows Read</span>
+                        <span id="event-detail-read" class="font-mono text-cyan-400 text-sm font-bold">0</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-500 uppercase tracking-wider block">Rows Written</span>
+                        <span id="event-detail-written" class="font-mono text-emerald-400 text-sm font-bold">0</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-500 uppercase tracking-wider block">Rows Affected</span>
+                        <span id="event-detail-affected" class="font-mono text-purple-400 text-sm font-bold">0</span>
+                    </div>
+                </div>
+
+                <!-- Execution Context -->
+                <div class="space-y-1.5 bg-slate-950/40 p-3 rounded-lg border border-slate-800 font-mono text-[11px]">
+                    <div class="flex justify-between py-0.5 border-b border-slate-800/60">
+                        <span class="text-slate-500">Run ID:</span>
+                        <span id="event-detail-run-id" class="text-slate-300 select-all"></span>
+                    </div>
+                    <div class="flex justify-between py-0.5 border-b border-slate-800/60">
+                        <span class="text-slate-500">Execution ID:</span>
+                        <span id="event-detail-exec-id" class="text-slate-300 select-all"></span>
+                    </div>
+                    <div class="flex justify-between py-0.5 border-b border-slate-800/60">
+                        <span class="text-slate-500">Occurred At:</span>
+                        <span id="event-detail-time" class="text-slate-300"></span>
+                    </div>
+                    <div class="flex justify-between py-0.5 border-b border-slate-800/60">
+                        <span class="text-slate-500">User / Host:</span>
+                        <span class="text-slate-300"><span id="event-detail-user"></span>@<span id="event-detail-host"></span></span>
+                    </div>
+                    <div class="flex justify-between py-0.5">
+                        <span class="text-slate-500">Options Path:</span>
+                        <span id="event-detail-options" class="text-slate-300 truncate max-w-[280px]"></span>
+                    </div>
+                </div>
+
+                <!-- Error Message if present -->
+                <div id="event-detail-error-box" class="hidden bg-rose-950/40 border border-rose-900/60 rounded-lg p-3 space-y-1">
+                    <span class="text-[10px] uppercase font-bold text-rose-400 block tracking-wider">Error Details</span>
+                    <pre id="event-detail-error-text" class="text-rose-200 font-mono text-[11px] whitespace-pre-wrap select-all"></pre>
+                </div>
+
+                <!-- Raw JSON Accordion -->
+                <div class="space-y-1">
+                    <span class="text-[10px] text-slate-500 uppercase tracking-wider block">Raw Event JSON</span>
+                    <pre id="event-detail-raw-json" class="p-2.5 bg-black/60 border border-slate-800 rounded font-mono text-[10px] text-slate-300 overflow-x-auto select-all max-h-40"></pre>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end pt-3 border-t border-slate-800">
+                <button type="button" onclick="closeEventDetailModal()" class="px-4 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition cursor-pointer">Close</button>
+            </div>
+        </div>
+    </div>
     <div id="picker-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[85vh]">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -636,7 +1108,7 @@ const IndexHTML = `<!DOCTYPE html>
         <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full p-5 shadow-2xl flex flex-col space-y-3 max-h-[85vh]">
             <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
                 <div class="flex items-center space-x-2">
-                    <span class="text-base">📂</span>
+                    <span class="text-base">📁</span>
                     <div>
                         <h3 id="file-browser-title" class="text-sm font-bold text-white">Select File from Filesystem</h3>
                         <p id="file-browser-subtitle" class="text-xs text-slate-400">Choose a file from disk</p>
@@ -702,9 +1174,10 @@ const IndexHTML = `<!DOCTYPE html>
         };
 
         function switchTab(tab) {
-            ['pipeline', 'config', 'options', 'runner'].forEach(t => {
+            ['pipeline', 'config', 'options', 'runner', 'logs', 'settings'].forEach(t => {
                 const el = document.getElementById('tab-' + t);
                 const btn = document.getElementById('tab-btn-' + t);
+                if (!el || !btn) return;
                 if (t === tab) {
                     el.classList.remove('hidden');
                     btn.classList.add('bg-blue-600', 'text-white', 'shadow');
@@ -720,6 +1193,8 @@ const IndexHTML = `<!DOCTYPE html>
                 setTimeout(updateActiveSectionFromScroll, 50);
             }
             if (tab === 'runner') populateQuickFilesList();
+            if (tab === 'logs') initLogPage();
+            if (tab === 'settings') loadSavedDatabases();
         }
 
         function filterComponents(q) {
@@ -2272,6 +2747,290 @@ const IndexHTML = `<!DOCTYPE html>
             highlightSectionNav(active);
         }
 
+        let savedDatabasesList = [];
+
+        const DRIVER_PLACEHOLDERS = {
+            postgres: 'postgresql://user:pass@localhost:5432/dbname?sslmode=disable',
+            sqlserver: 'sqlserver://user:pass@localhost:1433?database=dbname',
+            mysql: 'user:pass@tcp(localhost:3306)/dbname?parseTime=true',
+            sqlite: './flow_builder.db',
+            oracle: 'oracle://user:pass@localhost:1521/service_name'
+        };
+
+        function updateDriverPlaceholder(driver) {
+            const hint = DRIVER_PLACEHOLDERS[driver] || '';
+            const textarea = document.getElementById('db-conn-str');
+            const hintEl = document.getElementById('db-conn-hint');
+            if (textarea && !textarea.value) textarea.placeholder = hint;
+            if (hintEl) hintEl.textContent = 'Example: ' + hint;
+        }
+
+        function loadSavedDatabases() {
+            fetch('/api/settings/databases')
+                .then(r => r.json())
+                .then(dbs => {
+                    savedDatabasesList = dbs || [];
+                    renderSavedDatabasesTable(savedDatabasesList);
+                })
+                .catch(err => {
+                    console.error('Failed to load saved databases:', err);
+                });
+        }
+
+        function renderSavedDatabasesTable(dbs) {
+            const badge = document.getElementById('saved-db-count-badge');
+            if (badge) badge.textContent = dbs.length + (dbs.length === 1 ? ' Saved' : ' Saved');
+
+            const tbody = document.getElementById('saved-databases-tbody');
+            if (!tbody) return;
+
+            if (dbs.length === 0) {
+                tbody.innerHTML = '<tr>' +
+                    '<td colspan="5" class="p-8 text-center text-slate-500">' +
+                        '<div class="flex flex-col items-center justify-center space-y-2">' +
+                            '<span class="text-2xl">🗄️</span>' +
+                            '<span class="font-medium">No saved database connections yet.</span>' +
+                            '<span class="text-xs text-slate-500">Add a connection profile to query audit tables (<code class="text-cyan-400">pipeline_runs</code>, <code class="text-cyan-400">pipeline_events</code>).</span>' +
+                            '<button type="button" onclick="openAddDatabaseModal()" class="mt-2 px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded transition cursor-pointer">➕ Add Connection</button>' +
+                        '</div>' +
+                    '</td>' +
+                '</tr>';
+                return;
+            }
+
+            tbody.innerHTML = dbs.map(function(db) {
+                var driverBadgeColors = {
+                    postgres: 'bg-indigo-950/80 text-indigo-300 border-indigo-700/60',
+                    sqlserver: 'bg-red-950/80 text-red-300 border-red-700/60',
+                    mysql: 'bg-amber-950/80 text-amber-300 border-amber-700/60',
+                    sqlite: 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60',
+                    oracle: 'bg-rose-950/80 text-rose-300 border-rose-700/60'
+                };
+                var badgeClass = driverBadgeColors[db.driver] || 'bg-slate-800 text-slate-300 border-slate-700';
+
+                return '<tr class="hover:bg-slate-950/40 transition-colors">' +
+                    '<td class="p-3">' +
+                        '<div class="font-semibold text-slate-200 text-xs">' + escapeHtml(db.name) + '</div>' +
+                    '</td>' +
+                    '<td class="p-3">' +
+                        '<span class="px-2 py-0.5 rounded text-[10px] font-mono border ' + badgeClass + '">' + escapeHtml(db.driver) + '</span>' +
+                    '</td>' +
+                    '<td class="p-3">' +
+                        '<div class="flex items-center space-x-2 font-mono text-[11px] text-slate-300">' +
+                            '<span id="dsn-display-' + db.id + '" data-full="' + escapeHtml(db.connection_string) + '" class="max-w-md truncate">' + escapeHtml(maskDSN(db.connection_string)) + '</span>' +
+                            '<button type="button" onclick="toggleDSNVisibility(' + db.id + ')" class="text-slate-500 hover:text-slate-300 text-xs cursor-pointer" title="Toggle visibility">👁️</button>' +
+                        '</div>' +
+                    '</td>' +
+                    '<td class="p-3 text-slate-400 text-xs">' +
+                        escapeHtml(db.description || '—') +
+                    '</td>' +
+                    '<td class="p-3 text-right">' +
+                        '<div class="flex items-center justify-end space-x-1.5">' +
+                            '<button type="button" onclick="testSavedDatabase(' + db.id + ')" id="test-btn-' + db.id + '" class="px-2 py-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded transition cursor-pointer" title="Test Connection Ping">' +
+                                '⚡ Test' +
+                            '</button>' +
+                            '<button type="button" onclick="openEditDatabaseModal(' + db.id + ')" class="px-2 py-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded transition cursor-pointer" title="Edit Connection">' +
+                                '✏️ Edit' +
+                            '</button>' +
+                            '<button type="button" onclick="deleteSavedDatabase(' + db.id + ', \'' + escapeHtml(db.name) + '\')" class="px-2 py-1 text-[11px] font-semibold bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 rounded transition cursor-pointer" title="Delete Connection">' +
+                                '🗑️' +
+                            '</button>' +
+                        '</div>' +
+                        '<div id="test-status-' + db.id + '" class="hidden text-[10px] text-right mt-1"></div>' +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+        }
+
+        function maskDSN(dsn) {
+            if (!dsn) return '';
+            if (dsn.length <= 15) return dsn;
+            return dsn.substring(0, 10) + '••••••••' + dsn.substring(dsn.length - 6);
+        }
+
+        function toggleDSNVisibility(id) {
+            const el = document.getElementById('dsn-display-' + id);
+            if (!el) return;
+            const full = el.getAttribute('data-full');
+            if (el.textContent === full) {
+                el.textContent = maskDSN(full);
+            } else {
+                el.textContent = full;
+            }
+        }
+
+        function openAddDatabaseModal() {
+            document.getElementById('database-modal-title').textContent = 'Add Database Connection';
+            document.getElementById('db-conn-id').value = '';
+            document.getElementById('db-conn-name').value = '';
+            document.getElementById('db-conn-driver').value = 'postgres';
+            document.getElementById('db-conn-str').value = '';
+            document.getElementById('db-conn-desc').value = '';
+            document.getElementById('db-conn-max-open').value = '10';
+            document.getElementById('db-conn-max-idle').value = '5';
+            document.getElementById('db-test-result').classList.add('hidden');
+            updateDriverPlaceholder('postgres');
+            document.getElementById('database-modal').classList.remove('hidden');
+        }
+
+        function openEditDatabaseModal(id) {
+            const db = savedDatabasesList.find(d => d.id === id);
+            if (!db) return;
+            document.getElementById('database-modal-title').textContent = 'Edit Database Connection';
+            document.getElementById('db-conn-id').value = String(db.id);
+            document.getElementById('db-conn-name').value = db.name;
+            document.getElementById('db-conn-driver').value = db.driver;
+            document.getElementById('db-conn-str').value = db.connection_string;
+            document.getElementById('db-conn-desc').value = db.description || '';
+            document.getElementById('db-conn-max-open').value = String(db.max_open_conns || 10);
+            document.getElementById('db-conn-max-idle').value = String(db.max_idle_conns || 5);
+            document.getElementById('db-test-result').classList.add('hidden');
+            updateDriverPlaceholder(db.driver);
+            document.getElementById('database-modal').classList.remove('hidden');
+        }
+
+        function closeDatabaseModal() {
+            document.getElementById('database-modal').classList.add('hidden');
+        }
+
+        function submitDatabaseForm(e) {
+            e.preventDefault();
+            const idVal = document.getElementById('db-conn-id').value;
+            const payload = {
+                id: idVal ? parseInt(idVal, 10) : 0,
+                name: document.getElementById('db-conn-name').value.trim(),
+                driver: document.getElementById('db-conn-driver').value.trim(),
+                connection_string: document.getElementById('db-conn-str').value.trim(),
+                description: document.getElementById('db-conn-desc').value.trim(),
+                max_open_conns: parseInt(document.getElementById('db-conn-max-open').value, 10) || 10,
+                max_idle_conns: parseInt(document.getElementById('db-conn-max-idle').value, 10) || 5
+            };
+
+            fetch('/api/settings/databases/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                return r.json();
+            })
+            .then(res => {
+                closeDatabaseModal();
+                loadSavedDatabases();
+            })
+            .catch(err => {
+                alert('Save failed: ' + err.message);
+            });
+        }
+
+        function testModalDatabaseConnection() {
+            const driver = document.getElementById('db-conn-driver').value.trim();
+            const connStr = document.getElementById('db-conn-str').value.trim();
+            const resBox = document.getElementById('db-test-result');
+            const btn = document.getElementById('btn-modal-test-db');
+
+            if (!connStr) {
+                alert('Please enter a connection string to test.');
+                return;
+            }
+
+            btn.textContent = 'Testing...';
+            resBox.className = 'text-xs p-2.5 rounded border bg-slate-950 border-slate-700 text-slate-300';
+            resBox.textContent = 'Pinging database...';
+            resBox.classList.remove('hidden');
+
+            fetch('/api/settings/databases/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ driver: driver, connection_string: connStr })
+            })
+            .then(r => r.json())
+            .then(res => {
+                btn.textContent = '⚡ Test Ping';
+                if (res.success) {
+                    resBox.className = 'text-xs p-2.5 rounded border bg-emerald-950/60 border-emerald-700/60 text-emerald-300';
+                    resBox.textContent = '✓ ' + res.message;
+                } else {
+                    resBox.className = 'text-xs p-2.5 rounded border bg-rose-950/60 border-rose-700/60 text-rose-300';
+                    resBox.textContent = '✕ ' + res.error;
+                }
+            })
+            .catch(err => {
+                btn.textContent = '⚡ Test Ping';
+                resBox.className = 'text-xs p-2.5 rounded border bg-rose-950/60 border-rose-700/60 text-rose-300';
+                resBox.textContent = '✕ Error: ' + err.message;
+            });
+        }
+
+        function testSavedDatabase(id) {
+            const statusEl = document.getElementById('test-status-' + id);
+            const btn = document.getElementById('test-btn-' + id);
+            if (btn) btn.textContent = '...';
+            if (statusEl) {
+                statusEl.className = 'text-[10px] text-right mt-1 text-slate-400';
+                statusEl.textContent = 'Pinging...';
+                statusEl.classList.remove('hidden');
+            }
+
+            fetch('/api/settings/databases/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ id: id })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (btn) btn.textContent = '⚡ Test';
+                if (!statusEl) return;
+                if (res.success) {
+                    statusEl.className = 'text-[10px] text-right mt-1 text-emerald-400 font-medium';
+                    statusEl.textContent = '✓ ' + (res.latency ? res.latency + 'ms' : 'Connected');
+                } else {
+                    statusEl.className = 'text-[10px] text-right mt-1 text-rose-400 font-medium';
+                    statusEl.textContent = '✕ Ping failed';
+                    statusEl.title = res.error || 'Connection failed';
+                }
+            })
+            .catch(err => {
+                if (btn) btn.textContent = '⚡ Test';
+                if (!statusEl) return;
+                statusEl.className = 'text-[10px] text-right mt-1 text-rose-400 font-medium';
+                statusEl.textContent = '✕ ' + err.message;
+            });
+        }
+
+        function deleteSavedDatabase(id, name) {
+            if (!confirm('Are you sure you want to delete database connection "' + name + '"?')) return;
+
+            fetch('/api/settings/databases/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ id: id })
+            })
+            .then(r => {
+                if (!r.ok) return r.text().then(t => { throw new Error(t); });
+                return r.json();
+            })
+            .then(() => {
+                loadSavedDatabases();
+            })
+            .catch(err => {
+                alert('Delete failed: ' + err.message);
+            });
+        }
+
         let sectionScrollDebounceTimer = null;
         function handleCanvasScroll() {
             if (sectionScrollDebounceTimer) return;
@@ -2297,6 +3056,407 @@ const IndexHTML = `<!DOCTYPE html>
             } else {
                 updateActiveSectionFromScroll();
             }
+        }
+
+        // =========================================================================
+        // EXECUTION LOGS & TELEMETRY PAGE
+        // =========================================================================
+        let logState = {
+            databases: [],
+            selectedDbId: null,
+            runs: [],
+            filteredRuns: [],
+            selectedRunId: null,
+            events: [],
+            selectedEvent: null
+        };
+
+        function initLogPage() {
+            loadLogDatabases();
+        }
+
+        function loadLogDatabases() {
+            fetch('/api/settings/databases')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    logState.databases = Array.isArray(data) ? data : [];
+                    const select = document.getElementById('log-db-select');
+                    if (!select) return;
+                    select.innerHTML = '<option value="">Select a database...</option>';
+                    logState.databases.forEach(function(db) {
+                        const opt = document.createElement('option');
+                        opt.value = db.id;
+                        opt.textContent = db.name + ' (' + db.driver + ')';
+                        select.appendChild(opt);
+                    });
+
+                    const savedDbId = localStorage.getItem('flow_log_selected_db');
+                    if (savedDbId && logState.databases.some(function(d) { return String(d.id) === String(savedDbId); })) {
+                        select.value = savedDbId;
+                        onLogDatabaseChanged(savedDbId);
+                    } else if (logState.databases.length > 0) {
+                        select.value = logState.databases[0].id;
+                        onLogDatabaseChanged(logState.databases[0].id);
+                    } else {
+                        renderEmptyLogRuns('No saved database connections found. Go to Settings to add a connection profile.');
+                    }
+                })
+                .catch(function(err) {
+                    console.error('Failed to load databases for logs:', err);
+                });
+        }
+
+        function onLogDatabaseChanged(dbId) {
+            logState.selectedDbId = dbId;
+            logState.selectedRunId = null;
+            logState.events = [];
+            resetEventsPanel();
+
+            if (!dbId) {
+                localStorage.removeItem('flow_log_selected_db');
+                const badge = document.getElementById('log-selected-db-badge');
+                if (badge) badge.classList.add('hidden');
+                renderEmptyLogRuns('Select a database above to load pipeline runs.');
+                return;
+            }
+
+            localStorage.setItem('flow_log_selected_db', dbId);
+            const db = logState.databases.find(function(d) { return String(d.id) === String(dbId); });
+            const badge = document.getElementById('log-selected-db-badge');
+            if (badge && db) {
+                badge.textContent = db.name + ' [' + db.driver + ']';
+                badge.classList.remove('hidden');
+            }
+
+            refreshLogRuns();
+        }
+
+        function refreshLogRuns() {
+            if (!logState.selectedDbId) return;
+            const tbody = document.getElementById('log-runs-tbody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400">Loading pipeline runs...</td></tr>';
+            }
+
+            fetch('/api/logs/runs?db_id=' + encodeURIComponent(logState.selectedDbId))
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (!data.success) {
+                        renderEmptyLogRuns('Error querying runs: ' + escapeHtml(data.error || 'Unknown error'));
+                        return;
+                    }
+                    if (data.table_exists === false) {
+                        renderEmptyLogRuns(data.message || 'Table pipeline_runs does not exist in this database yet.');
+                        return;
+                    }
+
+                    logState.runs = data.runs || [];
+                    filterLogRuns();
+
+                    if (logState.runs.length > 0 && !logState.selectedRunId) {
+                        selectLogRun(logState.runs[0].run_id);
+                    }
+                })
+                .catch(function(err) {
+                    renderEmptyLogRuns('Failed to fetch runs: ' + escapeHtml(err.message));
+                });
+        }
+
+        function filterLogRuns() {
+            const searchInput = document.getElementById('log-runs-search');
+            const search = (searchInput ? searchInput.value : '').toLowerCase().trim();
+            const statusFilterInput = document.getElementById('log-runs-status-filter');
+            const statusFilter = (statusFilterInput ? statusFilterInput.value : 'all').toLowerCase();
+
+            logState.filteredRuns = logState.runs.filter(function(r) {
+                if (statusFilter !== 'all' && (r.status || '').toLowerCase() !== statusFilter) {
+                    return false;
+                }
+                if (search) {
+                    const haystack = ((r.run_id || '') + ' ' + (r.file_path || '') + ' ' + (r.config_path || '') + ' ' + (r.user_name || '') + ' ' + (r.hostname || '') + ' ' + (r.error_message || '')).toLowerCase();
+                    if (!haystack.includes(search)) return false;
+                }
+                return true;
+            });
+
+            const badge = document.getElementById('log-runs-count-badge');
+            if (badge) badge.textContent = logState.filteredRuns.length + ' of ' + logState.runs.length + ' Runs';
+
+            renderLogRunsTable(logState.filteredRuns);
+        }
+
+        function renderEmptyLogRuns(message) {
+            const tbody = document.getElementById('log-runs-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400">' + escapeHtml(message) + '</td></tr>';
+            const badge = document.getElementById('log-runs-count-badge');
+            if (badge) badge.textContent = '0 Runs';
+        }
+
+        function formatDuration(ms) {
+            if (!ms || ms <= 0) return '0ms';
+            if (ms < 1000) return ms + 'ms';
+            if (ms < 60000) return (ms / 1000).toFixed(2) + 's';
+            const mins = Math.floor(ms / 60000);
+            const secs = ((ms % 60000) / 1000).toFixed(1);
+            return mins + 'm ' + secs + 's';
+        }
+
+        function formatTimestamp(ts) {
+            if (!ts) return '-';
+            try {
+                const d = new Date(ts);
+                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' ' + d.toLocaleDateString();
+            } catch (e) {
+                return String(ts);
+            }
+        }
+
+        function renderLogRunsTable(runs) {
+            const tbody = document.getElementById('log-runs-tbody');
+            if (!tbody) return;
+
+            if (!runs || runs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500">No matching pipeline runs found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = runs.map(function(run) {
+                const isSelected = run.run_id === logState.selectedRunId;
+                const statusLower = (run.status || '').toLowerCase();
+                const statusClass = statusLower === 'succeeded' || statusLower === 'success'
+                    ? 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50' 
+                    : (statusLower === 'failed' || statusLower === 'failure' ? 'bg-rose-950/60 text-rose-300 border-rose-700/50' : 'bg-amber-950/60 text-amber-300 border-amber-700/50');
+                const selectedClass = isSelected ? 'bg-blue-950/40 border-l-4 border-l-blue-500 ring-1 ring-blue-500/30' : 'hover:bg-slate-800/60 cursor-pointer';
+                const fileBaseName = (run.file_path || '-').split(/[\\\/]/).pop();
+
+                return '<tr onclick="selectLogRun(\'' + escapeHtml(run.run_id) + '\')" class="transition-colors ' + selectedClass + '">' +
+                    '<td class="p-2.5 whitespace-nowrap">' +
+                        '<span class="px-2 py-0.5 text-[10px] font-bold rounded border uppercase ' + statusClass + '">' + escapeHtml(run.status || 'unknown') + '</span>' +
+                    '</td>' +
+                    '<td class="p-2.5 font-mono text-xs text-blue-400 font-semibold truncate max-w-[120px]" title="' + escapeHtml(run.run_id) + '">' +
+                        escapeHtml(run.run_id) +
+                    '</td>' +
+                    '<td class="p-2.5 truncate max-w-[140px]" title="' + escapeHtml(run.file_path || '-') + '">' +
+                        '<span class="text-slate-200 font-medium">' + escapeHtml(fileBaseName) + '</span>' +
+                        '<span class="block text-[10px] text-slate-500 truncate">' + escapeHtml(run.file_path || '-') + '</span>' +
+                    '</td>' +
+                    '<td class="p-2.5 whitespace-nowrap text-slate-400 text-[11px]">' +
+                        formatTimestamp(run.started_at) +
+                    '</td>' +
+                    '<td class="p-2.5 whitespace-nowrap text-slate-300 font-mono text-[11px]">' +
+                        formatDuration(run.duration_ms) +
+                    '</td>' +
+                    '<td class="p-2.5 truncate max-w-[110px] text-slate-400 text-[11px]" title="' + escapeHtml(run.user_name || '') + '@' + escapeHtml(run.hostname || '') + '">' +
+                        escapeHtml(run.user_name || '-') + '<span class="text-slate-600">@</span>' + escapeHtml(run.hostname || '-') +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+        }
+
+        function selectLogRun(runId) {
+            logState.selectedRunId = runId;
+            renderLogRunsTable(logState.filteredRuns);
+
+            const run = logState.runs.find(function(r) { return r.run_id === runId; });
+            updateActiveRunSummary(run);
+            loadLogEvents(runId);
+        }
+
+        function updateActiveRunSummary(run) {
+            const container = document.getElementById('log-active-run-summary');
+            if (!container) return;
+            if (!run) {
+                container.classList.add('hidden');
+                return;
+            }
+            container.classList.remove('hidden');
+
+            const statusBadge = document.getElementById('active-run-status-badge');
+            if (statusBadge) {
+                const statusLower = (run.status || '').toLowerCase();
+                statusBadge.textContent = (run.status || 'UNKNOWN').toUpperCase();
+                statusBadge.className = 'px-2 py-0.5 text-[10px] font-bold rounded uppercase ' +
+                    (statusLower === 'succeeded' || statusLower === 'success'
+                        ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-700/50'
+                        : 'bg-rose-950/60 text-rose-300 border border-rose-700/50');
+            }
+
+            const idDisplay = document.getElementById('active-run-id-display');
+            if (idDisplay) idDisplay.textContent = run.run_id;
+
+            const timeDisplay = document.getElementById('active-run-time-display');
+            if (timeDisplay) {
+                timeDisplay.textContent = 'Started: ' + formatTimestamp(run.started_at) + ' • Duration: ' + formatDuration(run.duration_ms);
+            }
+
+            const errorBox = document.getElementById('active-run-error-box');
+            if (errorBox) {
+                if (run.error_message || run.error_class) {
+                    errorBox.textContent = (run.error_class ? run.error_class + ': ' : '') + run.error_message;
+                    errorBox.classList.remove('hidden');
+                } else {
+                    errorBox.classList.add('hidden');
+                }
+            }
+        }
+
+        function resetEventsPanel() {
+            const summary = document.getElementById('log-active-run-summary');
+            if (summary) summary.classList.add('hidden');
+            const tbody = document.getElementById('log-events-tbody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-slate-500">Select a pipeline run on the left to inspect its events.</td></tr>';
+            }
+            const badge = document.getElementById('log-events-count-badge');
+            if (badge) badge.textContent = '0 Events';
+        }
+
+        function loadLogEvents(runId) {
+            if (!logState.selectedDbId || !runId) return;
+            const tbody = document.getElementById('log-events-tbody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-slate-400">Loading step events for run...</td></tr>';
+            }
+
+            fetch('/api/logs/events?db_id=' + encodeURIComponent(logState.selectedDbId) + '&run_id=' + encodeURIComponent(runId))
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (!data.success) {
+                        renderEmptyLogEvents('Error querying events: ' + escapeHtml(data.error || 'Unknown error'));
+                        return;
+                    }
+                    if (data.table_exists === false) {
+                        renderEmptyLogEvents(data.message || 'Table pipeline_events does not exist in this database yet.');
+                        return;
+                    }
+
+                    logState.events = data.events || [];
+                    renderLogEventsTable(logState.events);
+                })
+                .catch(function(err) {
+                    renderEmptyLogEvents('Failed to fetch events: ' + escapeHtml(err.message));
+                });
+        }
+
+        function renderEmptyLogEvents(message) {
+            const tbody = document.getElementById('log-events-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-slate-400">' + escapeHtml(message) + '</td></tr>';
+            const badge = document.getElementById('log-events-count-badge');
+            if (badge) badge.textContent = '0 Events';
+        }
+
+        function renderLogEventsTable(events) {
+            const tbody = document.getElementById('log-events-tbody');
+            if (!tbody) return;
+
+            const badge = document.getElementById('log-events-count-badge');
+            if (badge) badge.textContent = events.length + ' Events';
+
+            let totalRead = 0, totalWritten = 0, totalAffected = 0;
+            events.forEach(function(e) {
+                totalRead += (e.rows_read || 0);
+                totalWritten += (e.rows_written || 0);
+                totalAffected += (e.rows_affected || 0);
+            });
+            const readEl = document.getElementById('sum-rows-read');
+            if (readEl) readEl.textContent = totalRead.toLocaleString();
+            const writtenEl = document.getElementById('sum-rows-written');
+            if (writtenEl) writtenEl.textContent = totalWritten.toLocaleString();
+            const affectedEl = document.getElementById('sum-rows-affected');
+            if (affectedEl) affectedEl.textContent = totalAffected.toLocaleString();
+
+            if (!events || events.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-slate-500">No events found for this run.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = events.map(function(evt) {
+                const statusLower = (evt.status || '').toLowerCase();
+                const statusClass = statusLower === 'success' || statusLower === 'succeeded'
+                    ? 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50'
+                    : (statusLower === 'failure' || statusLower === 'failed'
+                        ? 'bg-rose-950/60 text-rose-300 border-rose-700/50'
+                        : 'bg-slate-800 text-slate-300 border-slate-700');
+
+                const rowsDisplay = [];
+                if (evt.rows_read > 0) rowsDisplay.push('R:' + evt.rows_read);
+                if (evt.rows_written > 0) rowsDisplay.push('W:' + evt.rows_written);
+                if (evt.rows_affected > 0) rowsDisplay.push('A:' + evt.rows_affected);
+                const rowsText = rowsDisplay.length > 0 ? rowsDisplay.join(' ') : '-';
+
+                return '<tr class="hover:bg-slate-800/50 transition-colors">' +
+                    '<td class="p-2.5 font-mono text-slate-400 text-xs">' + evt.sequence_num + '</td>' +
+                    '<td class="p-2.5 whitespace-nowrap text-slate-400 text-[11px]">' + formatTimestamp(evt.occurred_at) + '</td>' +
+                    '<td class="p-2.5 font-mono text-xs text-white font-semibold truncate max-w-[110px]" title="' + escapeHtml(evt.node_id || '-') + '">' + escapeHtml(evt.node_id || '-') + '</td>' +
+                    '<td class="p-2.5 whitespace-nowrap"><span class="px-1.5 py-0.5 text-[10px] font-mono rounded bg-slate-800 text-slate-300">' + escapeHtml(evt.node_kind || '-') + '</span></td>' +
+                    '<td class="p-2.5 whitespace-nowrap text-slate-300 text-xs">' + escapeHtml(evt.event_type || '-') + '</td>' +
+                    '<td class="p-2.5 whitespace-nowrap"><span class="px-2 py-0.5 text-[10px] font-bold rounded border uppercase ' + statusClass + '">' + escapeHtml(evt.status || '-') + '</span></td>' +
+                    '<td class="p-2.5 whitespace-nowrap text-right font-mono text-[11px] text-cyan-300">' + escapeHtml(rowsText) + '</td>' +
+                    '<td class="p-2.5 text-center">' +
+                        '<button type="button" onclick="openEventDetailModal(' + evt.sequence_num + ')" class="px-2 py-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded transition cursor-pointer" title="View details">' +
+                            '🔍 Detail' +
+                        '</button>' +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+        }
+
+        function openEventDetailModal(sequenceNum) {
+            const evt = logState.events.find(function(e) { return e.sequence_num === sequenceNum; });
+            if (!evt) return;
+            logState.selectedEvent = evt;
+
+            const seqEl = document.getElementById('event-detail-seq');
+            if (seqEl) seqEl.textContent = 'Seq #' + evt.sequence_num;
+            const nodeEl = document.getElementById('event-detail-node');
+            if (nodeEl) nodeEl.textContent = evt.node_id || '-';
+            const kindEl = document.getElementById('event-detail-kind');
+            if (kindEl) kindEl.textContent = evt.node_kind || '-';
+            const typeEl = document.getElementById('event-detail-type');
+            if (typeEl) typeEl.textContent = evt.event_type || '-';
+            const statusEl = document.getElementById('event-detail-status');
+            if (statusEl) statusEl.textContent = evt.status || '-';
+            const timeEl = document.getElementById('event-detail-time');
+            if (timeEl) timeEl.textContent = evt.occurred_at || '-';
+            const runIdEl = document.getElementById('event-detail-run-id');
+            if (runIdEl) runIdEl.textContent = evt.run_id || '-';
+            const execIdEl = document.getElementById('event-detail-exec-id');
+            if (execIdEl) execIdEl.textContent = evt.execution_id || '-';
+            const userEl = document.getElementById('event-detail-user');
+            if (userEl) userEl.textContent = evt.user_name || '-';
+            const hostEl = document.getElementById('event-detail-host');
+            if (hostEl) hostEl.textContent = evt.hostname || '-';
+            const optEl = document.getElementById('event-detail-options');
+            if (optEl) optEl.textContent = evt.options_path || '-';
+            const readEl = document.getElementById('event-detail-read');
+            if (readEl) readEl.textContent = (evt.rows_read || 0).toLocaleString();
+            const writtenEl = document.getElementById('event-detail-written');
+            if (writtenEl) writtenEl.textContent = (evt.rows_written || 0).toLocaleString();
+            const affectedEl = document.getElementById('event-detail-affected');
+            if (affectedEl) affectedEl.textContent = (evt.rows_affected || 0).toLocaleString();
+
+            const errBox = document.getElementById('event-detail-error-box');
+            const errText = document.getElementById('event-detail-error-text');
+            if (errBox && errText) {
+                if (evt.error_message) {
+                    errText.textContent = evt.error_message;
+                    errBox.classList.remove('hidden');
+                } else {
+                    errBox.classList.add('hidden');
+                }
+            }
+
+            const rawEl = document.getElementById('event-detail-raw-json');
+            if (rawEl) rawEl.textContent = JSON.stringify(evt, null, 2);
+            const modalEl = document.getElementById('event-detail-modal');
+            if (modalEl) modalEl.classList.remove('hidden');
+        }
+
+        function closeEventDetailModal() {
+            const modalEl = document.getElementById('event-detail-modal');
+            if (modalEl) modalEl.classList.add('hidden');
         }
 
         window.addEventListener('hashchange', function() {

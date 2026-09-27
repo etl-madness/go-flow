@@ -2,7 +2,10 @@ package builder
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/etl-madness/flow"
 )
@@ -2106,3 +2110,663 @@ func TestXMLPreviewAdjustablePanel(t *testing.T) {
 		}
 	}
 }
+
+func TestSoftWhiteTheme(t *testing.T) {
+	// Verify tmpl/index.html and IndexHTML contain soft-white theme
+	indexBytes, err := os.ReadFile("tmpl/index.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/index.html: %v", err)
+	}
+	tmplStr := string(indexBytes)
+
+	requiredSnippets := []string{
+		`html[data-theme="soft-white"]`,
+		`<option value="soft-white"`,
+		`Soft White (Blue & Black)`,
+		`background-color: #f8fafc !important`,
+		`color: #0f172a !important`,
+		`color: #1d4ed8 !important`,
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(tmplStr, snippet) {
+			t.Errorf("expected tmpl/index.html to contain %q", snippet)
+		}
+		if !strings.Contains(IndexHTML, snippet) {
+			t.Errorf("expected IndexHTML to contain %q", snippet)
+		}
+	}
+
+	// Verify server renders index with soft-white theme option and CSS
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_soft_white_theme.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
+
+	srv, err := NewServer(storage, 8089)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	srv.handleIndex(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("handleIndex failed: %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(body, snippet) {
+			t.Errorf("expected rendered page to contain %q", snippet)
+		}
+	}
+}
+
+func TestSavedDatabaseConnectionStorageCRUD(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test_db_conns.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
+
+	// Initial list should be empty
+	conns, err := storage.ListSavedDatabaseConnections()
+	if err != nil {
+		t.Fatalf("ListSavedDatabaseConnections error: %v", err)
+	}
+	if len(conns) != 0 {
+		t.Fatalf("expected 0 connections, got %d", len(conns))
+	}
+
+	// Create a new connection
+	newConn := &SavedDatabaseConnection{
+		Name:             "test_pg",
+		Driver:           "postgres",
+		ConnectionString: "postgresql://user:pass@localhost:5432/testdb?sslmode=disable",
+		MaxOpenConns:     15,
+		MaxIdleConns:     7,
+		Description:      "Main logging database",
+	}
+
+	saved, err := storage.SaveDatabaseConnection(newConn)
+	if err != nil {
+		t.Fatalf("SaveDatabaseConnection error: %v", err)
+	}
+	if saved.ID <= 0 {
+		t.Fatalf("expected positive ID, got %d", saved.ID)
+	}
+	if saved.Name != "test_pg" {
+		t.Fatalf("expected name 'test_pg', got %q", saved.Name)
+	}
+
+	// Retrieve by ID
+	byID, err := storage.GetSavedDatabaseConnection(saved.ID)
+	if err != nil {
+		t.Fatalf("GetSavedDatabaseConnection error: %v", err)
+	}
+	if byID == nil || byID.ConnectionString != newConn.ConnectionString {
+		t.Fatalf("unexpected conn retrieved: %+v", byID)
+	}
+
+	// Retrieve by Name
+	byName, err := storage.GetSavedDatabaseConnectionByName("test_pg")
+	if err != nil {
+		t.Fatalf("GetSavedDatabaseConnectionByName error: %v", err)
+	}
+	if byName == nil || byName.ID != saved.ID {
+		t.Fatalf("unexpected conn retrieved by name: %+v", byName)
+	}
+
+	// Update existing connection
+	saved.Description = "Updated description"
+	saved.MaxOpenConns = 25
+	updated, err := storage.SaveDatabaseConnection(saved)
+	if err != nil {
+		t.Fatalf("SaveDatabaseConnection update error: %v", err)
+	}
+	if updated.Description != "Updated description" || updated.MaxOpenConns != 25 {
+		t.Fatalf("updated fields mismatch: %+v", updated)
+	}
+
+	// List connections should contain 1
+	all, err := storage.ListSavedDatabaseConnections()
+	if err != nil {
+		t.Fatalf("ListSavedDatabaseConnections error: %v", err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("expected 1 connection, got %d", len(all))
+	}
+
+	// Delete connection
+	if err := storage.DeleteSavedDatabaseConnection(saved.ID); err != nil {
+		t.Fatalf("DeleteSavedDatabaseConnection error: %v", err)
+	}
+
+	// List connections should be empty again
+	allAfterDelete, err := storage.ListSavedDatabaseConnections()
+	if err != nil {
+		t.Fatalf("ListSavedDatabaseConnections after delete error: %v", err)
+	}
+	if len(allAfterDelete) != 0 {
+		t.Fatalf("expected 0 connections after delete, got %d", len(allAfterDelete))
+	}
+}
+
+func TestPurgeDatabaseWithSavedConnections(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test_purge_db_conns.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
+
+	// Add a connection
+	_, err = storage.SaveDatabaseConnection(&SavedDatabaseConnection{
+		Name:             "analytics_db",
+		Driver:           "mysql",
+		ConnectionString: "root:pass@tcp(127.0.0.1:3306)/analytics",
+	})
+	if err != nil {
+		t.Fatalf("SaveDatabaseConnection error: %v", err)
+	}
+
+	// Purge database
+	if _, err := storage.PurgeDatabase(); err != nil {
+		t.Fatalf("PurgeDatabase error: %v", err)
+	}
+
+	// Saved database connections should be cleared
+	conns, err := storage.ListSavedDatabaseConnections()
+	if err != nil {
+		t.Fatalf("ListSavedDatabaseConnections after purge error: %v", err)
+	}
+	if len(conns) != 0 {
+		t.Fatalf("expected 0 connections after purge, got %d", len(conns))
+	}
+}
+
+func TestSettingsDatabaseHTTPHandlers(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test_settings_http.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
+
+	srv, err := NewServer(storage, 8091)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	srv.authToken = ""
+
+	handler := srv.Handler()
+
+	// 1. GET /api/settings/databases (initially empty)
+	req1 := httptest.NewRequest(http.MethodGet, "/api/settings/databases", nil)
+	rec1 := httptest.NewRecorder()
+	handler.ServeHTTP(rec1, req1)
+	if rec1.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec1.Code, rec1.Body.String())
+	}
+	var list1 []SavedDatabaseConnection
+	if err := json.Unmarshal(rec1.Body.Bytes(), &list1); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if len(list1) != 0 {
+		t.Fatalf("expected empty list, got %d items", len(list1))
+	}
+
+	// 2. POST /api/settings/databases/save (create)
+	savePayload := map[string]interface{}{
+		"name":              "audit_sqlite",
+		"driver":            "sqlite",
+		"connection_string": ":memory:",
+		"description":       "In-memory sqlite for telemetry",
+		"max_open_conns":    5,
+		"max_idle_conns":    2,
+	}
+	bodyBytes, _ := json.Marshal(savePayload)
+	req2 := httptest.NewRequest(http.MethodPost, "/api/settings/databases/save", bytes.NewReader(bodyBytes))
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("X-Requested-With", "XMLHttpRequest")
+	rec2 := httptest.NewRecorder()
+	handler.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("expected status 200 on save, got %d: %s", rec2.Code, rec2.Body.String())
+	}
+
+	var saveResult struct {
+		Success    bool                    `json:"success"`
+		Message    string                  `json:"message"`
+		Connection SavedDatabaseConnection `json:"connection"`
+	}
+	if err := json.Unmarshal(rec2.Body.Bytes(), &saveResult); err != nil {
+		t.Fatalf("failed to unmarshal saved response: %v", err)
+	}
+	savedResp := saveResult.Connection
+	if savedResp.ID <= 0 || savedResp.Name != "audit_sqlite" {
+		t.Fatalf("unexpected saved response: %+v", savedResp)
+	}
+
+	// 3. POST /api/settings/databases/test (ping in-memory sqlite)
+	testPayload := map[string]interface{}{
+		"id": savedResp.ID,
+	}
+	testBytes, _ := json.Marshal(testPayload)
+	req3 := httptest.NewRequest(http.MethodPost, "/api/settings/databases/test", bytes.NewReader(testBytes))
+	req3.Header.Set("Content-Type", "application/json")
+	req3.Header.Set("X-Requested-With", "XMLHttpRequest")
+	rec3 := httptest.NewRecorder()
+	handler.ServeHTTP(rec3, req3)
+	if rec3.Code != http.StatusOK {
+		t.Fatalf("expected status 200 on test, got %d: %s", rec3.Code, rec3.Body.String())
+	}
+	var testResp map[string]interface{}
+	if err := json.Unmarshal(rec3.Body.Bytes(), &testResp); err != nil {
+		t.Fatalf("failed to unmarshal test response: %v", err)
+	}
+	if testResp["success"] != true {
+		t.Fatalf("expected test ping success, got: %+v", testResp)
+	}
+
+	// 4. POST /api/settings/databases/delete
+	delPayload := map[string]interface{}{
+		"id": savedResp.ID,
+	}
+	delBytes, _ := json.Marshal(delPayload)
+	req4 := httptest.NewRequest(http.MethodPost, "/api/settings/databases/delete", bytes.NewReader(delBytes))
+	req4.Header.Set("Content-Type", "application/json")
+	req4.Header.Set("X-Requested-With", "XMLHttpRequest")
+	rec4 := httptest.NewRecorder()
+	handler.ServeHTTP(rec4, req4)
+	if rec4.Code != http.StatusOK {
+		t.Fatalf("expected status 200 on delete, got %d: %s", rec4.Code, rec4.Body.String())
+	}
+
+	// 5. Verify list is empty again
+	req5 := httptest.NewRequest(http.MethodGet, "/api/settings/databases", nil)
+	rec5 := httptest.NewRecorder()
+	handler.ServeHTTP(rec5, req5)
+	var list2 []SavedDatabaseConnection
+	if err := json.Unmarshal(rec5.Body.Bytes(), &list2); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if len(list2) != 0 {
+		t.Fatalf("expected 0 connections after delete, got %d", len(list2))
+	}
+}
+
+func TestSettingsTabUIRendering(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test_settings_ui.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
+
+	srv, err := NewServer(storage, 8092)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	srv.handleIndex(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("handleIndex failed: %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+	expectedUIElements := []string{
+		`id="tab-btn-settings"`,
+		`switchTab('settings')`,
+		`id="tab-settings"`,
+		`id="saved-databases-tbody"`,
+		`id="database-modal"`,
+		`confirmPurgeDatabase()`,
+		`Purge SQLite Database`,
+		`pipeline_runs`,
+		`pipeline_events`,
+	}
+
+	for _, elem := range expectedUIElements {
+		if !strings.Contains(body, elem) {
+			t.Errorf("expected HTML index page to contain %q", elem)
+		}
+	}
+}
+
+func TestLogPageTelemetryQueries(t *testing.T) {
+	tempDir := t.TempDir()
+	dbFile := filepath.Join(tempDir, "audit_telemetry.db")
+
+	db, err := sql.Open("sqlite", dbFile)
+	if err != nil {
+		t.Fatalf("failed to open sqlite database: %v", err)
+	}
+	defer db.Close()
+
+	// Create tables according to standard audit schema
+	createRunsSQL := `
+	CREATE TABLE pipeline_runs (
+		run_id TEXT PRIMARY KEY,
+		file_path TEXT,
+		config_path TEXT,
+		status TEXT,
+		started_at TEXT,
+		finished_at TEXT,
+		duration_ms INTEGER,
+		task_count INTEGER,
+		user_name TEXT,
+		hostname TEXT,
+		options_path TEXT,
+		error_class TEXT,
+		error_message TEXT
+	);`
+	if _, err := db.Exec(createRunsSQL); err != nil {
+		t.Fatalf("failed to create pipeline_runs table: %v", err)
+	}
+
+	createEventsSQL := `
+	CREATE TABLE pipeline_events (
+		run_id TEXT,
+		execution_id TEXT,
+		sequence_num INTEGER,
+		occurred_at TEXT,
+		event_type TEXT,
+		node_kind TEXT,
+		node_id TEXT,
+		status TEXT,
+		user_name TEXT,
+		hostname TEXT,
+		options_path TEXT,
+		error_message TEXT,
+		rows_read INTEGER,
+		rows_written INTEGER,
+		rows_affected INTEGER
+	);`
+	if _, err := db.Exec(createEventsSQL); err != nil {
+		t.Fatalf("failed to create pipeline_events table: %v", err)
+	}
+
+	// Insert test runs
+	insertRun := `INSERT INTO pipeline_runs (
+		run_id, file_path, config_path, status, started_at, finished_at, duration_ms, task_count, user_name, hostname, options_path, error_class, error_message
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+
+	now := time.Now().UTC()
+	start1 := now.Add(-10 * time.Minute).Format(time.RFC3339)
+	end1 := now.Add(-8 * time.Minute).Format(time.RFC3339)
+	_, err = db.Exec(insertRun, "run-101", "scripts/daily_etl.xml", "config/prod.xml", "succeeded", start1, end1, 120000, 3, "alice", "srv-app-01", "", "", "")
+	if err != nil {
+		t.Fatalf("failed to insert run-101: %v", err)
+	}
+
+	start2 := now.Add(-5 * time.Minute).Format(time.RFC3339)
+	end2 := now.Add(-4 * time.Minute).Format(time.RFC3339)
+	_, err = db.Exec(insertRun, "run-102", "scripts/hourly_sync.xml", "", "failed", start2, end2, 60000, 2, "bob", "srv-app-02", "", "AssertionError", "expected 100 rows, got 0")
+	if err != nil {
+		t.Fatalf("failed to insert run-102: %v", err)
+	}
+
+	// Insert test events
+	insertEvent := `INSERT INTO pipeline_events (
+		run_id, execution_id, sequence_num, occurred_at, event_type, node_kind, node_id, status, user_name, hostname, options_path, error_message, rows_read, rows_written, rows_affected
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+
+	_, err = db.Exec(insertEvent, "run-101", "exec-1", 1, start1, "step_start", "sql", "extract_orders", "success", "alice", "srv-app-01", "", "", 1000, 0, 0)
+	if err != nil {
+		t.Fatalf("failed to insert event 1: %v", err)
+	}
+	_, err = db.Exec(insertEvent, "run-101", "exec-1", 2, end1, "step_complete", "sql", "load_dw", "success", "alice", "srv-app-01", "", "", 0, 1000, 1000)
+	if err != nil {
+		t.Fatalf("failed to insert event 2: %v", err)
+	}
+	_, err = db.Exec(insertEvent, "run-102", "exec-2", 1, start2, "step_fail", "assert", "check_metrics", "failure", "bob", "srv-app-02", "", "expected 100 rows, got 0", 0, 0, 0)
+	if err != nil {
+		t.Fatalf("failed to insert event 3: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// 1. Query all runs
+	runs, err := QueryPipelineRuns(ctx, db, "sqlite", TablePipelineRuns, "", "", 10)
+	if err != nil {
+		t.Fatalf("QueryPipelineRuns failed: %v", err)
+	}
+	if len(runs) != 2 {
+		t.Fatalf("expected 2 runs, got %d", len(runs))
+	}
+
+	// 2. Query with status filter
+	succRuns, err := QueryPipelineRuns(ctx, db, "sqlite", TablePipelineRuns, "", "succeeded", 10)
+	if err != nil {
+		t.Fatalf("QueryPipelineRuns with status failed: %v", err)
+	}
+	if len(succRuns) != 1 || succRuns[0].RunID != "run-101" {
+		t.Errorf("expected 1 succeeded run (run-101), got: %+v", succRuns)
+	}
+
+	// 3. Query with text search
+	searchRuns, err := QueryPipelineRuns(ctx, db, "sqlite", TablePipelineRuns, "AssertionError", "", 10)
+	if err != nil {
+		t.Fatalf("QueryPipelineRuns with search failed: %v", err)
+	}
+	if len(searchRuns) != 1 || searchRuns[0].RunID != "run-102" {
+		t.Errorf("expected 1 search run (run-102), got: %+v", searchRuns)
+	}
+
+	// 4. Query events for run-101
+	events101, err := QueryPipelineEvents(ctx, db, "sqlite", TablePipelineEvents, "run-101")
+	if err != nil {
+		t.Fatalf("QueryPipelineEvents failed: %v", err)
+	}
+	if len(events101) != 2 {
+		t.Fatalf("expected 2 events for run-101, got %d", len(events101))
+	}
+	if events101[0].SequenceNum != 1 || events101[1].SequenceNum != 2 {
+		t.Errorf("expected sequence numbers 1 and 2, got: %d, %d", events101[0].SequenceNum, events101[1].SequenceNum)
+	}
+	if events101[0].RowsRead != 1000 || events101[1].RowsAffected != 1000 {
+		t.Errorf("row metrics mismatch: %+v, %+v", events101[0], events101[1])
+	}
+
+	// 5. Query table not found
+	_, err = QueryPipelineRuns(ctx, db, "sqlite", "nonexistent_table", "", "", 10)
+	if !errors.Is(err, ErrTableNotFound) {
+		t.Errorf("expected ErrTableNotFound, got: %v", err)
+	}
+}
+
+func TestLogPageHTTPHandlers(t *testing.T) {
+	tempDir := t.TempDir()
+	auditDbFile := filepath.Join(tempDir, "audit_telemetry_http.db")
+
+	auditDB, err := sql.Open("sqlite", auditDbFile)
+	if err != nil {
+		t.Fatalf("failed to open audit sqlite DB: %v", err)
+	}
+	defer auditDB.Close()
+
+	_, err = auditDB.Exec(`
+	CREATE TABLE pipeline_runs (
+		run_id TEXT PRIMARY KEY,
+		file_path TEXT,
+		config_path TEXT,
+		status TEXT,
+		started_at TEXT,
+		finished_at TEXT,
+		duration_ms INTEGER,
+		task_count INTEGER,
+		user_name TEXT,
+		hostname TEXT,
+		options_path TEXT,
+		error_class TEXT,
+		error_message TEXT
+	);
+	CREATE TABLE pipeline_events (
+		run_id TEXT,
+		execution_id TEXT,
+		sequence_num INTEGER,
+		occurred_at TEXT,
+		event_type TEXT,
+		node_kind TEXT,
+		node_id TEXT,
+		status TEXT,
+		user_name TEXT,
+		hostname TEXT,
+		options_path TEXT,
+		error_message TEXT,
+		rows_read INTEGER,
+		rows_written INTEGER,
+		rows_affected INTEGER
+	);
+	INSERT INTO pipeline_runs (run_id, file_path, status, duration_ms, user_name) VALUES ('run-http-1', 'main.xml', 'succeeded', 4500, 'devuser');
+	INSERT INTO pipeline_events (run_id, execution_id, sequence_num, event_type, status, rows_read) VALUES ('run-http-1', 'exec-1', 1, 'step_complete', 'success', 250);
+	`)
+	if err != nil {
+		t.Fatalf("failed to seed audit DB: %v", err)
+	}
+
+	builderDbFile := filepath.Join(tempDir, "builder_storage.db")
+	storage, err := NewStorage(builderDbFile)
+	if err != nil {
+		t.Fatalf("failed to init builder storage: %v", err)
+	}
+	defer storage.Close()
+
+	// Save the audit database as a connection
+	savedConn, err := storage.SaveDatabaseConnection(&SavedDatabaseConnection{
+		Name:             "Audit DB",
+		Driver:           "sqlite",
+		ConnectionString: auditDbFile,
+		Description:      "Test Audit DB",
+		MaxOpenConns:     5,
+		MaxIdleConns:     2,
+	})
+	if err != nil {
+		t.Fatalf("failed to save db connection: %v", err)
+	}
+
+	srv, err := NewServer(storage, 8093)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	// 1. GET /api/logs/runs without db_id -> 400
+	reqNoID := httptest.NewRequest(http.MethodGet, "/api/logs/runs", nil)
+	recNoID := httptest.NewRecorder()
+	srv.handleListLogRuns(recNoID, reqNoID)
+	if recNoID.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for missing db_id, got %d", recNoID.Code)
+	}
+
+	// 2. GET /api/logs/runs with non-existent db_id -> 404
+	req404 := httptest.NewRequest(http.MethodGet, "/api/logs/runs?db_id=99999", nil)
+	rec404 := httptest.NewRecorder()
+	srv.handleListLogRuns(rec404, req404)
+	if rec404.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for nonexistent db_id, got %d", rec404.Code)
+	}
+
+	// 3. GET /api/logs/runs with valid db_id -> 200 and runs array
+	reqValid := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/logs/runs?db_id=%d", savedConn.ID), nil)
+	recValid := httptest.NewRecorder()
+	srv.handleListLogRuns(recValid, reqValid)
+	if recValid.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recValid.Code, recValid.Body.String())
+	}
+
+	var runsResp struct {
+		Success     bool                `json:"success"`
+		TableExists bool                `json:"table_exists"`
+		Runs        []PipelineRunRecord `json:"runs"`
+		Count       int                 `json:"count"`
+	}
+	if err := json.Unmarshal(recValid.Body.Bytes(), &runsResp); err != nil {
+		t.Fatalf("failed to parse runs response: %v", err)
+	}
+	if !runsResp.Success || !runsResp.TableExists || runsResp.Count != 1 || len(runsResp.Runs) != 1 {
+		t.Errorf("unexpected runs response: %+v", runsResp)
+	}
+	if runsResp.Runs[0].RunID != "run-http-1" {
+		t.Errorf("expected run-http-1, got %s", runsResp.Runs[0].RunID)
+	}
+
+	// 4. GET /api/logs/events with valid run_id -> 200 and events array
+	reqEvt := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/logs/events?db_id=%d&run_id=run-http-1", savedConn.ID), nil)
+	recEvt := httptest.NewRecorder()
+	srv.handleListLogEvents(recEvt, reqEvt)
+	if recEvt.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recEvt.Code, recEvt.Body.String())
+	}
+
+	var evtResp struct {
+		Success     bool                  `json:"success"`
+		TableExists bool                  `json:"table_exists"`
+		Events      []PipelineEventRecord `json:"events"`
+		Count       int                   `json:"count"`
+	}
+	if err := json.Unmarshal(recEvt.Body.Bytes(), &evtResp); err != nil {
+		t.Fatalf("failed to parse events response: %v", err)
+	}
+	if !evtResp.Success || !evtResp.TableExists || evtResp.Count != 1 || len(evtResp.Events) != 1 {
+		t.Errorf("unexpected events response: %+v", evtResp)
+	}
+	if evtResp.Events[0].RowsRead != 250 {
+		t.Errorf("expected 250 rows read, got %d", evtResp.Events[0].RowsRead)
+	}
+}
+
+func TestLogPageUIRendering(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test_log_ui.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
+
+	srv, err := NewServer(storage, 8094)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	srv.handleIndex(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("handleIndex failed: %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+	expectedUIElements := []string{
+		`id="tab-btn-logs"`,
+		`switchTab('logs')`,
+		`id="tab-logs"`,
+		`id="log-db-select"`,
+		`id="log-refresh-btn"`,
+		`id="log-runs-tbody"`,
+		`id="log-events-tbody"`,
+		`id="event-detail-modal"`,
+		`pipeline_runs`,
+		`pipeline_events`,
+		`initLogPage()`,
+	}
+
+	for _, elem := range expectedUIElements {
+		if !strings.Contains(body, elem) {
+			t.Errorf("expected HTML index page to contain %q", elem)
+		}
+	}
+}
+
+
+
