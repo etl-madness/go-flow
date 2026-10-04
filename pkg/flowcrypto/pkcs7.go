@@ -65,7 +65,7 @@ type pkcs7SignedData struct {
 	SignerInfos      []pkcs7SignerInfo `asn1:"set"`
 }
 
-// SignPKCS7 creates a cross-platform Windows Authenticode/CMS compatible detached PKCS#7 SignedData structure.
+// SignPKCS7 creates a cross-platform PKCS#7 / CMS (RFC 2315 / RFC 5652) detached SignedData structure.
 func SignPKCS7(data []byte, cert *x509.Certificate, privKey crypto.PrivateKey) ([]byte, error) {
 	if cert == nil {
 		return nil, errors.New("certificate is required for PKCS#7 signing")
@@ -287,18 +287,25 @@ func VerifyPKCS7(data []byte, p7Bytes []byte, rootCert *x509.Certificate) (*x509
 		return nil, fmt.Errorf("unsupported certificate public key type: %T", matchedCert.PublicKey)
 	}
 
-	// If root cert is provided, verify certificate or chain
+	// If root cert is provided, verify certificate and chain
 	if rootCert != nil {
-		if !rootCert.Equal(matchedCert) {
-			roots := x509.NewCertPool()
-			roots.AddCert(rootCert)
-			opts := x509.VerifyOptions{
-				Roots:     roots,
-				KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny, x509.ExtKeyUsageCodeSigning},
+		roots := x509.NewCertPool()
+		roots.AddCert(rootCert)
+
+		intermediates := x509.NewCertPool()
+		for _, c := range certs {
+			if !c.Equal(matchedCert) && !c.Equal(rootCert) {
+				intermediates.AddCert(c)
 			}
-			if _, err := matchedCert.Verify(opts); err != nil {
-				return nil, fmt.Errorf("certificate chain verification failed: %w", err)
-			}
+		}
+
+		opts := x509.VerifyOptions{
+			Roots:         roots,
+			Intermediates: intermediates,
+			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		}
+		if _, err := matchedCert.Verify(opts); err != nil {
+			return nil, fmt.Errorf("certificate verification failed: %w", err)
 		}
 	}
 

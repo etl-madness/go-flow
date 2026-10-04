@@ -238,14 +238,15 @@ flowchart TD
 
 | CLI Flag | Type | Default | Description |
 | :--- | :---: | :---: | :--- |
-| `-server` | `string` | `localhost` | SQL Server hostname or IP address. |
-| `-database` | `string` | `master` | SQL Server database name. |
-| `-table` | `string` | `flow_pipeline_content` | Target table name (`flow_pipeline_content`, `flow_options_content`, `flow_config_content`). |
+| `-action` | `string` | `import` | Action to perform: `import` or `export`. |
+| `-dsn` | `string` | *(default)* | SQL Server connection string / DSN. |
+| `-table` | `string` | `pipeline` | Target table type: `pipeline`, `options`, or `config`. |
 | `-name` | `string` | `""` | Repository key name for the imported/exported item. |
 | `-file` | `string` | `""` | Local file to import, or destination path when exporting. |
-| `-encrypted` | `bool` | `false` | Encrypts content during import, or decrypts during export. |
+| `-desc` | `string` | *(default)* | Description of the XML content (import only). |
+| `-encrypted` | `bool` | `false` | Encrypts content before importing, or decrypts content after exporting. |
 | `-secure-key` | `string` | `""` | Passphrase/key for AES-256-GCM encryption/decryption. |
-| `-export` | `bool` | `false` | Exports record from database to file instead of importing. |
+| `-export` | `bool` | `false` | Shortcut flag to export record from database to file. |
 
 ---
 

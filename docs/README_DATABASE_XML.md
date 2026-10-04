@@ -206,7 +206,7 @@ flow.exe -encrypted -secure-key "MySecretPassphrase123!" \
          -file "sql://sqlserver@localhost:1433?database=master#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name = 'production_daily_etl'"
 ```
 
-For full encryption architecture, PBKDF2 parameters, and offline utilities, see [ENCRYPTION.md](../ENCRYPTION.md).
+For full encryption architecture, PBKDF2 parameters, and offline utilities, see [ENCRYPTION.md](ENCRYPTION.md).
 
 ---
 

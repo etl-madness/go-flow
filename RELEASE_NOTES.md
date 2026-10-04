@@ -47,9 +47,9 @@ Version 1.1.22 introduces enterprise-grade security capabilities to Flow in pure
 - **Enhanced `db_importer`**: Added `-encrypted`, `-secure-key`, and `-export` options to import and export encrypted content directly to/from SQL Server repositories (`dbo.flow_pipeline_content`, `dbo.flow_options_content`, `dbo.flow_config_content`).
 
 #### 5. Documentation
-- Created [`ENCRYPTION.md`](ENCRYPTION.md): Architecture guide for AES-256-GCM encryption, envelope formats, database integration, and key resolution.
-- Created [`SIGNATURES.md`](SIGNATURES.md): Comprehensive guide for cross-platform digital signatures, standards, key generation, and usage.
-- Created [`SECURITY_ORDER_AND_OPTIONS.md`](SECURITY_ORDER_AND_OPTIONS.md): Exhaustive order of operations and options reference guide.
+- Created [`docs/ENCRYPTION.md`](docs/ENCRYPTION.md): Architecture guide for AES-256-GCM encryption, envelope formats, database integration, and key resolution.
+- Created [`docs/SIGNATURES.md`](docs/SIGNATURES.md): Comprehensive guide for cross-platform digital signatures, standards, key generation, and usage.
+- Created [`docs/security_order_and_options.md`](docs/security_order_and_options.md): Exhaustive order of operations and options reference guide.
 - Created [`crypto_tool/README.md`](crypto_tool/README.md): Complete CLI reference for `crypto_tool`.
 - Updated [`README.md`](README.md), [`docs/database.md`](docs/database.md), and [`docs/README_DATABASE_XML.md`](docs/README_DATABASE_XML.md).
 

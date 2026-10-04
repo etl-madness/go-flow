@@ -245,7 +245,11 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Verification FAILED: %v\n", err)
 				os.Exit(1)
 			}
-			fmt.Printf("Signature VALID (%s via %s, Signer: %s)\n", res.Format, res.Algorithm, res.SignerInfo)
+			if *outFileFlag == "-" {
+				fmt.Fprintf(os.Stderr, "Signature VALID (%s via %s, Signer: %s)\n", res.Format, res.Algorithm, res.SignerInfo)
+			} else {
+				fmt.Printf("Signature VALID (%s via %s, Signer: %s)\n", res.Format, res.Algorithm, res.SignerInfo)
+			}
 			if *outFileFlag != "" {
 				if err := writeOutput(*outFileFlag, content); err != nil {
 					fmt.Fprintf(os.Stderr, "Error writing verified content to %s: %v\n", *outFileFlag, err)
@@ -334,12 +338,12 @@ func main() {
 			os.Exit(1)
 		}
 
-		trimmed := bytes.TrimSpace(inputBytes)
 		var decrypted []byte
-		if flowcrypto.IsEncryptedPayload(trimmed) {
+		trimmed := bytes.TrimSpace(inputBytes)
+		if !*binaryFlag && flowcrypto.IsEncryptedPayload(trimmed) {
 			decrypted, err = flowcrypto.DecryptArmored(string(trimmed), effectiveKey)
 		} else {
-			decrypted, err = flowcrypto.DecryptBytes(trimmed, effectiveKey)
+			decrypted, err = flowcrypto.DecryptBytes(inputBytes, effectiveKey)
 		}
 
 		if err != nil {

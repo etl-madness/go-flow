@@ -1,6 +1,6 @@
 # Flow: Modern, Lightweight ETL & Workflow Orchestration Engine (v1.1.22)
 
-**Flow** is a single-binary, high-performance ETL execution engine and workflow orchestrator built in Go. Designed as a modern alternative to bloated legacy ETL tools (e.g., SSIS) and complex code-heavy orchestrators (e.g., Apache Airflow), Flow combines declarative XML pipelines, an embedded visual HTMX web builder, native cross-database execution, and automated compliance telemetry.
+**Flow** is a single-binary, high-performance ETL execution engine and workflow orchestrator built in Go. Designed as a modern alternative to bloated legacy ETL tools (e.g., SSIS) and complex code-heavy orchestrators (e.g., Apache Airflow), Flow combines declarative XML pipelines, an embedded visual HTMX web builder, native cross-database execution, automated compliance telemetry, and built-in cryptographic security (AES-256-GCM encryption & multi-standard digital signatures).
 
 Whether you are looking to streamline database batch jobs, replace fragile shell/Python scripts, or enforce strict audit logging across heterogeneous databases, Flow delivers zero-dependency pipeline execution with enterprise-grade reliability.
 
@@ -14,6 +14,7 @@ Whether you are looking to streamline database batch jobs, replace fragile shell
 | **Authoring Experience** | Heavy desktop GUIs, proprietary XML | Python code base, steep learning curve | **Embedded Web UI (`-builder`) or Git-friendly declarative XML**. |
 | **Database Abstraction** | Manual connector setups per DB | Requires platform-specific Python operators | **Native dialect abstraction (Postgres, SQL Server, Oracle, MySQL, SQLite, K/V)**. |
 | **Audit & Row Telemetry** | Fragmented server logs, custom logging jobs | Requires custom XComs/hooks for metrics | **Automatic step-level audit tables (`pipeline_events`, `pipeline_runs`) with row counts**. |
+| **Security & Integrity** | Proprietary package protection, OS-bound credentials | Rely on third-party secrets managers or external container signers | **Native AES-256-GCM encryption & multi-standard digital signatures (OpenSSL, PKCS#7/CMS, OpenPGP) with zero OS dependencies**. |
 | **Documentation** | Hand-maintained Wiki docs (frequently stale) | Code-as-docs (hard for non-coders) | **Auto-generated Mermaid.js visual flowcharts & XSLT transformation**. |
 
 ---
@@ -91,7 +92,7 @@ Whether you are looking to streamline database batch jobs, replace fragile shell
 
 * **Automated Decryption & Key Precedence:** `flow.exe` auto-detects `FLOWENC:v1:` payloads or decrypts on the fly using `-secure-key` or `FLOW_SECURE_KEY` environment variables before parsing and execution.
 
-* **Dedicated Tooling (`crypto_tool` & `db_importer`):** Includes a standalone CLI tool for key generation and file encryption/decryption, plus an enhanced SQL Server importer with encrypted import/export support. See [ENCRYPTION.md](ENCRYPTION.md).
+* **Dedicated Tooling (`crypto_tool` & `db_importer`):** Includes a standalone CLI tool for key generation and file encryption/decryption, plus an enhanced SQL Server importer with encrypted import/export support. See [docs/ENCRYPTION.md](docs/ENCRYPTION.md).
 
 ### 7. Cross-Platform Digital Signatures & Integrity Verification
 
@@ -99,12 +100,12 @@ Whether you are looking to streamline database batch jobs, replace fragile shell
 
 * **Supported Standards:**
   * **OpenSSL / PKI X.509:** RSA (PKCS#1v1.5 & PSS), ECDSA, Ed25519 PEM keys and X.509 certificates.
-  * **Windows Authenticode / PKCS#7 / CMS:** Detached signatures (`.p7s`) verified via pure Go ASN.1 and X.509 parsers.
+  * **PKCS#7 / CMS:** Detached signatures (`.p7s`) verified via pure Go ASN.1 and X.509 parsers.
   * **GPG / OpenPGP:** ASCII-armored detached signatures (`.asc`, `.sig`) and keyrings.
 
 * **Unified Envelopes & Companion Files:** Supports self-contained `FLOWSIGNED:v1:...` packages, `FLOWSIG:v1:...` text envelopes, and auto-detecting companion signature files (`.sig`, `.asc`, `.p7s`).
 
-* **Decoupled Verification Lifecycle:** Strict **Verify -> Decrypt -> Parse -> Execute** pipeline prevents tampered resources from executing. Full documentation in [SIGNATURES.md](SIGNATURES.md) and [SECURITY_ORDER_AND_OPTIONS.md](SECURITY_ORDER_AND_OPTIONS.md).
+* **Decoupled Verification Lifecycle:** Strict **Verify -> Decrypt -> Parse -> Execute** pipeline prevents tampered resources from executing. Full documentation in [docs/SIGNATURES.md](docs/SIGNATURES.md) and [docs/security_order_and_options.md](docs/security_order_and_options.md).
 
 
 
@@ -163,7 +164,7 @@ flow -file pipelines/daily_etl.xml.enc \
      -format stream
 ```
 
-For database-backed encrypted execution and offline encryption tooling, see [ENCRYPTION.md](ENCRYPTION.md) and [crypto_tool/README.md](crypto_tool/README.md).
+For database-backed encrypted execution and offline encryption tooling, see [docs/ENCRYPTION.md](docs/ENCRYPTION.md) and [crypto_tool/README.md](crypto_tool/README.md).
 
 ---
 

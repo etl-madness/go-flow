@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -146,6 +147,27 @@ func TestCryptoToolSignAndVerifyWrapped(t *testing.T) {
 	}
 	if !res.Valid {
 		t.Fatal("expected valid result")
+	}
+}
+
+func TestBinaryCiphertextWithWhitespaceBytes(t *testing.T) {
+	key := "RandomBinaryTestKey2026!"
+	// Test with arbitrary binary data
+	plain := []byte{0x20, 0x0A, 0x00, 0xFF, 0x3C, 0x78, 0x6D, 0x6C, 0x0D, 0x20}
+
+	enc, err := flowcrypto.EncryptBytes(plain, key)
+	if err != nil {
+		t.Fatalf("EncryptBytes failed: %v", err)
+	}
+
+	// DecryptAuto in requireEncrypted=true mode
+	dec, err := flowcrypto.DecryptAuto(enc, key, true)
+	if err != nil {
+		t.Fatalf("DecryptAuto failed: %v", err)
+	}
+
+	if !bytes.Equal(plain, dec) {
+		t.Fatalf("expected %v, got %v", plain, dec)
 	}
 }
 

@@ -110,15 +110,28 @@ func LoadResourceVerified(ctx context.Context, source string, opts SecurityOptio
 		}
 	}
 
-	shouldVerifySignature := opts.VerifySignature || len(keyOrCertBytes) > 0 || flowcrypto.IsSignedPayload(content)
+	// 1. Detect if an outer digital signature is present (unified envelope or detached companion)
+	isOuterSignedEnvelope := flowcrypto.IsSignedPayload(content)
+	effectiveSig := opts.SignaturePath
+	if effectiveSig == "" && !strings.Contains(source, "://") {
+		for _, ext := range []string{".sig", ".asc", ".p7s"} {
+			candidate := source + ext
+			if _, err := os.Stat(candidate); err == nil {
+				effectiveSig = candidate
+				break
+			}
+		}
+	}
+	hasOuterSignature := isOuterSignedEnvelope || effectiveSig != ""
+
 	var verResult *flowcrypto.VerificationResult
 
-	if shouldVerifySignature {
+	if hasOuterSignature {
 		if len(keyOrCertBytes) == 0 {
-			return nil, nil, fmt.Errorf("resource %q requires digital signature verification, but no public key (-public-key) or certificate (-cert) was provided", resourceSourceLabel(source))
+			return nil, nil, fmt.Errorf("resource %q has a digital signature, but no public key (-public-key) or certificate (-cert) was provided for verification", resourceSourceLabel(source))
 		}
 
-		if flowcrypto.IsSignedPayload(content) {
+		if isOuterSignedEnvelope {
 			// Unified signed envelope
 			unwrapped, res, err := flowcrypto.VerifyPayloadAuto(content, keyOrCertBytes)
 			if err != nil {
@@ -128,23 +141,7 @@ func LoadResourceVerified(ctx context.Context, source string, opts SecurityOptio
 			verResult = res
 		} else {
 			// Detached signature
-			var sigBytes []byte
-			effectiveSig := opts.SignaturePath
-			if effectiveSig == "" && !strings.Contains(source, "://") {
-				for _, ext := range []string{".sig", ".asc", ".p7s"} {
-					candidate := source + ext
-					if _, err := os.Stat(candidate); err == nil {
-						effectiveSig = candidate
-						break
-					}
-				}
-			}
-
-			if effectiveSig == "" {
-				return nil, nil, fmt.Errorf("digital signature verification required for %q, but no signature file was provided (-signature)", resourceSourceLabel(source))
-			}
-
-			sigBytes, err = os.ReadFile(effectiveSig)
+			sigBytes, err := os.ReadFile(effectiveSig)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed reading signature file %s: %w", effectiveSig, err)
 			}
@@ -171,14 +168,17 @@ func LoadResourceVerified(ctx context.Context, source string, opts SecurityOptio
 			return nil, nil, fmt.Errorf("resource %q is encrypted but no secure key was provided (specify -secure-key or set FLOW_SECURE_KEY)", resourceSourceLabel(source))
 		}
 
-		decrypted, err := flowcrypto.DecryptAuto(content, key, true)
+		decrypted, err := flowcrypto.DecryptAuto(content, key, opts.Encrypted)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to decrypt resource %q: %w", resourceSourceLabel(source), err)
 		}
 		content = decrypted
 
 		// In case of Sign-then-Encrypt, check if decrypted payload was itself signed
-		if flowcrypto.IsSignedPayload(content) && len(keyOrCertBytes) > 0 {
+		if flowcrypto.IsSignedPayload(content) {
+			if len(keyOrCertBytes) == 0 {
+				return nil, nil, fmt.Errorf("decrypted payload in %q is digitally signed, but no public key (-public-key) or certificate (-cert) was provided", resourceSourceLabel(source))
+			}
 			unwrapped, res, err := flowcrypto.VerifyPayloadAuto(content, keyOrCertBytes)
 			if err != nil {
 				return nil, nil, fmt.Errorf("digital signature verification failed for decrypted payload in %q: %w", resourceSourceLabel(source), err)
@@ -186,6 +186,11 @@ func LoadResourceVerified(ctx context.Context, source string, opts SecurityOptio
 			content = unwrapped
 			verResult = res
 		}
+	}
+
+	// 3. Enforce signature verification if -verify-signature was explicitly requested
+	if opts.VerifySignature && (verResult == nil || !verResult.Valid) {
+		return nil, nil, fmt.Errorf("digital signature verification enforced (-verify-signature), but resource %q is not signed", resourceSourceLabel(source))
 	}
 
 	return normalizeXMLBytes(content), verResult, nil

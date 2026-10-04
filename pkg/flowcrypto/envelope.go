@@ -74,8 +74,8 @@ func DecryptArmored(armoredText string, key string) ([]byte, error) {
 }
 
 // DecryptAuto attempts to decrypt data if it contains the armored prefix,
-// or if it matches raw binary payload format. If it is already unencrypted plaintext,
-// and requireEncrypted is false, it returns the input data unchanged.
+// or if it matches raw binary payload format when requireEncrypted is true.
+// If it is already unencrypted plaintext and requireEncrypted is false, it returns the input data unchanged.
 func DecryptAuto(data []byte, key string, requireEncrypted bool) ([]byte, error) {
 	trimmed := bytes.TrimSpace(data)
 
@@ -86,14 +86,18 @@ func DecryptAuto(data []byte, key string, requireEncrypted bool) ([]byte, error)
 		return DecryptArmored(string(trimmed), key)
 	}
 
-	// If raw binary encrypted data is passed (at least 44 bytes and not ASCII/XML)
-	if len(trimmed) >= MinBinaryPayloadLength && !bytes.HasPrefix(trimmed, []byte("<")) {
-		if decrypted, err := DecryptBytes(trimmed, key); err == nil {
+	if requireEncrypted {
+		if key == "" {
+			return nil, fmt.Errorf("payload is marked as encrypted but no secure key was provided (set -secure-key or FLOW_SECURE_KEY)")
+		}
+		// In requireEncrypted mode with non-armored input, process un-trimmed raw bytes
+		if len(data) >= MinBinaryPayloadLength {
+			decrypted, err := DecryptBytes(data, key)
+			if err != nil {
+				return nil, err
+			}
 			return decrypted, nil
 		}
-	}
-
-	if requireEncrypted {
 		return nil, ErrNotEncrypted
 	}
 

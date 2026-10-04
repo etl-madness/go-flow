@@ -250,3 +250,53 @@ func TestLoadResourceCombinedSignedAndEncrypted(t *testing.T) {
 	}
 }
 
+func TestLoadResourceVerifiedSignThenEncrypt(t *testing.T) {
+	tmpDir := t.TempDir()
+	combinedFile := filepath.Join(tmpDir, "pipeline.xml.enc")
+	pubFile := filepath.Join(tmpDir, "public.pem")
+
+	rawXML := `<pipeline><title>Confidential Signer</title></pipeline>`
+	key := "SignThenEncryptKey2026!"
+
+	privPEM, pubPEM, err := flowcrypto.GenerateRSAKeyPair(2048)
+	if err != nil {
+		t.Fatalf("GenerateRSAKeyPair failed: %v", err)
+	}
+	if err := os.WriteFile(pubFile, pubPEM, 0644); err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+
+	// 1. Sign plaintext first
+	sigBytes, format, err := flowcrypto.SignData([]byte(rawXML), "openssl", privPEM, nil, "")
+	if err != nil {
+		t.Fatalf("SignData failed: %v", err)
+	}
+	signedEnvelope := flowcrypto.WrapSignedPayload(format, sigBytes, []byte(rawXML))
+
+	// 2. Encrypt signed envelope
+	armored, err := flowcrypto.EncryptArmored([]byte(signedEnvelope), key)
+	if err != nil {
+		t.Fatalf("EncryptArmored failed: %v", err)
+	}
+	if err := os.WriteFile(combinedFile, []byte(armored), 0644); err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+
+	ctx := context.Background()
+	loaded, verRes, err := LoadResourceVerified(ctx, combinedFile, SecurityOptions{
+		Encrypted:       true,
+		SecureKey:       key,
+		PublicKeyPath:   pubFile,
+		VerifySignature: true,
+	})
+	if err != nil {
+		t.Fatalf("LoadResourceVerified Sign-then-Encrypt failed: %v", err)
+	}
+	if string(loaded) != rawXML {
+		t.Fatalf("expected %q, got %q", rawXML, string(loaded))
+	}
+	if verRes == nil || !verRes.Valid {
+		t.Fatal("expected valid verification result")
+	}
+}
+

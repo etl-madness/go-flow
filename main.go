@@ -229,7 +229,17 @@ func main() {
 	outFile := flag.String("out", "", "Path to output file for transformed XML (optional)")
 	flag.Parse()
 
-	effectiveKey := resolveSecureKey(*secureKeyFlag)
+	cliSetFlags := make(map[string]bool)
+	flag.Visit(func(f *flag.Flag) {
+		cliSetFlags[f.Name] = true
+	})
+
+	var effectiveKey string
+	if cliSetFlags["secure-key"] {
+		effectiveKey = *secureKeyFlag
+	} else {
+		effectiveKey = resolveSecureKey("")
+	}
 
 	secOpts := SecurityOptions{
 		Encrypted:       *encryptedFlag,
@@ -252,9 +262,15 @@ func main() {
 			}})
 			os.Exit(1)
 		}
-		// Refresh key and security options in case options XML defined them
-		if effectiveKey == "" {
-			effectiveKey = resolveSecureKey(*secureKeyFlag)
+		// Refresh key and security options according to CLI > XML > Environment precedence
+		if !cliSetFlags["secure-key"] {
+			if strings.TrimSpace(*secureKeyFlag) != "" {
+				effectiveKey = strings.TrimSpace(*secureKeyFlag)
+			} else {
+				effectiveKey = resolveSecureKey("")
+			}
+		} else {
+			effectiveKey = *secureKeyFlag
 		}
 		secOpts.Encrypted = *encryptedFlag
 		secOpts.SecureKey = effectiveKey
@@ -267,10 +283,6 @@ func main() {
 	}
 
 	// Allow environment variable override for builder port if not explicitly set on CLI
-	cliSetFlags := make(map[string]bool)
-	flag.Visit(func(f *flag.Flag) {
-		cliSetFlags[f.Name] = true
-	})
 	if !cliSetFlags["builder-port"] {
 		if envPort := os.Getenv("FLOW_BUILDER_PORT"); envPort != "" {
 			if p, err := strconv.Atoi(envPort); err == nil && p >= 0 {
@@ -353,17 +365,22 @@ func main() {
 			_, err = os.Stdout.Write(finalBytes)
 		} else {
 			err = os.WriteFile(*exportFile, finalBytes, 0644)
+			if err == nil {
+				fmt.Printf("Successfully exported %s %q to %s (encrypted: %t).\n", *exportType, *exportName, *exportFile, *encryptedFlag)
+			}
 		}
 		if err != nil {
 			log.Fatalf("Failed writing export file %s: %v", *exportFile, err)
 		}
-		fmt.Printf("Successfully exported %s %q to %s (encrypted: %t).\n", *exportType, *exportName, *exportFile, *encryptedFlag)
 		return
 	}
 
 	// Handle -import-file flag: imports a pipeline, options, or config XML file into SQLite or external DB
 	if *importFile != "" {
-		plainData, verRes, err := LoadResourceVerified(context.Background(), *importFile, secOpts)
+		importSecOpts := secOpts
+		// Do not require source input to be encrypted; auto-detection will still decrypt if it is encrypted
+		importSecOpts.Encrypted = false
+		plainData, verRes, err := LoadResourceVerified(context.Background(), *importFile, importSecOpts)
 		if err != nil {
 			log.Fatalf("Failed loading import file %s: %v", *importFile, err)
 		}

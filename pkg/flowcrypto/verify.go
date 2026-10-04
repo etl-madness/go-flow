@@ -194,7 +194,7 @@ func VerifyPKCS7Detached(data []byte, p7Bytes []byte, caCertPEM []byte) (*Verifi
 	return &VerificationResult{
 		Valid:       true,
 		Format:      "PKCS7",
-		Algorithm:   "CMS-AUTHENTICODE",
+		Algorithm:   "CMS-PKCS7",
 		SignerInfo:  cert.Subject.CommonName,
 		Certificate: cert,
 	}, nil

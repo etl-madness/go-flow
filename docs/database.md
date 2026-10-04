@@ -607,7 +607,7 @@ If the stored record begins with `FLOWENC:v1:`, Flow will automatically detect a
 
 For detailed table schemas, SQL Server merge queries, and tooling, refer to:
 * [Database-backed Resource Storage Guide](README_DATABASE_XML.md)
-* [Cross-Platform Encryption Guide](../ENCRYPTION.md)
+* [Cross-Platform Encryption Guide](ENCRYPTION.md)
 * [Database Importer Documentation](../db_importer/README_DB_IMPORTER.md)
 
 
