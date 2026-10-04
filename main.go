@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/etl-madness/flow"
 	"github.com/etl-madness/go-flow/builder"
+	"github.com/etl-madness/go-flow/pkg/flowcrypto"
 	"github.com/traefik/yaegi/interp"
 )
 
@@ -84,13 +86,135 @@ func fqdnHostname() string {
 	return strings.TrimSuffix(hostname, ".")
 }
 
+func resolveSecureKey(cliKey string) string {
+	if strings.TrimSpace(cliKey) != "" {
+		return strings.TrimSpace(cliKey)
+	}
+	if envKey := strings.TrimSpace(os.Getenv("FLOW_SECURE_KEY")); envKey != "" {
+		return envKey
+	}
+	if envKey := strings.TrimSpace(os.Getenv("SECURE_KEY")); envKey != "" {
+		return envKey
+	}
+	return ""
+}
+
+func exportFromDatabase(dsn, itemType, name string) (string, error) {
+	driver := "sqlserver"
+	cleanDSN := dsn
+	if strings.HasPrefix(dsn, "sql://") || strings.HasPrefix(dsn, "db://") {
+		raw := strings.TrimPrefix(strings.TrimPrefix(dsn, "sql://"), "db://")
+		parts := strings.SplitN(raw, "@", 2)
+		if len(parts) == 2 {
+			driver = strings.ToLower(strings.TrimSpace(parts[0]))
+			cleanDSN = parts[1]
+		}
+	} else if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		driver = "postgres"
+	} else if strings.HasPrefix(dsn, "mysql://") {
+		driver = "mysql"
+	}
+
+	db, err := sql.Open(driver, cleanDSN)
+	if err != nil {
+		return "", fmt.Errorf("failed connecting to database: %w", err)
+	}
+	defer db.Close()
+
+	var table, col string
+	switch strings.ToLower(strings.TrimSpace(itemType)) {
+	case "options":
+		table, col = "dbo.flow_options_content", "OptionsXML"
+	case "config":
+		table, col = "dbo.flow_config_content", "ConfigXML"
+	default:
+		table, col = "dbo.flow_pipeline_content", "PipelineXML"
+	}
+
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE Name = @p1", col, table)
+	if driver == "postgres" {
+		query = fmt.Sprintf("SELECT %s FROM %s WHERE Name = $1", col, table)
+	} else if driver == "mysql" || driver == "sqlite" {
+		query = fmt.Sprintf("SELECT %s FROM %s WHERE Name = ?", col, table)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var content string
+	err = db.QueryRowContext(ctx, query, name).Scan(&content)
+	if err != nil {
+		return "", fmt.Errorf("failed querying %s for %q: %w", table, name, err)
+	}
+	return content, nil
+}
+
+func importToDatabase(dsn, itemType, name, desc, content string) error {
+	driver := "sqlserver"
+	cleanDSN := dsn
+	if strings.HasPrefix(dsn, "sql://") || strings.HasPrefix(dsn, "db://") {
+		raw := strings.TrimPrefix(strings.TrimPrefix(dsn, "sql://"), "db://")
+		parts := strings.SplitN(raw, "@", 2)
+		if len(parts) == 2 {
+			driver = strings.ToLower(strings.TrimSpace(parts[0]))
+			cleanDSN = parts[1]
+		}
+	}
+
+	db, err := sql.Open(driver, cleanDSN)
+	if err != nil {
+		return fmt.Errorf("failed connecting to database: %w", err)
+	}
+	defer db.Close()
+
+	var table, col string
+	switch strings.ToLower(strings.TrimSpace(itemType)) {
+	case "options":
+		table, col = "dbo.flow_options_content", "OptionsXML"
+	case "config":
+		table, col = "dbo.flow_config_content", "ConfigXML"
+	default:
+		table, col = "dbo.flow_pipeline_content", "PipelineXML"
+	}
+
+	query := fmt.Sprintf(`
+		MERGE INTO %s AS target
+		USING (SELECT @p1 AS Name) AS source
+		ON (target.Name = source.Name)
+		WHEN MATCHED THEN
+			UPDATE SET Description = @p2, %s = @p3
+		WHEN NOT MATCHED THEN
+			INSERT (Name, Description, %s) VALUES (@p1, @p2, @p3);
+	`, table, col, col)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	_, err = db.ExecContext(ctx, query, name, desc, content)
+	return err
+}
+
 func main() {
 	builderFlag := flag.Bool("builder", false, "Start the local HTMX pipeline builder web server")
 	builderPort := flag.Int("builder-port", 0, "Port for the builder web server (default 0 for dynamic ephemeral port)")
 	builderDb := flag.String("builder-db", "flow_builder.db", "SQLite database file path for the visual builder")
 	purgeDb := flag.Bool("purge-db", false, "Purge all data from the SQLite visual builder database and exit")
-	importFile := flag.String("import-file", "", "Import a pipeline XML file into the SQLite builder database")
-	importName := flag.String("import-name", "", "Custom name for imported pipeline (used with -import-file)")
+	importFile := flag.String("import-file", "", "Import a pipeline, options, or config XML file into SQLite builder database or external DB")
+	importName := flag.String("import-name", "", "Custom name for imported item (used with -import-file)")
+	importType := flag.String("import-type", "pipeline", "Item type for -import-file: pipeline, options, or config")
+	exportFile := flag.String("export-file", "", "Path to export a pipeline, options, or config file")
+	exportName := flag.String("export-name", "", "Name of the pipeline, options, or config to export")
+	exportType := flag.String("export-type", "pipeline", "Type of item to export: pipeline, options, or config")
+	dbDsn := flag.String("dsn", "", "Optional external database DSN for import/export directly to external DB")
+	encryptedFlag := flag.Bool("encrypted", false, "Indicates that config, options, or script content is encrypted and must be decrypted, or encrypts exports")
+	secureKeyFlag := flag.String("secure-key", "", "Key or passphrase for decryption/encryption (falls back to FLOW_SECURE_KEY or SECURE_KEY env var)")
+	verifySigFlag := flag.Bool("verify-signature", false, "Verify digital signature before decrypting or executing pipeline")
+	pubKeyFlag := flag.String("public-key", "", "Public key file path for digital signature verification (RSA, ECDSA, Ed25519)")
+	certFlag := flag.String("cert", "", "X.509 certificate file path for digital signature verification")
+	caCertFlag := flag.String("ca-cert", "", "CA certificate file path for signature verification chain")
+	keyringFlag := flag.String("keyring", "", "OpenPGP public keyring file path for signature verification")
+	sigFileFlag := flag.String("signature", "", "Detached digital signature file path")
+
 	optionsPath := flag.String("options", "", "Path to XML file containing CLI option defaults")
 	filePath := flag.String("file", "scripts.xml", "Path to XML file containing scripts and databases")
 	format := flag.String("format", "csv", "Output format (json,jsonpretty, text, or markdown, csv)")
@@ -105,9 +229,22 @@ func main() {
 	outFile := flag.String("out", "", "Path to output file for transformed XML (optional)")
 	flag.Parse()
 
+	effectiveKey := resolveSecureKey(*secureKeyFlag)
+
+	secOpts := SecurityOptions{
+		Encrypted:       *encryptedFlag,
+		SecureKey:       effectiveKey,
+		VerifySignature: *verifySigFlag,
+		PublicKeyPath:   *pubKeyFlag,
+		CertPath:        *certFlag,
+		CACertPath:      *caCertFlag,
+		KeyringPath:     *keyringFlag,
+		SignaturePath:   *sigFileFlag,
+	}
+
 	// Apply XML load file options if specified
 	if *optionsPath != "" {
-		if err := applyXMLOptions(*optionsPath); err != nil {
+		if err := applyXMLOptionsVerified(*optionsPath, secOpts); err != nil {
 			outputJSON(&[]flow.ScriptResult{{
 				ScriptID:      "system",
 				ReturnCode:    1,
@@ -115,6 +252,18 @@ func main() {
 			}})
 			os.Exit(1)
 		}
+		// Refresh key and security options in case options XML defined them
+		if effectiveKey == "" {
+			effectiveKey = resolveSecureKey(*secureKeyFlag)
+		}
+		secOpts.Encrypted = *encryptedFlag
+		secOpts.SecureKey = effectiveKey
+		secOpts.VerifySignature = *verifySigFlag
+		secOpts.PublicKeyPath = *pubKeyFlag
+		secOpts.CertPath = *certFlag
+		secOpts.CACertPath = *caCertFlag
+		secOpts.KeyringPath = *keyringFlag
+		secOpts.SignaturePath = *sigFileFlag
 	}
 
 	// Allow environment variable override for builder port if not explicitly set on CLI
@@ -150,21 +299,133 @@ func main() {
 		return
 	}
 
-	// Handle -import-file flag: imports a pipeline XML file into SQLite
-	if *importFile != "" {
-		storage, err := builder.NewStorage(*builderDb)
-		if err != nil {
-			log.Fatalf("Failed to open builder database %s: %v", *builderDb, err)
+	// Handle -export-file flag: exports a pipeline, options, or config
+	if *exportFile != "" {
+		if *exportName == "" {
+			log.Fatalf("Error: -export-name must be specified when using -export-file")
 		}
-		defer storage.Close()
 
-		script, err := builder.ImportPipelineFromXML(*importFile, *importName, storage)
-		if err != nil {
-			log.Fatalf("Failed to import %s: %v", *importFile, err)
+		var rawContent string
+		var err error
+
+		if *dbDsn != "" {
+			rawContent, err = exportFromDatabase(*dbDsn, *exportType, *exportName)
+			if err != nil {
+				log.Fatalf("Export from database failed: %v", err)
+			}
+		} else {
+			storage, err := builder.NewStorage(*builderDb)
+			if err != nil {
+				log.Fatalf("Failed to open builder database %s: %v", *builderDb, err)
+			}
+			defer storage.Close()
+
+			switch strings.ToLower(strings.TrimSpace(*exportType)) {
+			case "options":
+				rawContent, err = storage.GetOptionsFile(*exportName)
+			case "config":
+				rawContent, err = storage.GetConfigFile(*exportName)
+			case "pipeline", "":
+				rawContent, err = storage.ExportPipelineXML(*exportName)
+			default:
+				log.Fatalf("Unsupported -export-type: %q (expected pipeline, options, or config)", *exportType)
+			}
+			if err != nil {
+				log.Fatalf("Failed exporting %s %q from %s: %v", *exportType, *exportName, *builderDb, err)
+			}
 		}
-		fmt.Printf("Successfully imported pipeline %q (ID: %d) from %s into %s.\n", script.Name, script.ID, *importFile, *builderDb)
-		if !*builderFlag {
-			return
+
+		var finalBytes []byte
+		if *encryptedFlag {
+			if effectiveKey == "" {
+				log.Fatalf("Error: -encrypted was specified for export, but no key was provided. Specify -secure-key or set FLOW_SECURE_KEY.")
+			}
+			armored, err := flowcrypto.EncryptArmored([]byte(rawContent), effectiveKey)
+			if err != nil {
+				log.Fatalf("Failed encrypting exported content: %v", err)
+			}
+			finalBytes = []byte(armored)
+		} else {
+			finalBytes = []byte(rawContent)
+		}
+
+		if *exportFile == "-" {
+			_, err = os.Stdout.Write(finalBytes)
+		} else {
+			err = os.WriteFile(*exportFile, finalBytes, 0644)
+		}
+		if err != nil {
+			log.Fatalf("Failed writing export file %s: %v", *exportFile, err)
+		}
+		fmt.Printf("Successfully exported %s %q to %s (encrypted: %t).\n", *exportType, *exportName, *exportFile, *encryptedFlag)
+		return
+	}
+
+	// Handle -import-file flag: imports a pipeline, options, or config XML file into SQLite or external DB
+	if *importFile != "" {
+		plainData, verRes, err := LoadResourceVerified(context.Background(), *importFile, secOpts)
+		if err != nil {
+			log.Fatalf("Failed loading import file %s: %v", *importFile, err)
+		}
+		if verRes != nil && verRes.Valid && *debug {
+			log.Printf("Import file digital signature verified: %s via %s (signer: %s)", verRes.Format, verRes.Algorithm, verRes.SignerInfo)
+		}
+
+		targetName := strings.TrimSpace(*importName)
+		if targetName == "" {
+			targetName = strings.TrimSuffix(filepath.Base(*importFile), filepath.Ext(*importFile))
+		}
+
+		if *dbDsn != "" {
+			contentToStore := string(plainData)
+			if *encryptedFlag {
+				if effectiveKey == "" {
+					log.Fatalf("Error: -encrypted was specified for database import, but no key was provided. Specify -secure-key or set FLOW_SECURE_KEY.")
+				}
+				contentToStore, err = flowcrypto.EncryptArmored(plainData, effectiveKey)
+				if err != nil {
+					log.Fatalf("Failed encrypting for database import: %v", err)
+				}
+			}
+			err = importToDatabase(*dbDsn, *importType, targetName, "Imported via go-flow", contentToStore)
+			if err != nil {
+				log.Fatalf("Failed importing into database: %v", err)
+			}
+			fmt.Printf("Successfully imported %s %q into database from %s (encrypted: %t).\n", *importType, targetName, *importFile, *encryptedFlag)
+			if !*builderFlag {
+				return
+			}
+		} else {
+			storage, err := builder.NewStorage(*builderDb)
+			if err != nil {
+				log.Fatalf("Failed to open builder database %s: %v", *builderDb, err)
+			}
+			defer storage.Close()
+
+			switch strings.ToLower(strings.TrimSpace(*importType)) {
+			case "options":
+				if err := storage.SaveOptionsFile(targetName, string(plainData)); err != nil {
+					log.Fatalf("Failed saving options file %q: %v", targetName, err)
+				}
+				fmt.Printf("Successfully imported options file %q from %s into %s.\n", targetName, *importFile, *builderDb)
+			case "config":
+				if err := storage.SaveConfigFile(targetName, string(plainData)); err != nil {
+					log.Fatalf("Failed saving config file %q: %v", targetName, err)
+				}
+				fmt.Printf("Successfully imported config file %q from %s into %s.\n", targetName, *importFile, *builderDb)
+			case "pipeline", "":
+				script, err := builder.ImportPipelineFromBytes(plainData, targetName, *importName, *importFile, storage)
+				if err != nil {
+					log.Fatalf("Failed to import %s: %v", *importFile, err)
+				}
+				fmt.Printf("Successfully imported pipeline %q (ID: %d) from %s into %s.\n", script.Name, script.ID, *importFile, *builderDb)
+			default:
+				log.Fatalf("Unsupported -import-type: %q (expected pipeline, options, or config)", *importType)
+			}
+
+			if !*builderFlag {
+				return
+			}
 		}
 	}
 
@@ -191,7 +452,7 @@ func main() {
 
 	// 2. Load and Parse XML File
 	ctx := context.Background()
-	fileBytes, err := LoadResource(ctx, *filePath)
+	fileBytes, verRes, err := LoadResourceVerified(ctx, *filePath, secOpts)
 	if err != nil {
 		outputJSON(&[]flow.ScriptResult{{
 			ScriptID:      "system",
@@ -199,6 +460,9 @@ func main() {
 			ResultsString: fmt.Sprintf("Error reading script file: %v", err),
 		}})
 		os.Exit(1)
+	}
+	if verRes != nil && verRes.Valid && *debug {
+		log.Printf("Digital signature verified successfully: %s via %s (signer: %s)", verRes.Format, verRes.Algorithm, verRes.SignerInfo)
 	}
 
 	if *xsltPath != "" {
@@ -254,7 +518,7 @@ func main() {
 	flowNodes := cfg.FlowNodes
 
 	if *configPath != "" {
-		configBytes, err := LoadResource(ctx, *configPath)
+		configBytes, cfgVerRes, err := LoadResourceVerified(ctx, *configPath, secOpts)
 		if err != nil {
 			outputJSON(&[]flow.ScriptResult{{
 				ScriptID:      "system",
@@ -262,6 +526,9 @@ func main() {
 				ResultsString: fmt.Sprintf("Error reading config override file: %v", err),
 			}})
 			os.Exit(1)
+		}
+		if cfgVerRes != nil && cfgVerRes.Valid && *debug {
+			log.Printf("Config digital signature verified: %s via %s (signer: %s)", cfgVerRes.Format, cfgVerRes.Algorithm, cfgVerRes.SignerInfo)
 		}
 
 		overrideCfg, err := flow.ParseXMLConfig(configBytes)

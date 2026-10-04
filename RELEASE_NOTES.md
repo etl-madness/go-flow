@@ -1,4 +1,60 @@
 # Release Notes
+
+## Release Notes (v1.1.22) - Cross-Platform Encryption, Digital Signatures & Crypto Tooling
+
+### Overview
+
+Version 1.1.22 introduces enterprise-grade security capabilities to Flow in pure Go with zero external runtime dependencies across **Windows**, **Linux**, **macOS**, and **FreeBSD**:
+1. **Cross-Platform AES-256-GCM Encryption**: Authenticated symmetric encryption with PBKDF2 key derivation and text-safe armored envelopes (`FLOWENC:v1:...`) for protecting pipelines, options, and configs at rest and in database repositories.
+2. **Multi-Standard Digital Signatures**: Complete cryptographic signing and verification supporting OpenSSL/PKI (RSA, ECDSA, Ed25519), Windows Authenticode/PKCS#7/CMS (`.p7s`), and OpenPGP/GPG (`.asc`, `.sig`) with a decoupled **Verify -> Decrypt -> Execute** security pipeline.
+3. **Dedicated CLI Utility (`crypto_tool`)**: Standalone binary for encryption, decryption, key generation, keypair generation, self-signed X.509 certificates, and signature verification.
+4. **Database & CLI Enhancements**: Native encrypted and signed pipeline loading from SQL URIs (`sql://...`), draft import/export (`-import-file`, `-export-file`, `-dsn`), and encrypted database importer (`db_importer`).
+
+---
+
+### Included Changes
+
+#### 1. Native AES-256-GCM Encryption & Armored Envelope
+- **Cryptographic Primitives**: AES-256 in Galois/Counter Mode (AEAD) with PBKDF2-HMAC-SHA256 (100,000 iterations) and 16-byte cryptographically secure random salts.
+- **Text-Safe Armored Envelope**: `FLOWENC:v1:<base64(salt || nonce || ciphertext || auth_tag)>` prevents byte-encoding and Unicode corruption when storing encrypted content in SQL Server `NVARCHAR(MAX)` or SQLite `TEXT` columns.
+- **Transparent Runtime Decryption**: `flow.exe` automatically detects `FLOWENC:v1:` payloads or decrypts on the fly using `-secure-key` or `FLOW_SECURE_KEY` / `SECURE_KEY` environment variables.
+- **Tamper Proofing**: 128-bit authentication tag verification ensures any bit-flip or corrupted data is rejected before parsing or execution.
+
+#### 2. Cross-Platform Digital Signatures
+- **Multi-Standard Signature Support**:
+  - **OpenSSL / PKI X.509**: RSA (PKCS#1v1.5 & PSS), ECDSA (P-256, P-384, P-521), Ed25519 PEM keys and X.509 certificates.
+  - **Windows Authenticode / PKCS#7 / CMS**: Detached signatures (`.p7s`) parsed and verified via pure Go ASN.1 and X.509 code signing verification.
+  - **OpenPGP / GPG**: RFC 4880 ASCII-armored detached signatures (`.asc`, `.sig`) verified against public keyrings.
+- **Unified Signature Envelopes**:
+  - `FLOWSIG:v1:<format>:<base64-signature>`: Text-safe detached signature armor.
+  - `FLOWSIGNED:v1:<format>:<base64-signature>:<base64-content>`: Self-contained signed package bundling payload and cryptographic proof.
+- **Decoupled Security Pipeline**: Strict **Verify -> Decrypt -> Parse -> Execute** pipeline supports Sign-then-Encrypt, Encrypt-then-Sign, and Sign-Only workflows.
+- **Companion Signature Auto-Detection**: Local file execution automatically checks for companion signature files (`<file>.sig`, `<file>.asc`, `<file>.p7s`).
+- **Engine CLI Flags**: Added `-verify-signature`, `-public-key`, `-cert`, `-ca-cert`, `-keyring`, `-signature`.
+- **Options Schema**: Added signature elements to `xsd/options.xsd` (`<verify-signature>`, `<public-key>`, `<cert>`, `<ca-cert>`, `<keyring>`, `<signature>`).
+
+#### 3. Standalone CLI Utility (`crypto_tool`)
+- Added standalone utility under `crypto_tool/` supporting actions:
+  - `-action encrypt`: Encrypt files or stdin into `FLOWENC:v1:` armored format or raw binary (`-binary`).
+  - `-action decrypt`: Decrypt armored or binary ciphertexts back to plaintext.
+  - `-action gen-key`: Generate cryptographically secure 256-bit symmetric keys.
+  - `-action gen-keypair`: Generate RSA (2048/4096-bit), ECDSA, Ed25519, or OpenPGP keypairs and optional self-signed X.509 code-signing certificates (`-out-cert`, `-cn`).
+  - `-action sign`: Create OpenSSL, OpenPGP, or Windows PKCS#7 detached signatures or self-contained signed packages (`-wrap`).
+  - `-action verify`: Verify detached signatures or extract content from `FLOWSIGNED:v1:` envelopes.
+
+#### 4. Engine & Database Importer Enhancements
+- **Draft Import & Export**: Added `-import-file`, `-import-name`, `-import-type`, `-export-file`, `-export-name`, `-export-type`, and optional `-dsn` flags to `flow.exe` for managing pipeline, options, and config items in SQLite builder storage or external databases.
+- **Enhanced `db_importer`**: Added `-encrypted`, `-secure-key`, and `-export` options to import and export encrypted content directly to/from SQL Server repositories (`dbo.flow_pipeline_content`, `dbo.flow_options_content`, `dbo.flow_config_content`).
+
+#### 5. Documentation
+- Created [`ENCRYPTION.md`](ENCRYPTION.md): Architecture guide for AES-256-GCM encryption, envelope formats, database integration, and key resolution.
+- Created [`SIGNATURES.md`](SIGNATURES.md): Comprehensive guide for cross-platform digital signatures, standards, key generation, and usage.
+- Created [`SECURITY_ORDER_AND_OPTIONS.md`](SECURITY_ORDER_AND_OPTIONS.md): Exhaustive order of operations and options reference guide.
+- Created [`crypto_tool/README.md`](crypto_tool/README.md): Complete CLI reference for `crypto_tool`.
+- Updated [`README.md`](README.md), [`docs/database.md`](docs/database.md), and [`docs/README_DATABASE_XML.md`](docs/README_DATABASE_XML.md).
+
+---
+
 ## Release Notes (v1.1.20) - DSN and URI source tracking for observability password masking
 
 ### Overview

@@ -17,6 +17,8 @@ import (
 	_ "github.com/microsoft/go-mssqldb"
 	_ "github.com/sijms/go-ora/v2"
 	_ "modernc.org/sqlite"
+
+	"github.com/etl-madness/go-flow/pkg/flowcrypto"
 )
 
 func resourceSourceLabel(source string) string {
@@ -36,32 +38,157 @@ func resourceSourceLabel(source string) string {
 	return source
 }
 
+// SecurityOptions configures decryption and digital signature verification for resource loading.
+type SecurityOptions struct {
+	Encrypted       bool
+	SecureKey       string
+	VerifySignature bool
+	PublicKeyPath   string
+	CertPath        string
+	CACertPath      string
+	KeyringPath     string
+	SignaturePath   string
+}
+
 // LoadResource resolves paths from filesystem, SQL databases, or HTTP endpoints.
 // Format for SQL URIs: sql://<driver>@<dsn>#<SQL_QUERY>
 func LoadResource(ctx context.Context, source string) ([]byte, error) {
+	return LoadResourceSecure(ctx, source, false, "")
+}
+
+// LoadResourceSecure resolves paths from filesystem, SQL databases, or HTTP endpoints,
+// and decrypts the content if encrypted is true or if the payload contains an encrypted envelope.
+func LoadResourceSecure(ctx context.Context, source string, encrypted bool, secureKey string) ([]byte, error) {
+	data, _, err := LoadResourceVerified(ctx, source, SecurityOptions{
+		Encrypted: encrypted,
+		SecureKey: secureKey,
+	})
+	return data, err
+}
+
+// LoadResourceVerified resolves paths, verifies digital signatures (OpenSSL, OpenPGP, PKCS#7 / Windows),
+// and decrypts content (AES-256-GCM) before returning normalized bytes.
+func LoadResourceVerified(ctx context.Context, source string, opts SecurityOptions) ([]byte, *flowcrypto.VerificationResult, error) {
+	var content []byte
+	var err error
+
 	switch {
 	case strings.HasPrefix(source, "sql://") || strings.HasPrefix(source, "db://"):
-		content, err := loadFromDatabase(ctx, source)
-		if err != nil {
-			return nil, err
-		}
-		return normalizeXMLBytes(content), nil
-
+		content, err = loadFromDatabase(ctx, source)
 	case strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://"):
-		content, err := loadFromHTTP(ctx, source)
-		if err != nil {
-			return nil, err
-		}
-		return normalizeXMLBytes(content), nil
-
+		content, err = loadFromHTTP(ctx, source)
 	default:
 		// Fallback to standard local filesystem
-		content, err := os.ReadFile(source)
-		if err != nil {
-			return nil, err
-		}
-		return normalizeXMLBytes(content), nil
+		content, err = os.ReadFile(source)
 	}
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// 1. Check if verification key or certificate is provided
+	var keyOrCertBytes []byte
+	if opts.PublicKeyPath != "" {
+		keyOrCertBytes, err = os.ReadFile(opts.PublicKeyPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed reading public key %s: %w", opts.PublicKeyPath, err)
+		}
+	} else if opts.CertPath != "" {
+		keyOrCertBytes, err = os.ReadFile(opts.CertPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed reading certificate %s: %w", opts.CertPath, err)
+		}
+	} else if opts.CACertPath != "" {
+		keyOrCertBytes, err = os.ReadFile(opts.CACertPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed reading CA certificate %s: %w", opts.CACertPath, err)
+		}
+	} else if opts.KeyringPath != "" {
+		keyOrCertBytes, err = os.ReadFile(opts.KeyringPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed reading keyring %s: %w", opts.KeyringPath, err)
+		}
+	}
+
+	shouldVerifySignature := opts.VerifySignature || len(keyOrCertBytes) > 0 || flowcrypto.IsSignedPayload(content)
+	var verResult *flowcrypto.VerificationResult
+
+	if shouldVerifySignature {
+		if len(keyOrCertBytes) == 0 {
+			return nil, nil, fmt.Errorf("resource %q requires digital signature verification, but no public key (-public-key) or certificate (-cert) was provided", resourceSourceLabel(source))
+		}
+
+		if flowcrypto.IsSignedPayload(content) {
+			// Unified signed envelope
+			unwrapped, res, err := flowcrypto.VerifyPayloadAuto(content, keyOrCertBytes)
+			if err != nil {
+				return nil, nil, fmt.Errorf("digital signature verification failed for resource %q: %w", resourceSourceLabel(source), err)
+			}
+			content = unwrapped
+			verResult = res
+		} else {
+			// Detached signature
+			var sigBytes []byte
+			effectiveSig := opts.SignaturePath
+			if effectiveSig == "" && !strings.Contains(source, "://") {
+				for _, ext := range []string{".sig", ".asc", ".p7s"} {
+					candidate := source + ext
+					if _, err := os.Stat(candidate); err == nil {
+						effectiveSig = candidate
+						break
+					}
+				}
+			}
+
+			if effectiveSig == "" {
+				return nil, nil, fmt.Errorf("digital signature verification required for %q, but no signature file was provided (-signature)", resourceSourceLabel(source))
+			}
+
+			sigBytes, err = os.ReadFile(effectiveSig)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed reading signature file %s: %w", effectiveSig, err)
+			}
+
+			res, err := flowcrypto.VerifyAuto(content, sigBytes, keyOrCertBytes)
+			if err != nil {
+				return nil, nil, fmt.Errorf("digital signature verification failed for resource %q: %w", resourceSourceLabel(source), err)
+			}
+			verResult = res
+		}
+	}
+
+	// 2. Decrypt if explicitly requested or if auto-detected as encrypted
+	if opts.Encrypted || flowcrypto.IsEncryptedPayload(content) {
+		key := strings.TrimSpace(opts.SecureKey)
+		if key == "" {
+			key = strings.TrimSpace(os.Getenv("FLOW_SECURE_KEY"))
+		}
+		if key == "" {
+			key = strings.TrimSpace(os.Getenv("SECURE_KEY"))
+		}
+
+		if key == "" {
+			return nil, nil, fmt.Errorf("resource %q is encrypted but no secure key was provided (specify -secure-key or set FLOW_SECURE_KEY)", resourceSourceLabel(source))
+		}
+
+		decrypted, err := flowcrypto.DecryptAuto(content, key, true)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to decrypt resource %q: %w", resourceSourceLabel(source), err)
+		}
+		content = decrypted
+
+		// In case of Sign-then-Encrypt, check if decrypted payload was itself signed
+		if flowcrypto.IsSignedPayload(content) && len(keyOrCertBytes) > 0 {
+			unwrapped, res, err := flowcrypto.VerifyPayloadAuto(content, keyOrCertBytes)
+			if err != nil {
+				return nil, nil, fmt.Errorf("digital signature verification failed for decrypted payload in %q: %w", resourceSourceLabel(source), err)
+			}
+			content = unwrapped
+			verResult = res
+		}
+	}
+
+	return normalizeXMLBytes(content), verResult, nil
 }
 
 func loadFromDatabase(ctx context.Context, uri string) ([]byte, error) {

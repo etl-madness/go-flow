@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -59,5 +60,37 @@ func TestBuildImportQuery(t *testing.T) {
 		if !strings.Contains(query, token) {
 			t.Fatalf("query missing %q: %s", token, query)
 		}
+	}
+}
+
+func TestBuildExportQuery(t *testing.T) {
+	tests := []struct {
+		table   string
+		col     string
+		wantSub string
+	}{
+		{table: "dbo.flow_pipeline_content", col: "PipelineXML", wantSub: "SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name = @p1"},
+		{table: "dbo.flow_options_content", col: "OptionsXML", wantSub: "SELECT OptionsXML FROM dbo.flow_options_content WHERE Name = @p1"},
+		{table: "dbo.flow_config_content", col: "ConfigXML", wantSub: "SELECT ConfigXML FROM dbo.flow_config_content WHERE Name = @p1"},
+	}
+
+	for _, tt := range tests {
+		query := buildExportQuery(tt.table, tt.col)
+		if query != tt.wantSub {
+			t.Fatalf("expected %q, got %q", tt.wantSub, query)
+		}
+	}
+}
+
+func TestResolveSecureKey(t *testing.T) {
+	os.Setenv("FLOW_SECURE_KEY", "ImporterEnvKey")
+	defer os.Unsetenv("FLOW_SECURE_KEY")
+
+	if got := resolveSecureKey("ExplicitKey"); got != "ExplicitKey" {
+		t.Fatalf("expected ExplicitKey, got %s", got)
+	}
+
+	if got := resolveSecureKey(""); got != "ImporterEnvKey" {
+		t.Fatalf("expected ImporterEnvKey, got %s", got)
 	}
 }
