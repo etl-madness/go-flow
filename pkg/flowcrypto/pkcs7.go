@@ -238,6 +238,9 @@ func VerifyPKCS7WithCA(data []byte, p7Bytes []byte, signerCert *x509.Certificate
 	if matchedCert == nil {
 		return nil, fmt.Errorf("signer certificate with serial %s matching PKCS#7 SignerInfo was not found", signer.IssuerAndSerial.SerialNumber.String())
 	}
+	if signerCert != nil && !matchedCert.Equal(signerCert) {
+		return nil, errors.New("PKCS#7 signer certificate does not match the trusted certificate")
+	}
 
 	// Calculate data hash according to digest algorithm
 	var dataDigest []byte
