@@ -70,7 +70,11 @@ func main() {
 	secureKey := flag.String("secure-key", "", "Encryption/decryption key (falls back to FLOW_SECURE_KEY or SECURE_KEY env var)")
 	flag.Parse()
 
-	isExport := *exportFlag || strings.ToLower(strings.TrimSpace(*action)) == "export"
+	actionValue := strings.ToLower(strings.TrimSpace(*action))
+	if actionValue != "import" && actionValue != "export" {
+		log.Fatalf("Invalid action %q: expected import or export", *action)
+	}
+	isExport := *exportFlag || actionValue == "export"
 	key := resolveSecureKey(*secureKey)
 
 	if *encrypted && key == "" {
