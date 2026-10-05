@@ -18,11 +18,11 @@ func GenerateXMLWithMetadata(pipelineName, description string, varNodes, dbNodes
 	buf.WriteString(`<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"` + "\n")
 	buf.WriteString(`          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd"`)
 	if pipelineName != "" {
-		buf.WriteString(fmt.Sprintf("\n          name=%q", pipelineName))
-		buf.WriteString(fmt.Sprintf("\n          id=%q", pipelineName))
+		buf.WriteString(fmt.Sprintf("\n          name=\"%s\"", escapeXMLAttr(pipelineName)))
+		buf.WriteString(fmt.Sprintf("\n          id=\"%s\"", escapeXMLAttr(pipelineName)))
 	}
 	if description != "" {
-		buf.WriteString(fmt.Sprintf("\n          description=%q", description))
+		buf.WriteString(fmt.Sprintf("\n          description=\"%s\"", escapeXMLAttr(description)))
 	}
 	buf.WriteString(">\n\n")
 
