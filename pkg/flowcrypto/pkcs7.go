@@ -281,9 +281,7 @@ func VerifyPKCS7WithCA(data []byte, p7Bytes []byte, signerCert *x509.Certificate
 			}
 		}
 
-		rawAttrs, err := asn1.Marshal(struct {
-			A []pkcs7Attribute `asn1:"set"`
-		}{A: signer.SignedAttributes})
+		rawAttrs, err := asn1.MarshalWithParams(signer.SignedAttributes, "set")
 		if err != nil {
 			return nil, fmt.Errorf("failed re-marshaling signed attributes: %w", err)
 		}
