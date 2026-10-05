@@ -185,7 +185,11 @@ func VerifyPKCS7DetachedWithCA(data []byte, p7Bytes []byte, signerCertPEM []byte
 
 	var signerCert *x509.Certificate
 	if len(signerCertPEM) > 0 {
-		signerCert, _ = ParseCertificatePEM(signerCertPEM)
+		var err error
+		signerCert, err = ParseCertificatePEM(signerCertPEM)
+		if err != nil {
+			return nil, fmt.Errorf("failed parsing signer certificate: %w", err)
+		}
 	}
 
 	var rootCert *x509.Certificate
