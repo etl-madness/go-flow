@@ -39,6 +39,45 @@ func writeOutput(outputPath string, data []byte) error {
 	return os.WriteFile(outputPath, data, 0644)
 }
 
+func writeSecretOutput(outputPath string, data []byte) error {
+	if outputPath == "" || outputPath == "-" {
+		_, err := os.Stdout.Write(data)
+		return err
+	}
+
+	file, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+	if err := file.Chmod(0600); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Truncate(0); err != nil {
+		file.Close()
+		return err
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		file.Close()
+		return err
+	}
+	if _, err := file.Write(data); err != nil {
+		file.Close()
+		return err
+	}
+	return file.Close()
+}
+
+func signatureOutput(format string, sigBytes, content []byte, wrap, binary bool) []byte {
+	if wrap {
+		return []byte(flowcrypto.WrapSignedPayload(format, sigBytes, content))
+	}
+	if binary || format == "PGP" || format == "OPENPGP" || format == "PKCS7" {
+		return sigBytes
+	}
+	return []byte(flowcrypto.WrapSignatureOnly(format, sigBytes) + "\n")
+}
+
 func main() {
 	actionFlag := flag.String("action", "encrypt", "Action to perform: encrypt, decrypt, gen-key, sign, verify, gen-keypair")
 	genKeyFlag := flag.Bool("gen-key", false, "Shortcut to generate a cryptographically secure key")
@@ -93,15 +132,9 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error generating secure key: %v\n", err)
 			os.Exit(1)
 		}
-		if err := writeOutput(*outFileFlag, []byte(key+"\n")); err != nil {
+		if err := writeSecretOutput(*outFileFlag, []byte(key+"\n")); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing generated key: %v\n", err)
 			os.Exit(1)
-		}
-		if *outFileFlag != "" && *outFileFlag != "-" {
-			if err := os.Chmod(*outFileFlag, 0600); err != nil {
-				fmt.Fprintf(os.Stderr, "Error securing generated key file: %v\n", err)
-				os.Exit(1)
-			}
 		}
 		return
 	}
@@ -203,22 +236,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		var finalOutput []byte
-		if *wrapFlag {
-			armored := flowcrypto.WrapSignedPayload(format, sigBytes, inputBytes)
-			finalOutput = []byte(armored)
-		} else if *binaryFlag {
-			finalOutput = sigBytes
-		} else if format == "OPENPGP" {
-			// OpenPGP detached signatures are natively ASCII-armored
-			finalOutput = sigBytes
-		} else if format == "PKCS7" {
-			// PKCS#7 / CMS (.p7s) detached signatures are natively DER binary
-			finalOutput = sigBytes
-		} else {
-			armored := flowcrypto.WrapSignatureOnly(format, sigBytes)
-			finalOutput = []byte(armored + "\n")
-		}
+		finalOutput := signatureOutput(format, sigBytes, inputBytes, *wrapFlag, *binaryFlag)
 
 		if err := writeOutput(*outFileFlag, finalOutput); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing signature output to %s: %v\n", *outFileFlag, err)

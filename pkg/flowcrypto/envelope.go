@@ -164,7 +164,7 @@ func VerifyPayloadAutoWithCA(payload []byte, keyOrCertBytes []byte, caCertBytes 
 	var res *VerificationResult
 	switch {
 	case strings.HasPrefix(strings.ToUpper(format), "OPENSSL"):
-		res, err = VerifyOpenSSL(content, sig, keyOrCertBytes)
+		res, err = VerifyOpenSSLWithCA(content, sig, keyOrCertBytes, caCertBytes)
 	case strings.ToUpper(format) == "PGP" || strings.ToUpper(format) == "GPG":
 		res, err = VerifyOpenPGP(content, sig, keyOrCertBytes)
 	case strings.ToUpper(format) == "PKCS7" || strings.ToUpper(format) == "CMS" || strings.ToUpper(format) == "WINDOWS":

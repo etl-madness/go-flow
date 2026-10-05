@@ -266,6 +266,50 @@ func TestSignAndVerifySelfSignedCertificate(t *testing.T) {
 	}
 }
 
+func TestVerifyOpenSSLWithCAAcrossEnvelopeFormats(t *testing.T) {
+	privPEM, pubPEM, err := GenerateRSAKeyPair(2048)
+	if err != nil {
+		t.Fatalf("GenerateRSAKeyPair failed: %v", err)
+	}
+	privKey, err := ParsePrivateKeyPEM(privPEM)
+	if err != nil {
+		t.Fatalf("ParsePrivateKeyPEM failed: %v", err)
+	}
+	pubKey, _, err := ParsePublicKeyOrCertPEM(pubPEM)
+	if err != nil {
+		t.Fatalf("ParsePublicKeyOrCertPEM failed: %v", err)
+	}
+	certPEM, err := GenerateSelfSignedCertificate(privKey, pubKey, "CA signer", 30)
+	if err != nil {
+		t.Fatalf("GenerateSelfSignedCertificate failed: %v", err)
+	}
+
+	data := []byte("verify OpenSSL signature with CA")
+	sig, _, err := SignOpenSSL(data, privPEM)
+	if err != nil {
+		t.Fatalf("SignOpenSSL failed: %v", err)
+	}
+
+	if _, err := VerifyOpenSSLWithCA(data, sig, certPEM, certPEM); err != nil {
+		t.Fatalf("VerifyOpenSSLWithCA failed: %v", err)
+	}
+	if _, err := VerifyOpenSSLWithCA(data, sig, pubPEM, certPEM); err == nil {
+		t.Fatal("expected CA validation to reject a public key without a signer certificate")
+	}
+	if _, err := VerifyOpenSSLWithCA(data, sig, certPEM, []byte("invalid CA")); err == nil {
+		t.Fatal("expected CA validation to reject an invalid CA certificate")
+	}
+
+	flowsig := []byte(WrapSignatureOnly("OPENSSL-RSA-SHA256", sig))
+	if _, err := VerifyAutoWithCA(data, flowsig, certPEM, certPEM); err != nil {
+		t.Fatalf("VerifyAutoWithCA FLOWSIG failed: %v", err)
+	}
+	flowsigned := []byte(WrapSignedPayload("OPENSSL", sig, data))
+	if _, _, err := VerifyPayloadAutoWithCA(flowsigned, certPEM, certPEM); err != nil {
+		t.Fatalf("VerifyPayloadAutoWithCA FLOWSIGNED failed: %v", err)
+	}
+}
+
 func TestSignAndVerifyPKCS7Detached(t *testing.T) {
 	privPEM, pubPEM, err := GenerateRSAKeyPair(2048)
 	if err != nil {
@@ -381,4 +425,3 @@ func TestFlowSignedEnvelopeAndCombinedEncryption(t *testing.T) {
 		t.Fatalf("decrypted %q != plaintext %q", string(decrypted), string(plaintext))
 	}
 }
-

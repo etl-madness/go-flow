@@ -78,6 +78,11 @@ func ParsePublicKeyOrCertPEM(pemBytes []byte) (crypto.PublicKey, *x509.Certifica
 
 // VerifyOpenSSL verifies data against a signature using an RSA, ECDSA, or Ed25519 public key or certificate.
 func VerifyOpenSSL(data []byte, sig []byte, pubKeyOrCertPEM []byte) (*VerificationResult, error) {
+	return VerifyOpenSSLWithCA(data, sig, pubKeyOrCertPEM, nil)
+}
+
+// VerifyOpenSSLWithCA verifies data against a signature and optionally validates the signer's certificate chain.
+func VerifyOpenSSLWithCA(data []byte, sig []byte, pubKeyOrCertPEM []byte, caCertPEM []byte) (*VerificationResult, error) {
 	pub, cert, err := ParsePublicKeyOrCertPEM(pubKeyOrCertPEM)
 	if err != nil {
 		return nil, err
@@ -89,57 +94,69 @@ func VerifyOpenSSL(data []byte, sig []byte, pubKeyOrCertPEM []byte) (*Verificati
 		signerInfo = cert.Subject.CommonName
 	}
 
+	result := func(algorithm string) (*VerificationResult, error) {
+		if err := verifyCertificateWithCA(cert, caCertPEM); err != nil {
+			return nil, err
+		}
+		return &VerificationResult{
+			Valid:       true,
+			Format:      "OPENSSL",
+			Algorithm:   algorithm,
+			SignerInfo:  signerInfo,
+			Certificate: cert,
+		}, nil
+	}
+
 	switch k := pub.(type) {
 	case *rsa.PublicKey:
 		// Try PKCS#1 v1.5 first
 		if err := rsa.VerifyPKCS1v15(k, crypto.SHA256, h[:], sig); err == nil {
-			return &VerificationResult{
-				Valid:       true,
-				Format:      "OPENSSL",
-				Algorithm:   "RSA-SHA256",
-				SignerInfo:  signerInfo,
-				Certificate: cert,
-			}, nil
+			return result("RSA-SHA256")
 		}
 		// Fall back to RSA-PSS
 		if err := rsa.VerifyPSS(k, crypto.SHA256, h[:], sig, nil); err == nil {
-			return &VerificationResult{
-				Valid:       true,
-				Format:      "OPENSSL",
-				Algorithm:   "RSA-PSS-SHA256",
-				SignerInfo:  signerInfo,
-				Certificate: cert,
-			}, nil
+			return result("RSA-PSS-SHA256")
 		}
 		return nil, errors.New("RSA signature verification failed")
 
 	case *ecdsa.PublicKey:
 		if ecdsa.VerifyASN1(k, h[:], sig) {
-			return &VerificationResult{
-				Valid:       true,
-				Format:      "OPENSSL",
-				Algorithm:   "ECDSA-SHA256",
-				SignerInfo:  signerInfo,
-				Certificate: cert,
-			}, nil
+			return result("ECDSA-SHA256")
 		}
 		return nil, errors.New("ECDSA signature verification failed")
 
 	case ed25519.PublicKey:
 		if ed25519.Verify(k, data, sig) {
-			return &VerificationResult{
-				Valid:       true,
-				Format:      "OPENSSL",
-				Algorithm:   "ED25519",
-				SignerInfo:  signerInfo,
-				Certificate: cert,
-			}, nil
+			return result("ED25519")
 		}
 		return nil, errors.New("Ed25519 signature verification failed")
 
 	default:
 		return nil, fmt.Errorf("unsupported public key type: %T", pub)
 	}
+}
+
+func verifyCertificateWithCA(cert *x509.Certificate, caCertPEM []byte) error {
+	if len(caCertPEM) == 0 {
+		return nil
+	}
+	if cert == nil {
+		return errors.New("CA chain validation requires a signer certificate")
+	}
+	rootCert, err := ParseCertificatePEM(caCertPEM)
+	if err != nil {
+		return fmt.Errorf("failed parsing CA certificate: %w", err)
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(rootCert)
+	opts := x509.VerifyOptions{
+		Roots:     roots,
+		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+	}
+	if _, err := cert.Verify(opts); err != nil {
+		return fmt.Errorf("certificate verification failed: %w", err)
+	}
+	return nil
 }
 
 // VerifyOpenPGP verifies data against an armored detached OpenPGP signature using an armored public keyring.
@@ -243,7 +260,7 @@ func VerifyAutoWithCA(data []byte, sigBytes []byte, keyOrCertBytes []byte, caCer
 
 			switch {
 			case strings.HasPrefix(format, "OPENSSL"):
-				return VerifyOpenSSL(data, decoded, keyOrCertBytes)
+				return VerifyOpenSSLWithCA(data, decoded, keyOrCertBytes, caCertBytes)
 			case format == "PGP":
 				return VerifyOpenPGP(data, decoded, keyOrCertBytes)
 			case format == "PKCS7":
@@ -268,13 +285,13 @@ func VerifyAutoWithCA(data []byte, sigBytes []byte, keyOrCertBytes []byte, caCer
 	}
 
 	// Try OpenSSL with public key or certificate
-	if res, err := VerifyOpenSSL(data, trimmedSig, keyOrCertBytes); err == nil {
+	if res, err := VerifyOpenSSLWithCA(data, trimmedSig, keyOrCertBytes, caCertBytes); err == nil {
 		return res, nil
 	}
 
 	// If raw base64 string, try decoding and verifying
 	if decoded, err := base64.StdEncoding.DecodeString(string(trimmedSig)); err == nil {
-		if res, err := VerifyOpenSSL(data, decoded, keyOrCertBytes); err == nil {
+		if res, err := VerifyOpenSSLWithCA(data, decoded, keyOrCertBytes, caCertBytes); err == nil {
 			return res, nil
 		}
 		if res, err := VerifyPKCS7DetachedWithCA(data, decoded, keyOrCertBytes, caCertBytes); err == nil {

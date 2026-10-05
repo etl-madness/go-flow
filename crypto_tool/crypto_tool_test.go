@@ -87,6 +87,40 @@ func TestCryptoToolFileRoundTrip(t *testing.T) {
 	}
 }
 
+func TestWriteSecretOutputRestrictsExistingFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "secret.key")
+	if err := os.WriteFile(path, []byte("old secret"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := writeSecretOutput(path, []byte("new secret")); err != nil {
+		t.Fatalf("writeSecretOutput failed: %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0600 {
+		t.Fatalf("secret file mode = %04o, want 0600", got)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "new secret" {
+		t.Fatalf("secret file contents = %q, want %q", data, "new secret")
+	}
+}
+
+func TestSignatureOutputPreservesArmoredPGP(t *testing.T) {
+	sig := []byte("-----BEGIN PGP SIGNATURE-----\n...\n-----END PGP SIGNATURE-----")
+
+	if got := signatureOutput("PGP", sig, []byte("content"), false, false); !bytes.Equal(got, sig) {
+		t.Fatalf("PGP detached output = %q, want original armored signature %q", got, sig)
+	}
+}
+
 func TestCryptoToolSignAndVerifyDetached(t *testing.T) {
 	tmpDir := t.TempDir()
 	dataFile := filepath.Join(tmpDir, "pipeline.xml")
@@ -170,4 +204,3 @@ func TestBinaryCiphertextWithWhitespaceBytes(t *testing.T) {
 		t.Fatalf("expected %v, got %v", plain, dec)
 	}
 }
-
