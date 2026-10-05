@@ -97,6 +97,12 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error writing generated key: %v\n", err)
 			os.Exit(1)
 		}
+		if *outFileFlag != "" && *outFileFlag != "-" {
+			if err := os.Chmod(*outFileFlag, 0600); err != nil {
+				fmt.Fprintf(os.Stderr, "Error securing generated key file: %v\n", err)
+				os.Exit(1)
+			}
+		}
 		return
 	}
 
