@@ -136,6 +136,46 @@
                         (empty)</xs:documentation>
                 </xs:annotation>
             </xs:element>
+            <xs:element name="encrypted" type="xs:boolean" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>When true, indicates that database or file resources are encrypted and should be decrypted using the secure key prior to execution. Equivalent to the -encrypted flag. Default: false</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="secure-key" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Secret key or passphrase used to decrypt encrypted options, config, or pipeline XML. Equivalent to the -secure-key flag. Default: (empty)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="verify-signature" type="xs:boolean" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>When true, verifies the digital signature of the pipeline, options, or config before executing. Equivalent to the -verify-signature flag. Default: false</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="public-key" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Path to PEM public key file used for digital signature verification (RSA, ECDSA, Ed25519). Equivalent to the -public-key flag. Default: (empty)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="cert" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Path to X.509 certificate file (PEM or DER) used for digital signature verification. Equivalent to the -cert flag. Default: (empty)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="ca-cert" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Path to root CA certificate file used for certificate chain validation. Equivalent to the -ca-cert flag. Default: (empty)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="keyring" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Path to OpenPGP armored public keyring used for GPG signature verification. Equivalent to the -keyring flag. Default: (empty)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="signature" type="xs:string" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>Path to detached digital signature file (.sig, .asc, or .p7s). Equivalent to the -signature flag. Default: (empty)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
         </xs:all>
     </xs:complexType>
 

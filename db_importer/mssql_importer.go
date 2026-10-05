@@ -5,16 +5,19 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 	"unicode/utf16"
 
+	"github.com/etl-madness/go-flow/pkg/flowcrypto"
 	_ "github.com/microsoft/go-mssqldb"
 )
 
 func resolveImportTarget(table string) (string, string, error) {
-	switch table {
+	switch strings.ToLower(strings.TrimSpace(table)) {
 	case "options":
 		return "dbo.flow_options_content", "OptionsXML", nil
 	case "config":
@@ -38,18 +41,50 @@ func buildImportQuery(tableName, xmlColumn string) string {
 	`, tableName, xmlColumn, xmlColumn)
 }
 
+func buildExportQuery(tableName, xmlColumn string) string {
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE Name = @p1`, xmlColumn, tableName)
+}
+
+func resolveSecureKey(cliKey string) string {
+	if strings.TrimSpace(cliKey) != "" {
+		return strings.TrimSpace(cliKey)
+	}
+	if envKey := strings.TrimSpace(os.Getenv("FLOW_SECURE_KEY")); envKey != "" {
+		return envKey
+	}
+	if envKey := strings.TrimSpace(os.Getenv("SECURE_KEY")); envKey != "" {
+		return envKey
+	}
+	return ""
+}
+
 func main() {
+	action := flag.String("action", "import", "Action to perform: import or export")
+	exportFlag := flag.Bool("export", false, "Shortcut flag to export from database")
 	dsn := flag.String("dsn", "sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true", "SQL Server connection string")
-	filePath := flag.String("file", "github_ai_credit_usage.xml", "Path to XML file to import")
+	filePath := flag.String("file", "github_ai_credit_usage.xml", "Path to XML file to import or export destination")
 	name := flag.String("name", "github_ai_credit_usage", "Name key in database")
 	table := flag.String("table", "pipeline", "Target table type: pipeline, options, or config")
-	desc := flag.String("desc", "Imported via Go importer", "Description of the XML content")
+	desc := flag.String("desc", "Imported via Go importer", "Description of the XML content (import only)")
+	encrypted := flag.Bool("encrypted", false, "Encrypt content before importing, or decrypt content after exporting")
+	secureKey := flag.String("secure-key", "", "Encryption/decryption key (falls back to FLOW_SECURE_KEY or SECURE_KEY env var)")
 	flag.Parse()
 
-	// 1. Read raw file bytes (no quote escaping needed)
-	xmlBytes, err := os.ReadFile(*filePath)
+	actionValue := strings.ToLower(strings.TrimSpace(*action))
+	if actionValue != "import" && actionValue != "export" {
+		log.Fatalf("Invalid action %q: expected import or export", *action)
+	}
+	isExport := *exportFlag || actionValue == "export"
+	key := resolveSecureKey(*secureKey)
+
+	if *encrypted && key == "" {
+		log.Fatalf("Error: -encrypted was specified, but no key was provided. Specify -secure-key or set FLOW_SECURE_KEY.")
+	}
+
+	// 1. Determine table and column targets
+	tableName, xmlColumn, err := resolveImportTarget(*table)
 	if err != nil {
-		log.Fatalf("Failed to read file %s: %v", *filePath, err)
+		log.Fatalf("Invalid table target: %v", err)
 	}
 
 	// 2. Open DB connection
@@ -59,26 +94,92 @@ func main() {
 	}
 	defer db.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// 3. Determine table and column targets
-	tableName, xmlColumn, err := resolveImportTarget(*table)
-	if err != nil {
-		log.Fatalf("Invalid import target: %v", err)
+	if isExport {
+		// =========================================================================
+		// EXPORT ACTION
+		// =========================================================================
+		exportQuery := buildExportQuery(tableName, xmlColumn)
+
+		var rawContent string
+		err := db.QueryRowContext(ctx, exportQuery, *name).Scan(&rawContent)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				log.Fatalf("No record found in %s with Name = %q", tableName, *name)
+			}
+			log.Fatalf("Failed querying %s for Name = %q: %v", tableName, *name, err)
+		}
+
+		var finalBytes []byte
+		if *encrypted || flowcrypto.IsEncryptedPayload([]byte(rawContent)) {
+			if key == "" {
+				log.Fatalf("Content in %s for %q is encrypted, but no secure key was provided. Specify -secure-key or set FLOW_SECURE_KEY.", tableName, *name)
+			}
+			decrypted, err := flowcrypto.DecryptAuto([]byte(rawContent), key, true)
+			if err != nil {
+				log.Fatalf("Failed to decrypt exported content for %q: %v", *name, err)
+			}
+			finalBytes = decrypted
+		} else {
+			finalBytes = []byte(rawContent)
+		}
+
+		if *filePath == "" || *filePath == "-" {
+			_, err = os.Stdout.Write(finalBytes)
+		} else {
+			err = os.WriteFile(*filePath, finalBytes, 0644)
+		}
+		if err != nil {
+			log.Fatalf("Failed to write exported content: %v", err)
+		}
+
+		if *filePath != "" && *filePath != "-" {
+			fmt.Printf("Successfully exported '%s' from %s into %s.\n", *name, tableName, *filePath)
+		}
+		return
 	}
 
-	// 4. Parameterized MERGE (Upsert) query
-	query := buildImportQuery(tableName, xmlColumn)
+	// =========================================================================
+	// IMPORT ACTION
+	// =========================================================================
+	var rawData []byte
+	if *filePath == "" || *filePath == "-" {
+		rawData, err = io.ReadAll(os.Stdin)
+	} else {
+		rawData, err = os.ReadFile(*filePath)
+	}
+	if err != nil {
+		log.Fatalf("Failed to read file %s: %v", *filePath, err)
+	}
 
-	// 5. Execute with raw string parameter binding
-	res, err := db.ExecContext(ctx, query, *name, *desc, decodeFileContent(xmlBytes))
+	decodedText := decodeFileContent(rawData)
+	var contentToStore string
+
+	if *encrypted {
+		// Encrypt if not already armored
+		if flowcrypto.IsEncryptedPayload([]byte(decodedText)) {
+			contentToStore = decodedText
+		} else {
+			armored, err := flowcrypto.EncryptArmored([]byte(decodedText), key)
+			if err != nil {
+				log.Fatalf("Failed to encrypt content for import: %v", err)
+			}
+			contentToStore = armored
+		}
+	} else {
+		contentToStore = decodedText
+	}
+
+	importQuery := buildImportQuery(tableName, xmlColumn)
+	res, err := db.ExecContext(ctx, importQuery, *name, *desc, contentToStore)
 	if err != nil {
 		log.Fatalf("Failed to import XML into %s: %v", tableName, err)
 	}
 
 	rows, _ := res.RowsAffected()
-	fmt.Printf("Successfully imported '%s' (%s) into %s (%d row(s) affected).\n", *name, *filePath, tableName, rows)
+	fmt.Printf("Successfully imported '%s' (%s) into %s (%d row(s) affected, encrypted: %t).\n", *name, *filePath, tableName, rows, *encrypted)
 }
 
 func decodeFileContent(data []byte) string {
@@ -103,4 +204,3 @@ func decodeFileContent(data []byte) string {
 	}
 	return string(data)
 }
-

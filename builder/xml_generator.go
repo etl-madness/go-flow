@@ -9,10 +9,22 @@ import (
 
 // GenerateXML constructs a valid Flow XML scripts file from database nodes.
 func GenerateXML(pipelineName string, varNodes, dbNodes, preflightNodes, flowNodes []PipelineNode) string {
+	return GenerateXMLWithMetadata(pipelineName, "", varNodes, dbNodes, preflightNodes, flowNodes)
+}
+
+// GenerateXMLWithMetadata constructs a valid Flow XML scripts file including pipeline metadata.
+func GenerateXMLWithMetadata(pipelineName, description string, varNodes, dbNodes, preflightNodes, flowNodes []PipelineNode) string {
 	var buf bytes.Buffer
 	buf.WriteString(`<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"` + "\n")
-	buf.WriteString(`          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">` + "\n")
-	// buf.WriteString(fmt.Sprintf(`          id=%q>`+"\n", pipelineName))
+	buf.WriteString(`          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd"`)
+	if pipelineName != "" {
+		buf.WriteString(fmt.Sprintf("\n          name=\"%s\"", escapeXMLAttr(pipelineName)))
+		buf.WriteString(fmt.Sprintf("\n          id=\"%s\"", escapeXMLAttr(pipelineName)))
+	}
+	if description != "" {
+		buf.WriteString(fmt.Sprintf("\n          description=\"%s\"", escapeXMLAttr(description)))
+	}
+	buf.WriteString(">\n\n")
 
 	// 1. Variables
 	if len(varNodes) > 0 {

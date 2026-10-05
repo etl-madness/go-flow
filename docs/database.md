@@ -578,6 +578,38 @@ Streams key-value projections from a relational SQL database straight into a Key
 
 For dedicated details, driver characteristics, and DSL syntax, refer to the [Key-Value Documentation](kv.md).
 
+---
+
+## Database-Backed Resource Storage & Encryption 🔒
+
+Flow supports loading pipelines, options, and configuration overrides directly from database tables using standard SQL URIs:
+
+```text
+sql://<driver>@<dsn>#SELECT ...
+```
+
+### Encrypted Storage at Rest
+Sensitive database rows containing pipeline logic, connection strings, or variables can be encrypted at rest with AES-256-GCM. Because Flow uses a text-safe armored envelope (`FLOWENC:v1:<base64(...)>`), encrypted payloads can be stored directly into standard database string columns without schema modifications:
+
+* `dbo.flow_pipeline_content` (`[PipelineXML] NVARCHAR(MAX)`)
+* `dbo.flow_options_content` (`[OptionsXML] NVARCHAR(MAX)`)
+* `dbo.flow_config_content` (`[ConfigXML] NVARCHAR(MAX)`)
+
+### Executing Encrypted Database Pipelines
+At runtime, specify the `-encrypted` flag and provide the decryption key via `-secure-key` or the `FLOW_SECURE_KEY` environment variable:
+
+```bash
+flow.exe -encrypted -secure-key "MySecretPassphrase123!" \
+         -file "sql://sqlserver@localhost:1433?database=master#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name = 'production_daily_etl'"
+```
+
+If the stored record begins with `FLOWENC:v1:`, Flow will automatically detect and decrypt the payload before parsing and execution.
+
+For detailed table schemas, SQL Server merge queries, and tooling, refer to:
+* [Database-backed Resource Storage Guide](README_DATABASE_XML.md)
+* [Cross-Platform Encryption Guide](ENCRYPTION.md)
+* [Database Importer Documentation](../db_importer/README_DB_IMPORTER.md)
+
 
 
 

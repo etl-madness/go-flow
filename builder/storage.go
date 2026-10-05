@@ -191,6 +191,43 @@ func (s *Storage) GetScript(id int64) (*Script, error) {
 	return &sc, nil
 }
 
+func (s *Storage) GetScriptByName(name string) (*Script, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var sc Script
+	err := s.db.QueryRow("SELECT id, name, description, created_at, updated_at FROM scripts WHERE name = ?", name).
+		Scan(&sc.ID, &sc.Name, &sc.Description, &sc.CreatedAt, &sc.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &sc, nil
+}
+
+func (s *Storage) ExportPipelineXML(name string) (string, error) {
+	script, err := s.GetScriptByName(name)
+	if err != nil {
+		return "", err
+	}
+	varNodes, err := s.GetNodeTree(script.ID, "variables")
+	if err != nil {
+		return "", err
+	}
+	dbNodes, err := s.GetNodeTree(script.ID, "databases")
+	if err != nil {
+		return "", err
+	}
+	preflightNodes, err := s.GetNodeTree(script.ID, "preflight")
+	if err != nil {
+		return "", err
+	}
+	flowNodes, err := s.GetNodeTree(script.ID, "flow")
+	if err != nil {
+		return "", err
+	}
+	return GenerateXMLWithMetadata(script.Name, script.Description, varNodes, dbNodes, preflightNodes, flowNodes), nil
+}
+
 func (s *Storage) CreateScript(name, description string) (*Script, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -667,6 +704,30 @@ func (s *Storage) SaveOptionsFile(name, content string) error {
 
 	_, err := s.db.Exec("INSERT OR REPLACE INTO options_files (name, content, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", name, content)
 	return err
+}
+
+func (s *Storage) GetConfigFile(name string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var content string
+	err := s.db.QueryRow("SELECT content FROM config_files WHERE name = ?", name).Scan(&content)
+	if err != nil {
+		return "", err
+	}
+	return content, nil
+}
+
+func (s *Storage) GetOptionsFile(name string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var content string
+	err := s.db.QueryRow("SELECT content FROM options_files WHERE name = ?", name).Scan(&content)
+	if err != nil {
+		return "", err
+	}
+	return content, nil
 }
 
 // PurgeDatabase drops/clears all scripts, nodes, configs, and options drafts,

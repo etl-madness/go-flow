@@ -182,7 +182,35 @@ This keeps XML artifacts in versioned database tables while still allowing the c
 
 ---
 
-## 8. Notes
+## 8. Encrypted Storage and Execution
+
+Pipelines, options, and configs stored in the database can be encrypted at rest using `crypto_tool` or `db_importer -encrypted`.
+
+Because ciphertexts are formatted in Flow's text-safe armored envelope (`FLOWENC:v1:...`), they fit directly into existing `NVARCHAR(MAX)` or `TEXT` database columns without altering any table schemas.
+
+### Importing Encrypted Content
+```bash
+db_importer -dsn "sqlserver://sa:Password123!@localhost:1433?database=master" \
+            -table pipeline \
+            -name "production_daily_etl" \
+            -file "pipelines/daily.xml" \
+            -encrypted \
+            -secure-key "MySecretPassphrase123!"
+```
+
+### Executing Encrypted Content
+Run `flow.exe` specifying the `-encrypted` flag and `-secure-key` (or setting the `FLOW_SECURE_KEY` environment variable):
+
+```bash
+flow.exe -encrypted -secure-key "MySecretPassphrase123!" \
+         -file "sql://sqlserver@localhost:1433?database=master#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name = 'production_daily_etl'"
+```
+
+For full encryption architecture, PBKDF2 parameters, and offline utilities, see [ENCRYPTION.md](ENCRYPTION.md).
+
+---
+
+## 9. Notes
 
 - The database query must return exactly one XML value.
 - If the query returns no rows or an empty value, the loader returns an error.

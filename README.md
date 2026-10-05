@@ -1,6 +1,6 @@
-# Flow: Modern, Lightweight ETL & Workflow Orchestration Engine (v1.1.19)
+# Flow: Modern, Lightweight ETL & Workflow Orchestration Engine (v1.1.22)
 
-**Flow** is a single-binary, high-performance ETL execution engine and workflow orchestrator built in Go. Designed as a modern alternative to bloated legacy ETL tools (e.g., SSIS) and complex code-heavy orchestrators (e.g., Apache Airflow), Flow combines declarative XML pipelines, an embedded visual HTMX web builder, native cross-database execution, and automated compliance telemetry.
+**Flow** is a single-binary, high-performance ETL execution engine and workflow orchestrator built in Go. Designed as a modern alternative to bloated legacy ETL tools (e.g., SSIS) and complex code-heavy orchestrators (e.g., Apache Airflow), Flow combines declarative XML pipelines, an embedded visual HTMX web builder, native cross-database execution, automated compliance telemetry, and built-in cryptographic security (AES-256-GCM encryption & multi-standard digital signatures).
 
 Whether you are looking to streamline database batch jobs, replace fragile shell/Python scripts, or enforce strict audit logging across heterogeneous databases, Flow delivers zero-dependency pipeline execution with enterprise-grade reliability.
 
@@ -14,6 +14,7 @@ Whether you are looking to streamline database batch jobs, replace fragile shell
 | **Authoring Experience** | Heavy desktop GUIs, proprietary XML | Python code base, steep learning curve | **Embedded Web UI (`-builder`) or Git-friendly declarative XML**. |
 | **Database Abstraction** | Manual connector setups per DB | Requires platform-specific Python operators | **Native dialect abstraction (Postgres, SQL Server, Oracle, MySQL, SQLite, K/V)**. |
 | **Audit & Row Telemetry** | Fragmented server logs, custom logging jobs | Requires custom XComs/hooks for metrics | **Automatic step-level audit tables (`pipeline_events`, `pipeline_runs`) with row counts**. |
+| **Security & Integrity** | Proprietary package protection, OS-bound credentials | Rely on third-party secrets managers or external container signers | **Native AES-256-GCM encryption & multi-standard digital signatures (OpenSSL, PKCS#7/CMS, OpenPGP) with zero OS dependencies**. |
 | **Documentation** | Hand-maintained Wiki docs (frequently stale) | Code-as-docs (hard for non-coders) | **Auto-generated Mermaid.js visual flowcharts & XSLT transformation**. |
 
 ---
@@ -83,6 +84,31 @@ Whether you are looking to streamline database batch jobs, replace fragile shell
 
 
 
+### 6. Cross-Platform Encryption & Secure Resource Storage
+
+* **Native AES-256-GCM with PBKDF2:** Protect sensitive pipelines, connection strings, and option files at rest using authenticated symmetric encryption across Windows, Linux, macOS, and FreeBSD with zero external dependencies.
+
+* **Database & Storage Encryption:** Store encrypted pipelines, options, and configs directly in SQL Server tables (`dbo.flow_pipeline_content`, `dbo.flow_options_content`, `dbo.flow_config_content`) or SQLite visual builder drafts.
+
+* **Automated Decryption & Key Precedence:** `flow.exe` auto-detects `FLOWENC:v1:` payloads or decrypts on the fly using `-secure-key` or `FLOW_SECURE_KEY` environment variables before parsing and execution.
+
+* **Dedicated Tooling (`crypto_tool` & `db_importer`):** Includes a standalone CLI tool for key generation and file encryption/decryption, plus an enhanced SQL Server importer with encrypted import/export support. See [docs/ENCRYPTION.md](docs/ENCRYPTION.md).
+
+### 7. Cross-Platform Digital Signatures & Integrity Verification
+
+* **Pure Go Multi-Standard Engine:** Verify digital signatures natively across Windows, Linux, macOS, and FreeBSD with zero external tools or OS dependencies.
+
+* **Supported Standards:**
+  * **OpenSSL / PKI X.509:** RSA (PKCS#1v1.5 & PSS), ECDSA, Ed25519 PEM keys and X.509 certificates.
+  * **PKCS#7 / CMS:** Detached signatures (`.p7s`) verified via pure Go ASN.1 and X.509 parsers.
+  * **GPG / OpenPGP:** ASCII-armored detached signatures (`.asc`, `.sig`) and keyrings.
+
+* **Unified Envelopes & Companion Files:** Supports self-contained `FLOWSIGNED:v1:...` packages, `FLOWSIG:v1:...` text envelopes, and auto-detecting companion signature files (`.sig`, `.asc`, `.p7s`).
+
+* **Decoupled Verification Lifecycle:** Strict **Verify -> Decrypt -> Parse -> Execute** pipeline prevents tampered resources from executing. Full documentation in [docs/SIGNATURES.md](docs/SIGNATURES.md) and [docs/security_order_and_options.md](docs/security_order_and_options.md).
+
+
+
 ---
 
 ## Quick Start
@@ -126,6 +152,19 @@ flow -file pipelines/daily_etl.xml \
      -debug
 
 ```
+
+### 5. Run an Encrypted Pipeline
+
+Execute a pipeline that has been encrypted with AES-256-GCM using `-encrypted` and `-secure-key` (or the `FLOW_SECURE_KEY` environment variable):
+
+```bash
+flow -file pipelines/daily_etl.xml.enc \
+     -encrypted \
+     -secure-key "MySecretPassphrase123!" \
+     -format stream
+```
+
+For database-backed encrypted execution and offline encryption tooling, see [docs/ENCRYPTION.md](docs/ENCRYPTION.md) and [crypto_tool/README.md](crypto_tool/README.md).
 
 ---
 
@@ -191,9 +230,26 @@ flow -file pipelines/daily_etl.xml \
 | --- | --- | --- | --- |
 | `-builder` | `bool` | `false` | Starts the embedded HTMX pipeline builder web server. |
 | `-builder-port` | `int` | `0` | Specifies the port for the builder web server (default `0` for dynamic ephemeral port). |
-| `-file` | `string` | `scripts.xml` | Path to the XML file containing scripts, variables, and databases. |
-| `-config` | `string` | `""` | Optional path to an override XML config file (variables, databases). |
-| `-options` | `string` | `""` | XML file containing pre-configured default CLI option parameters. |
+| `-builder-db` | `string` | `flow_builder.db` | SQLite database file path for the visual builder. |
+| `-purge-db` | `bool` | `false` | Purges all data from the SQLite visual builder database and exits. |
+| `-file` | `string` | `scripts.xml` | Path (or `sql://...` URI) to the XML file containing scripts, variables, and databases. |
+| `-config` | `string` | `""` | Optional path (or `sql://...` URI) to an override XML config file (variables, databases). |
+| `-options` | `string` | `""` | Optional path (or `sql://...` URI) to XML file containing pre-configured default CLI option parameters. |
+| `-encrypted` | `bool` | `false` | Indicates config, options, or script content retrieved from source/database is encrypted, or encrypts exports. |
+| `-secure-key` | `string` | `""` | Key or passphrase for decryption/encryption (falls back to `FLOW_SECURE_KEY` or `SECURE_KEY`). |
+| `-verify-signature` | `bool` | `false` | Enforce digital signature verification before decrypting or running pipeline. |
+| `-public-key` | `string` | `""` | Public key file path (PEM or OpenPGP) for digital signature verification. |
+| `-cert` | `string` | `""` | X.509 certificate file path (PEM or DER) for digital signature verification. |
+| `-ca-cert` | `string` | `""` | Root CA certificate file path for certificate chain validation. |
+| `-keyring` | `string` | `""` | OpenPGP armored public keyring file path for signature verification. |
+| `-signature` | `string` | `""` | Detached digital signature file path (auto-checks `<in>.sig`, `<in>.asc`, `<in>.p7s` if omitted). |
+| `-import-file` | `string` | `""` | Imports a pipeline, options, or config XML file into SQLite builder database or external DB. |
+| `-import-name` | `string` | `""` | Custom name for imported item (used with `-import-file`). |
+| `-import-type` | `string` | `pipeline` | Item type for `-import-file`: `pipeline`, `options`, or `config`. |
+| `-export-file` | `string` | `""` | Path to export a pipeline, options, or config file (use `-` for stdout). |
+| `-export-name` | `string` | `""` | Name of the pipeline, options, or config to export. |
+| `-export-type` | `string` | `pipeline` | Type of item to export: `pipeline`, `options`, or `config`. |
+| `-dsn` | `string` | `""` | Optional external database connection string for import/export directly to external DB. |
 | `-vars` | `string` | `""` | Comma-separated runtime overrides (e.g., `-vars "Table=foo,Limit=100"`). |
 | `-validate` | `bool` | `false` | Performs XSD schema and AST validation checks without running the job. |
 | `-preflight` | `bool` | `false` | Executes preflight validation nodes only. |

@@ -25,8 +25,23 @@ type FlowCLIOptions struct {
 // applyXMLOptions parses the specified XML file wrapped in <flow_cli_options><options>
 // and sets any flags that were not explicitly passed on the command line.
 func applyXMLOptions(optionsPath string) error {
+	return applyXMLOptionsSecure(optionsPath, false, "")
+}
+
+// applyXMLOptionsSecure parses the specified XML file wrapped in <flow_cli_options><options>
+// with optional decryption for encrypted resources.
+func applyXMLOptionsSecure(optionsPath string, encrypted bool, secureKey string) error {
+	return applyXMLOptionsVerified(optionsPath, SecurityOptions{
+		Encrypted: encrypted,
+		SecureKey: secureKey,
+	})
+}
+
+// applyXMLOptionsVerified parses the specified XML file wrapped in <flow_cli_options><options>
+// with digital signature verification and decryption.
+func applyXMLOptionsVerified(optionsPath string, opts SecurityOptions) error {
 	ctx := context.Background()
-	data, err := LoadResource(ctx, optionsPath)
+	data, _, err := LoadResourceVerified(ctx, optionsPath, opts)
 	if err != nil {
 		return fmt.Errorf("error reading load file: %w", err)
 	}
