@@ -127,8 +127,10 @@ func exportFromDatabase(dsn, itemType, name string) (string, error) {
 		table, col = "dbo.flow_options_content", "OptionsXML"
 	case "config":
 		table, col = "dbo.flow_config_content", "ConfigXML"
-	default:
+	case "pipeline", "":
 		table, col = "dbo.flow_pipeline_content", "PipelineXML"
+	default:
+		return "", fmt.Errorf("unsupported item type %q: expected pipeline, options, or config", itemType)
 	}
 
 	if driver != "sqlserver" {
