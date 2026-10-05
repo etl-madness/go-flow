@@ -243,15 +243,17 @@ func VerifyPKCS7WithCA(data []byte, p7Bytes []byte, signerCert *x509.Certificate
 	// Calculate data hash according to digest algorithm
 	var dataDigest []byte
 	var hashFunc crypto.Hash
-	if signer.DigestAlgorithm.Algorithm.Equal(oidSHA512) {
+	switch {
+	case signer.DigestAlgorithm.Algorithm.Equal(oidSHA512):
 		h := sha512.Sum512(data)
 		dataDigest = h[:]
 		hashFunc = crypto.SHA512
-	} else {
-		// default to SHA-256
+	case signer.DigestAlgorithm.Algorithm.Equal(oidSHA256):
 		h := sha256.Sum256(data)
 		dataDigest = h[:]
 		hashFunc = crypto.SHA256
+	default:
+		return nil, fmt.Errorf("unsupported PKCS#7 digest algorithm: %s", signer.DigestAlgorithm.Algorithm)
 	}
 
 	var digestToVerify []byte
