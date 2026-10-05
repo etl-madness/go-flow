@@ -11,6 +11,7 @@ require (
 	github.com/microsoft/go-mssqldb v1.10.0
 	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/traefik/yaegi v0.16.1
+	golang.org/x/crypto v0.55.0
 	google.golang.org/api v0.293.0
 	modernc.org/sqlite v1.58.0
 )
@@ -75,7 +76,6 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.1 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/mod v0.38.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
