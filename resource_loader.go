@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -200,12 +201,14 @@ func LoadResourceVerified(ctx context.Context, source string, opts SecurityOptio
 	return normalizeXMLBytes(content), verResult, nil
 }
 
+const maxHTTPResourceBytes = 50 * 1024 * 1024 // 50MB maximum allowable resource size
+
 func loadFromDatabase(ctx context.Context, uri string) ([]byte, error) {
 	raw := strings.TrimPrefix(strings.TrimPrefix(uri, "sql://"), "db://")
 
 	parts := strings.SplitN(raw, "#", 2)
 	if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
-		return nil, fmt.Errorf("invalid DB URI syntax; missing SQL query fragment after '#': %s", uri)
+		return nil, fmt.Errorf("invalid DB URI syntax; missing SQL query fragment after '#': %s", maskSensitiveSourceForDB(uri, false))
 	}
 
 	connSpec := parts[0]
@@ -213,7 +216,7 @@ func loadFromDatabase(ctx context.Context, uri string) ([]byte, error) {
 
 	driverAndDSN := strings.SplitN(connSpec, "@", 2)
 	if len(driverAndDSN) < 2 {
-		return nil, fmt.Errorf("invalid DB connection spec; expected '<driver>@<dsn>': %s", connSpec)
+		return nil, fmt.Errorf("invalid DB connection spec; expected '<driver>@<dsn>': %s", maskSensitiveSourceForDB("sql://"+connSpec, false))
 	}
 
 	driver := strings.ToLower(strings.TrimSpace(driverAndDSN[0]))
@@ -245,16 +248,37 @@ func loadFromDatabase(ctx context.Context, uri string) ([]byte, error) {
 	}
 
 	if len(content) == 0 {
-		return nil, fmt.Errorf("database query returned empty result set from %s", uri)
+		return nil, fmt.Errorf("database query returned empty result set from %s", maskSensitiveSourceForDB(uri, false))
 	}
 
 	return content, nil
+}
+
+func isCloudMetadataOrLinkLocal(host string) bool {
+	host = strings.Trim(strings.ToLower(strings.TrimSpace(host)), "[]")
+	if host == "169.254.169.254" || host == "metadata.google.internal" || host == "instance-data" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	if ip != nil {
+		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+			return true
+		}
+		if ipv4 := ip.To4(); ipv4 != nil && ipv4[0] == 169 && ipv4[1] == 254 {
+			return true
+		}
+	}
+	return false
 }
 
 func loadFromHTTP(ctx context.Context, rawURL string) ([]byte, error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, err
+	}
+
+	if isCloudMetadataOrLinkLocal(parsedURL.Hostname()) {
+		return nil, fmt.Errorf("HTTP GET %s blocked: access to cloud metadata and link-local addresses is prohibited", maskSensitiveSourceForDB(rawURL, false))
 	}
 
 	requestURL := parsedURL.String()
@@ -299,8 +323,17 @@ func loadFromHTTP(ctx context.Context, rawURL string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("HTTP GET %s failed with status code %d", rawURL, resp.StatusCode)
+		return nil, fmt.Errorf("HTTP GET %s failed with status code %d", maskSensitiveSourceForDB(rawURL, false), resp.StatusCode)
 	}
 
-	return io.ReadAll(resp.Body)
+	lr := io.LimitReader(resp.Body, maxHTTPResourceBytes+1)
+	body, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(body)) > maxHTTPResourceBytes {
+		return nil, fmt.Errorf("HTTP response from %s exceeded maximum allowed size (%d bytes)", maskSensitiveSourceForDB(rawURL, false), maxHTTPResourceBytes)
+	}
+
+	return body, nil
 }

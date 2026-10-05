@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -374,7 +375,8 @@ func (s *Server) sanitizePath(path string) (string, error) {
 		return "", fmt.Errorf("invalid path: %w", err)
 	}
 
-	if !strings.HasPrefix(absPath, cwd) {
+	rel, err := filepath.Rel(cwd, absPath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("access denied: requested path is outside the working directory")
 	}
 
@@ -393,6 +395,37 @@ func (s *Server) sanitizeWritePath(filename string) (string, error) {
 	}
 
 	return filepath.Join(sandboxDir, baseName), nil
+}
+
+func (s *Server) isAllowedScriptWritePath(path string) bool {
+	abs, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return false
+	}
+	tempDir := filepath.Clean(os.TempDir())
+	relTemp, err := filepath.Rel(tempDir, abs)
+	if err == nil && relTemp != ".." && !strings.HasPrefix(relTemp, ".."+string(filepath.Separator)) {
+		return true
+	}
+	cwd, err := os.Getwd()
+	if err == nil {
+		relCwd, err := filepath.Rel(cwd, abs)
+		if err == nil && relCwd != ".." && !strings.HasPrefix(relCwd, ".."+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Server) sanitizeExecutionPath(path string) (string, error) {
+	if !s.isAllowedScriptWritePath(path) {
+		return "", fmt.Errorf("access denied: requested path %q is outside permitted directories", path)
+	}
+	abs, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return "", fmt.Errorf("invalid path: %w", err)
+	}
+	return abs, nil
 }
 
 func (s *Server) handleAddNode(w http.ResponseWriter, r *http.Request) {
@@ -721,20 +754,9 @@ func (s *Server) handleImportScript(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Restrict to current working directory and subdirectories
-	cwd, err := os.Getwd()
+	absPath, err := s.sanitizePath(filePath)
 	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	absPath, err := filepath.Abs(filePath)
-	if err != nil {
-		http.Error(w, "Invalid file path", http.StatusBadRequest)
-		return
-	}
-
-	if !strings.HasPrefix(absPath, cwd) {
-		http.Error(w, "Access denied: file must be within the current working directory", http.StatusForbidden)
+		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 
@@ -1421,6 +1443,22 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
 		return
 	}
+	if secFetchSite := r.Header.Get("Sec-Fetch-Site"); secFetchSite == "cross-site" {
+		http.Error(w, "Cross-site requests not allowed", http.StatusForbidden)
+		return
+	}
+	if origin := r.Header.Get("Origin"); origin != "" {
+		if u, err := url.Parse(origin); err == nil && u.Host != "" && !strings.EqualFold(u.Host, r.Host) {
+			http.Error(w, "Cross-origin requests not allowed", http.StatusForbidden)
+			return
+		}
+	} else if referer := r.Header.Get("Referer"); referer != "" {
+		if u, err := url.Parse(referer); err == nil && u.Host != "" && !strings.EqualFold(u.Host, r.Host) {
+			http.Error(w, "Cross-origin requests not allowed", http.StatusForbidden)
+			return
+		}
+	}
+
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
@@ -1448,6 +1486,10 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 		if scriptFile == "" {
 			scriptFile = "temp_run_script.xml"
 		}
+		if !s.isAllowedScriptWritePath(scriptFile) {
+			sendSSE("done", map[string]any{"type": "done", "status": "ERROR", "error": fmt.Sprintf("access denied: script file path %q is outside permitted directories or contains directory traversal", scriptFile)})
+			return
+		}
 		if scriptIDStr != "" {
 			if id, err := strconv.ParseInt(scriptIDStr, 10, 64); err == nil {
 				if script, err := s.storage.GetScript(id); err == nil {
@@ -1470,6 +1512,12 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 			scriptFile = "scripts.xml"
 		}
 		if scriptFile != "" {
+			sanitized, err := s.sanitizeExecutionPath(scriptFile)
+			if err != nil {
+				sendSSE("done", map[string]any{"type": "done", "status": "ERROR", "error": fmt.Sprintf("Access denied for script file %q: %v", scriptFile, err)})
+				return
+			}
+			scriptFile = sanitized
 			if _, err := os.Stat(scriptFile); os.IsNotExist(err) {
 				sendSSE("done", map[string]any{"type": "done", "status": "ERROR", "error": fmt.Sprintf("Script file not found: %s", scriptFile)})
 				return
@@ -1481,6 +1529,12 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if configFile != "" {
+		sanitized, err := s.sanitizeExecutionPath(configFile)
+		if err != nil {
+			sendSSE("done", map[string]any{"type": "done", "status": "ERROR", "error": fmt.Sprintf("Access denied for config file %q: %v", configFile, err)})
+			return
+		}
+		configFile = sanitized
 		if _, err := os.Stat(configFile); os.IsNotExist(err) {
 			sendSSE("done", map[string]any{"type": "done", "status": "ERROR", "error": fmt.Sprintf("Config file not found: %s", configFile)})
 			return
@@ -1488,6 +1542,12 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if optionsFile != "" {
+		sanitized, err := s.sanitizeExecutionPath(optionsFile)
+		if err != nil {
+			sendSSE("done", map[string]any{"type": "done", "status": "ERROR", "error": fmt.Sprintf("Access denied for options file %q: %v", optionsFile, err)})
+			return
+		}
+		optionsFile = sanitized
 		if _, err := os.Stat(optionsFile); os.IsNotExist(err) {
 			sendSSE("done", map[string]any{"type": "done", "status": "ERROR", "error": fmt.Sprintf("Options file not found: %s", optionsFile)})
 			return
@@ -1594,7 +1654,9 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.Handle("/flow-mascot.jpg", http.FileServer(http.Dir(".")))
+	mux.HandleFunc("/flow-mascot.jpg", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "flow-mascot.jpg")
+	})
 	mux.HandleFunc("/", s.requireAuth(s.handleIndex))
 	mux.HandleFunc("/api/canvas", s.requireAuth(s.handleCanvas))
 	mux.HandleFunc("/api/preview", s.requireAuth(s.handlePreview))

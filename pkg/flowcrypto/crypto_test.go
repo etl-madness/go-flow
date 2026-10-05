@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	pgpcrypto "github.com/ProtonMail/gopenpgp/v2/crypto"
 )
 
 func TestGenerateSecureKey(t *testing.T) {
@@ -364,6 +366,49 @@ func TestSignAndVerifyOpenPGP(t *testing.T) {
 	if !strings.Contains(res.SignerInfo, "Flow Operator") {
 		t.Fatalf("expected signer to contain 'Flow Operator', got: %s", res.SignerInfo)
 	}
+
+	// Tampered data must fail verification
+	tampered := []byte("OpenPGP signed pipeline XML configuration tampered!")
+	if _, err := VerifyOpenPGP(tampered, sigArmored, pubArmored); err == nil {
+		t.Fatal("expected OpenPGP verification to fail for tampered data, got nil")
+	}
+
+	// Test passphrase-protected private key
+	key, err := pgpcrypto.NewKeyFromArmored(string(privArmored))
+	if err != nil {
+		t.Fatalf("NewKeyFromArmored failed: %v", err)
+	}
+	lockedKey, err := key.Lock([]byte("SecretPassphrase123!"))
+	if err != nil {
+		t.Fatalf("Locking key failed: %v", err)
+	}
+	lockedPrivArmored, err := lockedKey.Armor()
+	if err != nil {
+		t.Fatalf("Armoring locked key failed: %v", err)
+	}
+
+	// Signing without passphrase must fail
+	if _, err := SignOpenPGP(data, []byte(lockedPrivArmored), ""); err == nil {
+		t.Fatal("expected error signing with locked key without passphrase, got nil")
+	}
+
+	// Signing with wrong passphrase must fail
+	if _, err := SignOpenPGP(data, []byte(lockedPrivArmored), "WrongPassword"); err == nil {
+		t.Fatal("expected error signing with wrong passphrase, got nil")
+	}
+
+	// Signing with correct passphrase must succeed
+	lockedSigArmored, err := SignOpenPGP(data, []byte(lockedPrivArmored), "SecretPassphrase123!")
+	if err != nil {
+		t.Fatalf("SignOpenPGP with correct passphrase failed: %v", err)
+	}
+	lockedRes, err := VerifyOpenPGP(data, lockedSigArmored, pubArmored)
+	if err != nil {
+		t.Fatalf("VerifyOpenPGP for locked key signature failed: %v", err)
+	}
+	if !lockedRes.Valid {
+		t.Fatal("expected valid signature verification for locked key")
+	}
 }
 
 func TestFlowSignedEnvelopeAndCombinedEncryption(t *testing.T) {
@@ -425,3 +470,39 @@ func TestFlowSignedEnvelopeAndCombinedEncryption(t *testing.T) {
 		t.Fatalf("decrypted %q != plaintext %q", string(decrypted), string(plaintext))
 	}
 }
+
+func TestPKCS7RequiresTrustAnchor(t *testing.T) {
+	privPEM, pubPEM, err := GenerateRSAKeyPair(2048)
+	if err != nil {
+		t.Fatalf("GenerateRSAKeyPair failed: %v", err)
+	}
+	privKey, _ := ParsePrivateKeyPEM(privPEM)
+	pubKey, _, _ := ParsePublicKeyOrCertPEM(pubPEM)
+
+	certPEM, err := GenerateSelfSignedCertificate(privKey, pubKey, "Untrusted Signer", 30)
+	if err != nil {
+		t.Fatalf("GenerateSelfSignedCertificate failed: %v", err)
+	}
+
+	data := []byte("<pipeline name=\"untrusted_test\"><flow/></pipeline>")
+	p7DER, err := SignPKCS7Detached(data, certPEM, privPEM)
+	if err != nil {
+		t.Fatalf("SignPKCS7Detached failed: %v", err)
+	}
+
+	// Verification without trusted signer cert or CA must fail
+	_, err = VerifyPKCS7WithCA(data, p7DER, nil, nil)
+	if err == nil {
+		t.Fatal("expected failure when verifying PKCS#7 without trusted signer or root CA, got nil")
+	}
+	if !strings.Contains(err.Error(), "requires a trusted signer certificate or root CA") {
+		t.Fatalf("expected trust anchor error, got: %v", err)
+	}
+
+	// VerifyPKCS7DetachedWithCA without certs must fail
+	_, err = VerifyPKCS7DetachedWithCA(data, p7DER, nil, nil)
+	if err == nil {
+		t.Fatal("expected failure when verifying PKCS#7 detached without certs, got nil")
+	}
+}
+

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"runtime"
 
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -37,4 +38,12 @@ func GenerateSecureKey(byteLength int) (string, error) {
 // DeriveKey derives a 32-byte (256-bit) AES key from a passphrase and salt using PBKDF2-HMAC-SHA256.
 func DeriveKey(passphrase string, salt []byte) []byte {
 	return pbkdf2.Key([]byte(passphrase), salt, PBKDF2Iterations, DefaultKeyLength, sha256.New)
+}
+
+// ZeroBytes overwrites a sensitive byte slice with zeroes to minimize exposure in memory.
+func ZeroBytes(b []byte) {
+	for i := range b {
+		b[i] = 0
+	}
+	runtime.KeepAlive(b)
 }

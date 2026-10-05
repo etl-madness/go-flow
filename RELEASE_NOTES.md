@@ -46,10 +46,31 @@ Version 1.1.22 introduces enterprise-grade security capabilities to Flow in pure
 - **Draft Import & Export**: Added `-import-file`, `-import-name`, `-import-type`, `-export-file`, `-export-name`, `-export-type`, and optional `-dsn` flags to `flow.exe` for managing pipeline, options, and config items in SQLite builder storage or external databases.
 - **Enhanced `db_importer`**: Added `-encrypted`, `-secure-key`, and `-export` options to import and export encrypted content directly to/from SQL Server repositories (`dbo.flow_pipeline_content`, `dbo.flow_options_content`, `dbo.flow_config_content`).
 
-#### 5. Documentation
+#### 5. OpenPGP Modernization (`gopenpgp/v2`)
+- **Migrated to `github.com/ProtonMail/gopenpgp/v2`**: Replaced the deprecated `golang.org/x/crypto/openpgp` package across `pkg/flowcrypto` with Proton's actively maintained OpenPGP v2 library.
+- **Enhanced OpenPGP Tests**: Added test coverage verifying passphrase-locked OpenPGP private key unlocking, wrong passphrase rejection, and detached signature tamper rejection.
+
+#### 6. Comprehensive Security Hardening & Vulnerability Remediation
+- **Process Table Secret Protection**: Added `-key-file` flag across `flow.exe` and `crypto_tool` to read passphrases directly from disk without exposing secrets in OS process tables (`ps aux`, Windows Task Manager). A security warning is emitted to `stderr` whenever plaintext keys are supplied via CLI flags.
+- **In-Memory Key Zeroization**: Added `ZeroBytes` in `pkg/flowcrypto` and `defer ZeroBytes(derivedKey)` in `EncryptBytes` / `DecryptBytes` to immediately scrub derived AES keys from memory upon cipher initialization.
+- **PKCS#7 Trust Anchor Enforcement**: Required explicit trust anchors (`-cert` or `-ca-cert`) when verifying PKCS#7 / CMS signatures, rejecting unauthenticated self-signed embedded certificates.
+- **Constant-Time Verification**: Replaced variable-time digest comparison in PKCS#7 with `crypto/subtle.ConstantTimeCompare` to eliminate timing side-channel attacks.
+- **Cloud Metadata SSRF Protection**: Hardened `resource_loader.go` by blocking cloud instance metadata endpoints (`169.254.169.254`, `metadata.google.internal`, `instance-data`) and IPv4/IPv6 link-local addresses.
+- **Bounded Resource Ingestion**: Capped HTTP resource fetches at 50MB using `io.LimitReader` to prevent denial-of-service memory exhaustion.
+- **Credential Masking in Errors**: Masked passwords and authentication credentials across ODBC, ADO.NET, and SQL Server key-value DSNs in database connection error reports.
+- **XSLT SSRF & Resource DoS Prevention (SEC-13)**: Hardened custom URI resolver in `xslt_processing.go` to block requests to cloud instance metadata and link-local addresses, and capped HTTP payloads at 50MB with `io.LimitReader`.
+- **XSLT Local Filesystem Sandboxing (SEC-14)**: Restricted `file://` and local path resolution within XSLT stylesheets strictly to the working directory, rejecting directory traversal attempts (`../`).
+- **Builder Import Prefix Traversal Fix (SEC-15)**: Replaced naive string prefix matching with strict canonical boundary validation (`s.sanitizePath`) in `handleImportScript`.
+- **Builder SSE Referer Validation & Execution Sandboxing (SEC-16)**: Added case-insensitive `Referer` origin validation when `Origin` is omitted on SSE execution streams, and enforced strict path sandboxing (`s.sanitizeExecutionPath`) for `file`, `config`, and `options` parameters.
+- **Database Importer `-key-file` Support (SEC-17)**: Added `-key-file` flag to `db_importer/mssql_importer.go` along with process table exposure warnings on `-secure-key`.
+- **Memory Scrubbing Compiler Optimization Guard (SEC-18)**: Added `runtime.KeepAlive(b)` to `flowcrypto.ZeroBytes` to prevent dead store elimination (DSE) by Go SSA compiler optimizations.
+- **Export File Permissions Hardening (SEC-19)**: Enforced `0600` permissions (owner read/write only) on exported configuration and pipeline files in `main.go` and `db_importer/mssql_importer.go`.
+- **Builder Static Asset Handler Sandboxing (SEC-20)**: Replaced unscoped directory file server `http.FileServer(http.Dir("."))` on `/flow-mascot.jpg` with a targeted `http.ServeFile` handler.
+
+#### 7. Documentation
 - Created [`docs/ENCRYPTION.md`](docs/ENCRYPTION.md): Architecture guide for AES-256-GCM encryption, envelope formats, database integration, and key resolution.
 - Created [`docs/SIGNATURES.md`](docs/SIGNATURES.md): Comprehensive guide for cross-platform digital signatures, standards, key generation, and usage.
-- Created [`docs/security_order_and_options.md`](docs/security_order_and_options.md): Exhaustive order of operations and options reference guide.
+- Created [`docs/security_order_and_options.md`](docs/security_order_and_options.md) and [`SECURITY_ORDER_AND_OPTIONS.md`](SECURITY_ORDER_AND_OPTIONS.md): Exhaustive order of operations and options reference guide.
 - Created [`crypto_tool/README.md`](crypto_tool/README.md): Complete CLI reference for `crypto_tool`.
 - Updated [`README.md`](README.md), [`docs/database.md`](docs/database.md), and [`docs/README_DATABASE_XML.md`](docs/README_DATABASE_XML.md).
 

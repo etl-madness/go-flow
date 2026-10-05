@@ -322,3 +322,52 @@ func TestLogRunSummaryToDB_PrimaryKeyConstraint(t *testing.T) {
 		t.Fatalf("expected options_path '/tmp/options.xml', got: %s", optionsPath)
 	}
 }
+
+func TestMaskSensitiveSourceForDB(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "HTTP URL with basic auth",
+			input:    "https://alice:supersecret@example.com/pipeline.xml",
+			expected: "https://alice:******@example.com/pipeline.xml",
+		},
+		{
+			name:     "PostgreSQL DB URI with query",
+			input:    "sql://postgres@postgres://appuser:SecretPass123@db.internal:5432/app#SELECT * FROM scripts",
+			expected: "sql://postgres@postgres://appuser:******@db.internal:5432/app#SELECT * FROM scripts",
+		},
+		{
+			name:     "PostgreSQL DB URI without fragment",
+			input:    "sql://postgres@postgres://appuser:SecretPass123@db.internal:5432/app",
+			expected: "sql://postgres@postgres://appuser:******@db.internal:5432/app",
+		},
+		{
+			name:     "SQL Server Key-Value DSN with password keyword",
+			input:    "sql://sqlserver@server=localhost;user id=sa;password=SuperSecretPassword!;database=master#SELECT xml FROM pipelines",
+			expected: "sql://sqlserver@server=localhost;user id=sa;password=******;database=master#SELECT xml FROM pipelines",
+		},
+		{
+			name:     "SQL Server Key-Value DSN with pwd keyword",
+			input:    "server=localhost;uid=sa;pwd=SuperSecret123;database=test",
+			expected: "server=localhost;uid=sa;pwd=******;database=test",
+		},
+		{
+			name:     "Plain file path without credentials",
+			input:    "/var/data/pipeline.xml",
+			expected: "/var/data/pipeline.xml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := maskSensitiveSourceForDB(tt.input, false)
+			if got != tt.expected {
+				t.Errorf("maskSensitiveSourceForDB(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+

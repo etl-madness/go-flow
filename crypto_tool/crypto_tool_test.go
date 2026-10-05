@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -30,6 +31,20 @@ func TestResolveSecureKeyPrecedence(t *testing.T) {
 	os.Unsetenv("FLOW_SECURE_KEY")
 	if got := resolveSecureKey(""); got != "EnvGenericKey" {
 		t.Fatalf("expected EnvGenericKey, got %s", got)
+	}
+
+	// 4. Key file takes precedence over environment variable
+	keyFile := filepath.Join(t.TempDir(), "secret.key")
+	if err := os.WriteFile(keyFile, []byte("FileKeyContent\n"), 0600); err != nil {
+		t.Fatalf("WriteFile keyFile failed: %v", err)
+	}
+	if got := resolveSecureKeyWithFile("", keyFile); got != "FileKeyContent" {
+		t.Fatalf("expected FileKeyContent, got %s", got)
+	}
+
+	// 5. Explicit CLI key takes precedence over key file
+	if got := resolveSecureKeyWithFile("ExplicitOverFile", keyFile); got != "ExplicitOverFile" {
+		t.Fatalf("expected ExplicitOverFile, got %s", got)
 	}
 }
 
@@ -101,8 +116,10 @@ func TestWriteSecretOutputRestrictsExistingFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := info.Mode().Perm(); got != 0600 {
-		t.Fatalf("secret file mode = %04o, want 0600", got)
+	if runtime.GOOS != "windows" {
+		if got := info.Mode().Perm(); got != 0600 {
+			t.Fatalf("secret file mode = %04o, want 0600", got)
+		}
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {

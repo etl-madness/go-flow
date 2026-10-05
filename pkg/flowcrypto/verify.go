@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"strings"
 
-	"golang.org/x/crypto/openpgp"
+	pgpcrypto "github.com/ProtonMail/gopenpgp/v2/crypto"
 )
 
 // VerificationResult contains metadata about a successful signature verification.
@@ -161,26 +161,44 @@ func verifyCertificateWithCA(cert *x509.Certificate, caCertPEM []byte) error {
 
 // VerifyOpenPGP verifies data against an armored detached OpenPGP signature using an armored public keyring.
 func VerifyOpenPGP(data []byte, sigArmored []byte, keyRingArmored []byte) (*VerificationResult, error) {
-	keyring, err := openpgp.ReadArmoredKeyRing(bytes.NewReader(keyRingArmored))
+	key, err := pgpcrypto.NewKeyFromArmored(string(keyRingArmored))
 	if err != nil {
-		return nil, fmt.Errorf("failed reading OpenPGP public keyring: %w", err)
+		return nil, fmt.Errorf("failed reading OpenPGP public key: %w", err)
 	}
 
-	signer, err := openpgp.CheckArmoredDetachedSignature(keyring, bytes.NewReader(data), bytes.NewReader(sigArmored))
+	keyRing, err := pgpcrypto.NewKeyRing(key)
 	if err != nil {
+		return nil, fmt.Errorf("failed initializing OpenPGP keyring: %w", err)
+	}
+
+	pgpSig, err := pgpcrypto.NewPGPSignatureFromArmored(string(sigArmored))
+	if err != nil {
+		return nil, fmt.Errorf("failed parsing OpenPGP signature: %w", err)
+	}
+
+	if err := keyRing.VerifyDetached(pgpcrypto.NewPlainMessage(data), pgpSig, pgpcrypto.GetUnixTime()); err != nil {
 		return nil, fmt.Errorf("OpenPGP signature verification failed: %w", err)
 	}
 
-	signerIdentities := make([]string, 0, len(signer.Identities))
-	for id := range signer.Identities {
-		signerIdentities = append(signerIdentities, id)
+	identities := keyRing.GetIdentities()
+	var signerParts []string
+	for _, id := range identities {
+		if id.Email != "" {
+			signerParts = append(signerParts, fmt.Sprintf("%s <%s>", id.Name, id.Email))
+		} else if id.Name != "" {
+			signerParts = append(signerParts, id.Name)
+		}
+	}
+	signerInfo := strings.Join(signerParts, ", ")
+	if signerInfo == "" {
+		signerInfo = key.GetFingerprint()
 	}
 
 	return &VerificationResult{
 		Valid:      true,
 		Format:     "PGP",
 		Algorithm:  "OPENPGP",
-		SignerInfo: strings.Join(signerIdentities, ", "),
+		SignerInfo: signerInfo,
 	}, nil
 }
 

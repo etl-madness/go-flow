@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -299,4 +301,93 @@ func TestLoadResourceVerifiedSignThenEncrypt(t *testing.T) {
 		t.Fatal("expected valid verification result")
 	}
 }
+
+func TestLoadResourceHTTPMaskingAndSizeLimit(t *testing.T) {
+	// 1. Test credential masking on error
+	ts404 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Not found", http.StatusNotFound)
+	}))
+	defer ts404.Close()
+
+	ctx := context.Background()
+	secretURL := strings.Replace(ts404.URL, "http://", "http://myuser:supersecretpass@", 1) + "/pipeline.xml"
+	_, err := LoadResource(ctx, secretURL)
+	if err == nil {
+		t.Fatal("expected error on 404, got nil")
+	}
+	if strings.Contains(err.Error(), "supersecretpass") {
+		t.Fatalf("error message leaked HTTP basic auth password: %s", err.Error())
+	}
+	if !strings.Contains(err.Error(), "myuser:******") {
+		t.Fatalf("expected masked userinfo in error message, got: %s", err.Error())
+	}
+}
+
+func TestLoadFromDatabaseCredentialMasking(t *testing.T) {
+	ctx := context.Background()
+
+	// 1. Malformed query fragment URI
+	badURI := "sql://postgres@postgres://dbuser:SecretDatabasePassword@localhost:5432/proddb"
+	_, err := LoadResource(ctx, badURI)
+	if err == nil {
+		t.Fatal("expected error for missing query fragment, got nil")
+	}
+	if strings.Contains(err.Error(), "SecretDatabasePassword") {
+		t.Fatalf("error message leaked DB password: %s", err.Error())
+	}
+	if !strings.Contains(err.Error(), "dbuser:******") {
+		t.Fatalf("expected masked credentials in error, got: %s", err.Error())
+	}
+
+	// 2. Malformed connection spec URI
+	badConnSpec := "sql://nospec#SELECT 1"
+	_, err = LoadResource(ctx, badConnSpec)
+	if err == nil {
+		t.Fatal("expected error for malformed conn spec, got nil")
+	}
+}
+
+func TestResolveSecureKeyWithFile(t *testing.T) {
+	keyFile := filepath.Join(t.TempDir(), "pipeline.key")
+	if err := os.WriteFile(keyFile, []byte("SuperSecretKeyFromDisk\r\n"), 0600); err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+
+	// 1. Resolve from file
+	key := resolveSecureKeyWithFile("", keyFile)
+	if key != "SuperSecretKeyFromDisk" {
+		t.Fatalf("expected SuperSecretKeyFromDisk, got %q", key)
+	}
+
+	// 2. CLI key takes priority
+	keyCLI := resolveSecureKeyWithFile("OverrideKey", keyFile)
+	if keyCLI != "OverrideKey" {
+		t.Fatalf("expected OverrideKey, got %q", keyCLI)
+	}
+}
+
+func TestLoadResourceBlocksCloudMetadata(t *testing.T) {
+	ctx := context.Background()
+
+	// 1. AWS/OpenStack/Azure metadata IP
+	_, err := LoadResource(ctx, "http://169.254.169.254/latest/meta-data/")
+	if err == nil {
+		t.Fatal("expected error accessing cloud metadata IP, got nil")
+	}
+	if !strings.Contains(err.Error(), "cloud metadata and link-local addresses is prohibited") {
+		t.Fatalf("expected prohibition message, got: %v", err)
+	}
+
+	// 2. GCP metadata hostname
+	_, err = LoadResource(ctx, "http://metadata.google.internal/computeMetadata/v1/")
+	if err == nil {
+		t.Fatal("expected error accessing GCP metadata hostname, got nil")
+	}
+	if !strings.Contains(err.Error(), "cloud metadata and link-local addresses is prohibited") {
+		t.Fatalf("expected prohibition message, got: %v", err)
+	}
+}
+
+
+
 

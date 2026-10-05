@@ -93,4 +93,22 @@ func TestResolveSecureKey(t *testing.T) {
 	if got := resolveSecureKey(""); got != "ImporterEnvKey" {
 		t.Fatalf("expected ImporterEnvKey, got %s", got)
 	}
+
+	// Test resolveSecureKeyWithFile
+	tmpKeyFile, err := os.CreateTemp("", "importer_key_*.txt")
+	if err != nil {
+		t.Fatalf("failed creating temp key file: %v", err)
+	}
+	defer os.Remove(tmpKeyFile.Name())
+	tmpKeyFile.WriteString("FileBasedSecretKey\n")
+	tmpKeyFile.Close()
+
+	if got := resolveSecureKeyWithFile("", tmpKeyFile.Name()); got != "FileBasedSecretKey" {
+		t.Fatalf("expected FileBasedSecretKey from file, got %s", got)
+	}
+
+	// Explicit CLI key overrides file key
+	if got := resolveSecureKeyWithFile("OverrideKey", tmpKeyFile.Name()); got != "OverrideKey" {
+		t.Fatalf("expected OverrideKey, got %s", got)
+	}
 }
