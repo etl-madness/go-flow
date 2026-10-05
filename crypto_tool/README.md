@@ -103,7 +103,7 @@ crypto_tool -action gen-keypair -keypair-type pgp -out-priv gpg_priv.asc -out-pu
 crypto_tool -action sign -in scripts.xml -out scripts.xml.sig -private-key priv.pem -sig-type openssl
 ```
 
-#### Windows Authenticode / PKCS#7 Detached Signature (`.p7s`)
+#### PKCS#7 / CMS Detached Signature (`.p7s`)
 ```bash
 crypto_tool -action sign -in scripts.xml -out scripts.xml.p7s -private-key priv.pem -cert cert.pem -sig-type pkcs7
 ```
@@ -129,7 +129,7 @@ crypto_tool -action verify -in scripts.xml -signature scripts.xml.sig -public-ke
 ```
 *(If `-signature` is omitted, `crypto_tool` automatically checks for companion files `<in>.sig`, `<in>.asc`, or `<in>.p7s`)*.
 
-#### Verify Windows PKCS#7 Signature
+#### Verify PKCS#7 / CMS Signature
 ```bash
 crypto_tool -action verify -in scripts.xml -signature scripts.xml.p7s -cert cert.pem
 ```

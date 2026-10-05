@@ -225,7 +225,7 @@ func (s *Storage) ExportPipelineXML(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return GenerateXML(script.Name, varNodes, dbNodes, preflightNodes, flowNodes), nil
+	return GenerateXMLWithMetadata(script.Name, script.Description, varNodes, dbNodes, preflightNodes, flowNodes), nil
 }
 
 func (s *Storage) CreateScript(name, description string) (*Script, error) {

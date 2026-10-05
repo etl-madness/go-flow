@@ -159,7 +159,7 @@ flow.exe -import-file pipeline_backup.xml.enc \
 
 ## 8. Digital Signatures & Security Architecture
 
-Flow includes comprehensive digital signature creation and verification supporting OpenSSL (RSA, ECDSA, Ed25519), OpenPGP / GPG, and Windows Authenticode / PKCS#7 in pure Go with zero OS dependencies.
+Flow includes comprehensive digital signature creation and verification supporting OpenSSL (RSA, ECDSA, Ed25519), OpenPGP / GPG, and PKCS#7 / CMS in pure Go with zero OS dependencies.
 
 * **Decoupled Security Pipeline:** Signature verification occurs prior to decryption (**Verify -> Decrypt -> Parse -> Execute**), preventing tampered or unauthorized payloads from being processed.
 * **Full Documentation:** See [**`SIGNATURES.md`**](SIGNATURES.md) for complete instructions, key generation guides, and engine flags (`-verify-signature`, `-public-key`, `-cert`, `-ca-cert`, `-keyring`, `-signature`).

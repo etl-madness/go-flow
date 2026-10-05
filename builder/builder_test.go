@@ -2768,5 +2768,58 @@ func TestLogPageUIRendering(t *testing.T) {
 	}
 }
 
+func TestPipelineMetadataRoundTrip(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_metadata.db")
 
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
 
+	originalName := "MyDataPipeline"
+	originalDesc := "Pipeline processing sales data"
+
+	sc, err := storage.CreateScript(originalName, originalDesc)
+	if err != nil {
+		t.Fatalf("failed to create script: %v", err)
+	}
+
+	_, err = storage.AddNode(sc.ID, "flow", "sql", map[string]string{"id": "step1"}, "SELECT 42;")
+	if err != nil {
+		t.Fatalf("failed to add node: %v", err)
+	}
+
+	exportedXML, err := storage.ExportPipelineXML(sc.Name)
+	if err != nil {
+		t.Fatalf("failed to export script to XML: %v", err)
+	}
+
+	if !strings.Contains(exportedXML, `name="MyDataPipeline"`) {
+		t.Errorf("exported XML missing name attribute: %s", exportedXML)
+	}
+	if !strings.Contains(exportedXML, `description="Pipeline processing sales data"`) {
+		t.Errorf("exported XML missing description attribute: %s", exportedXML)
+	}
+
+	// Re-import into a new storage database
+	dbPath2 := filepath.Join(tmpDir, "test_reimport.db")
+	storage2, err := NewStorage(dbPath2)
+	if err != nil {
+		t.Fatalf("failed to create storage 2: %v", err)
+	}
+	defer storage2.Close()
+
+	importedScript, err := ImportPipelineFromBytes([]byte(exportedXML), "", "", "", storage2)
+	if err != nil {
+		t.Fatalf("failed to re-import pipeline: %v", err)
+	}
+
+	if importedScript.Name != originalName {
+		t.Errorf("expected script name %q, got %q", originalName, importedScript.Name)
+	}
+	if importedScript.Description != originalDesc {
+		t.Errorf("expected script description %q, got %q", originalDesc, importedScript.Description)
+	}
+}

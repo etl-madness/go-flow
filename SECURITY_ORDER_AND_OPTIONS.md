@@ -342,11 +342,13 @@ flow.exe -file scripts.xml -cert signer_cert.pem
 ### Recipe 3: Storing Signed & Encrypted Pipelines in SQL Server
 
 ```bash
-# 1. Import signed and encrypted pipeline package into SQL Server repository
+# 1. Import pipeline package into SQL Server repository (storing encrypted at rest)
 flow.exe -dsn "sqlserver://sa:Password@localhost:1433?database=ETL" \
          -import-file pipeline.xml.signed \
          -import-name "NightlyBillingJob" \
-         -import-type pipeline
+         -import-type pipeline \
+         -encrypted \
+         -secure-key "$KEY"
 
 # 2. Execute directly from SQL Server URI:
 flow.exe \
@@ -359,6 +361,6 @@ flow.exe \
 
 ## 6. Security Guarantees & Failure Handling
 
-* **Tampered Signature or Payload:** If any byte of the signature, ciphertext, or plaintext is altered, verification fails immediately with `exit code 1`. Zero child processes or database connections are spawned.
+* **Tampered Signature or Payload:** If any byte of the signature, ciphertext, or plaintext is altered, verification fails immediately with `exit code 1`. Zero child processes or downstream pipeline database connections are spawned.
 * **Missing or Invalid Key:** If an encrypted file is provided without a key, execution halts with `exit code 1` with a descriptive message prompting for `-secure-key` or `FLOW_SECURE_KEY`.
 * **Zero Binary Dependencies:** No system installations of `openssl`, `gpg`, or `signtool.exe` are invoked at runtime. The execution behavior and security boundaries are 100% identical on Windows, Linux, macOS, and FreeBSD.

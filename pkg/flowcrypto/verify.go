@@ -169,12 +169,23 @@ func VerifyOpenPGP(data []byte, sigArmored []byte, keyRingArmored []byte) (*Veri
 
 // VerifyPKCS7Detached verifies data against a detached PKCS#7 / CMS signature (DER, PEM, or FLOWSIG).
 func VerifyPKCS7Detached(data []byte, p7Bytes []byte, caCertPEM []byte) (*VerificationResult, error) {
+	return VerifyPKCS7DetachedWithCA(data, p7Bytes, nil, caCertPEM)
+}
+
+// VerifyPKCS7DetachedWithCA verifies data against a detached PKCS#7 / CMS signature (DER, PEM, or FLOWSIG)
+// with optional signer certificate PEM and optional CA certificate PEM.
+func VerifyPKCS7DetachedWithCA(data []byte, p7Bytes []byte, signerCertPEM []byte, caCertPEM []byte) (*VerificationResult, error) {
 	// If PEM encoded, decode block
 	if bytes.Contains(p7Bytes, []byte("-----BEGIN PKCS7-----")) {
 		block, _ := pem.Decode(p7Bytes)
 		if block != nil {
 			p7Bytes = block.Bytes
 		}
+	}
+
+	var signerCert *x509.Certificate
+	if len(signerCertPEM) > 0 {
+		signerCert, _ = ParseCertificatePEM(signerCertPEM)
 	}
 
 	var rootCert *x509.Certificate
@@ -186,7 +197,12 @@ func VerifyPKCS7Detached(data []byte, p7Bytes []byte, caCertPEM []byte) (*Verifi
 		}
 	}
 
-	cert, err := VerifyPKCS7(data, p7Bytes, rootCert)
+	// If no independent CA is provided, but signerCertPEM was passed into caCertPEM, use it as rootCert
+	if rootCert == nil && signerCert == nil && len(caCertPEM) > 0 {
+		rootCert, _ = ParseCertificatePEM(caCertPEM)
+	}
+
+	cert, err := VerifyPKCS7WithCA(data, p7Bytes, signerCert, rootCert)
 	if err != nil {
 		return nil, err
 	}
@@ -203,6 +219,11 @@ func VerifyPKCS7Detached(data []byte, p7Bytes []byte, caCertPEM []byte) (*Verifi
 // VerifyAuto verifies data against a signature using whatever key, certificate, or keyring is provided.
 // Automatically recognizes FLOWSIG:v1: envelopes, PGP armored blocks, PKCS#7 DER, and standard OpenSSL signatures.
 func VerifyAuto(data []byte, sigBytes []byte, keyOrCertBytes []byte) (*VerificationResult, error) {
+	return VerifyAutoWithCA(data, sigBytes, keyOrCertBytes, nil)
+}
+
+// VerifyAutoWithCA verifies data against a signature with an optional CA certificate for chain validation.
+func VerifyAutoWithCA(data []byte, sigBytes []byte, keyOrCertBytes []byte, caCertBytes []byte) (*VerificationResult, error) {
 	trimmedSig := bytes.TrimSpace(sigBytes)
 
 	// Check if wrapped in FLOWSIG:v1:...
@@ -222,7 +243,7 @@ func VerifyAuto(data []byte, sigBytes []byte, keyOrCertBytes []byte) (*Verificat
 			case format == "PGP":
 				return VerifyOpenPGP(data, decoded, keyOrCertBytes)
 			case format == "PKCS7":
-				return VerifyPKCS7Detached(data, decoded, keyOrCertBytes)
+				return VerifyPKCS7DetachedWithCA(data, decoded, keyOrCertBytes, caCertBytes)
 			}
 		}
 	}
@@ -234,11 +255,11 @@ func VerifyAuto(data []byte, sigBytes []byte, keyOrCertBytes []byte) (*Verificat
 
 	// Check PKCS#7 PEM
 	if bytes.Contains(trimmedSig, []byte("-----BEGIN PKCS7-----")) {
-		return VerifyPKCS7Detached(data, trimmedSig, keyOrCertBytes)
+		return VerifyPKCS7DetachedWithCA(data, trimmedSig, keyOrCertBytes, caCertBytes)
 	}
 
 	// Try PKCS#7 DER
-	if res, err := VerifyPKCS7Detached(data, trimmedSig, keyOrCertBytes); err == nil {
+	if res, err := VerifyPKCS7DetachedWithCA(data, trimmedSig, keyOrCertBytes, caCertBytes); err == nil {
 		return res, nil
 	}
 
@@ -252,7 +273,7 @@ func VerifyAuto(data []byte, sigBytes []byte, keyOrCertBytes []byte) (*Verificat
 		if res, err := VerifyOpenSSL(data, decoded, keyOrCertBytes); err == nil {
 			return res, nil
 		}
-		if res, err := VerifyPKCS7Detached(data, decoded, keyOrCertBytes); err == nil {
+		if res, err := VerifyPKCS7DetachedWithCA(data, decoded, keyOrCertBytes, caCertBytes); err == nil {
 			return res, nil
 		}
 	}

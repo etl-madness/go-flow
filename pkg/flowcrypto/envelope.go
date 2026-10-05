@@ -147,6 +147,11 @@ func ParseSignedPayload(data []byte) (format string, sig []byte, content []byte,
 // VerifyPayloadAuto unwraps and verifies a FLOWSIGNED:v1 envelope using the provided key, certificate, or keyring.
 // Returns the verified inner content and verification metadata.
 func VerifyPayloadAuto(payload []byte, keyOrCertBytes []byte) ([]byte, *VerificationResult, error) {
+	return VerifyPayloadAutoWithCA(payload, keyOrCertBytes, nil)
+}
+
+// VerifyPayloadAutoWithCA unwraps and verifies a FLOWSIGNED:v1 envelope using key/cert and optional CA root.
+func VerifyPayloadAutoWithCA(payload []byte, keyOrCertBytes []byte, caCertBytes []byte) ([]byte, *VerificationResult, error) {
 	if !IsSignedPayload(payload) {
 		return nil, nil, ErrNotSigned
 	}
@@ -163,9 +168,9 @@ func VerifyPayloadAuto(payload []byte, keyOrCertBytes []byte) ([]byte, *Verifica
 	case strings.ToUpper(format) == "PGP" || strings.ToUpper(format) == "GPG":
 		res, err = VerifyOpenPGP(content, sig, keyOrCertBytes)
 	case strings.ToUpper(format) == "PKCS7" || strings.ToUpper(format) == "CMS" || strings.ToUpper(format) == "WINDOWS":
-		res, err = VerifyPKCS7Detached(content, sig, keyOrCertBytes)
+		res, err = VerifyPKCS7DetachedWithCA(content, sig, keyOrCertBytes, caCertBytes)
 	default:
-		res, err = VerifyAuto(content, sig, keyOrCertBytes)
+		res, err = VerifyAutoWithCA(content, sig, keyOrCertBytes, caCertBytes)
 	}
 
 	if err != nil {

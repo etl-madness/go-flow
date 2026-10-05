@@ -131,6 +131,10 @@ func exportFromDatabase(dsn, itemType, name string) (string, error) {
 		table, col = "dbo.flow_pipeline_content", "PipelineXML"
 	}
 
+	if driver != "sqlserver" {
+		table = strings.TrimPrefix(table, "dbo.")
+	}
+
 	query := fmt.Sprintf("SELECT %s FROM %s WHERE Name = @p1", col, table)
 	if driver == "postgres" {
 		query = fmt.Sprintf("SELECT %s FROM %s WHERE Name = $1", col, table)
@@ -159,6 +163,10 @@ func importToDatabase(dsn, itemType, name, desc, content string) error {
 			driver = strings.ToLower(strings.TrimSpace(parts[0]))
 			cleanDSN = parts[1]
 		}
+	} else if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		driver = "postgres"
+	} else if strings.HasPrefix(dsn, "mysql://") {
+		driver = "mysql"
 	}
 
 	db, err := sql.Open(driver, cleanDSN)
@@ -177,15 +185,40 @@ func importToDatabase(dsn, itemType, name, desc, content string) error {
 		table, col = "dbo.flow_pipeline_content", "PipelineXML"
 	}
 
-	query := fmt.Sprintf(`
-		MERGE INTO %s AS target
-		USING (SELECT @p1 AS Name) AS source
-		ON (target.Name = source.Name)
-		WHEN MATCHED THEN
-			UPDATE SET Description = @p2, %s = @p3
-		WHEN NOT MATCHED THEN
-			INSERT (Name, Description, %s) VALUES (@p1, @p2, @p3);
-	`, table, col, col)
+	if driver != "sqlserver" {
+		table = strings.TrimPrefix(table, "dbo.")
+	}
+
+	var query string
+	switch driver {
+	case "sqlserver":
+		query = fmt.Sprintf(`
+			MERGE INTO %s AS target
+			USING (SELECT @p1 AS Name) AS source
+			ON (target.Name = source.Name)
+			WHEN MATCHED THEN
+				UPDATE SET Description = @p2, %s = @p3
+			WHEN NOT MATCHED THEN
+				INSERT (Name, Description, %s) VALUES (@p1, @p2, @p3);
+		`, table, col, col)
+	case "postgres":
+		query = fmt.Sprintf(`
+			INSERT INTO %s (Name, Description, %s) VALUES ($1, $2, $3)
+			ON CONFLICT (Name) DO UPDATE SET Description = EXCLUDED.Description, %s = EXCLUDED.%s;
+		`, table, col, col, col)
+	case "mysql":
+		query = fmt.Sprintf(`
+			INSERT INTO %s (Name, Description, %s) VALUES (?, ?, ?)
+			ON DUPLICATE KEY UPDATE Description = VALUES(Description), %s = VALUES(%s);
+		`, table, col, col, col)
+	case "sqlite":
+		query = fmt.Sprintf(`
+			INSERT INTO %s (Name, Description, %s) VALUES (?, ?, ?)
+			ON CONFLICT(Name) DO UPDATE SET Description = excluded.Description, %s = excluded.%s;
+		`, table, col, col, col)
+	default:
+		return fmt.Errorf("unsupported database driver %q for import; supported drivers are sqlserver, postgres, mysql, sqlite", driver)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -254,7 +287,9 @@ func main() {
 
 	// Apply XML load file options if specified
 	if *optionsPath != "" {
-		if err := applyXMLOptionsVerified(*optionsPath, secOpts); err != nil {
+		optSecOpts := secOpts
+		optSecOpts.SignaturePath = "" // Explicit -signature flag applies to pipeline file
+		if err := applyXMLOptionsVerified(*optionsPath, optSecOpts); err != nil {
 			outputJSON(&[]flow.ScriptResult{{
 				ScriptID:      "system",
 				ReturnCode:    1,
@@ -378,6 +413,7 @@ func main() {
 	// Handle -import-file flag: imports a pipeline, options, or config XML file into SQLite or external DB
 	if *importFile != "" {
 		importSecOpts := secOpts
+		importSecOpts.SignaturePath = "" // Explicit -signature flag applies to pipeline file
 		// Do not require source input to be encrypted; auto-detection will still decrypt if it is encrypted
 		importSecOpts.Encrypted = false
 		plainData, verRes, err := LoadResourceVerified(context.Background(), *importFile, importSecOpts)
@@ -535,7 +571,9 @@ func main() {
 	flowNodes := cfg.FlowNodes
 
 	if *configPath != "" {
-		configBytes, cfgVerRes, err := LoadResourceVerified(ctx, *configPath, secOpts)
+		cfgSecOpts := secOpts
+		cfgSecOpts.SignaturePath = "" // Explicit -signature flag applies to pipeline file
+		configBytes, cfgVerRes, err := LoadResourceVerified(ctx, *configPath, cfgSecOpts)
 		if err != nil {
 			outputJSON(&[]flow.ScriptResult{{
 				ScriptID:      "system",

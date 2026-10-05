@@ -6,7 +6,7 @@
 
 Version 1.1.22 introduces enterprise-grade security capabilities to Flow in pure Go with zero external runtime dependencies across **Windows**, **Linux**, **macOS**, and **FreeBSD**:
 1. **Cross-Platform AES-256-GCM Encryption**: Authenticated symmetric encryption with PBKDF2 key derivation and text-safe armored envelopes (`FLOWENC:v1:...`) for protecting pipelines, options, and configs at rest and in database repositories.
-2. **Multi-Standard Digital Signatures**: Complete cryptographic signing and verification supporting OpenSSL/PKI (RSA, ECDSA, Ed25519), Windows Authenticode/PKCS#7/CMS (`.p7s`), and OpenPGP/GPG (`.asc`, `.sig`) with a decoupled **Verify -> Decrypt -> Execute** security pipeline.
+2. **Multi-Standard Digital Signatures**: Complete cryptographic signing and verification supporting OpenSSL/PKI (RSA, ECDSA, Ed25519), PKCS#7 / CMS (`.p7s`), and OpenPGP/GPG (`.asc`, `.sig`) with a decoupled **Verify -> Decrypt -> Execute** security pipeline.
 3. **Dedicated CLI Utility (`crypto_tool`)**: Standalone binary for encryption, decryption, key generation, keypair generation, self-signed X.509 certificates, and signature verification.
 4. **Database & CLI Enhancements**: Native encrypted and signed pipeline loading from SQL URIs (`sql://...`), draft import/export (`-import-file`, `-export-file`, `-dsn`), and encrypted database importer (`db_importer`).
 
@@ -23,7 +23,7 @@ Version 1.1.22 introduces enterprise-grade security capabilities to Flow in pure
 #### 2. Cross-Platform Digital Signatures
 - **Multi-Standard Signature Support**:
   - **OpenSSL / PKI X.509**: RSA (PKCS#1v1.5 & PSS), ECDSA (P-256, P-384, P-521), Ed25519 PEM keys and X.509 certificates.
-  - **Windows Authenticode / PKCS#7 / CMS**: Detached signatures (`.p7s`) parsed and verified via pure Go ASN.1 and X.509 code signing verification.
+  - **PKCS#7 / CMS**: Detached signatures (`.p7s`) parsed and verified via pure Go ASN.1 and X.509 code signing verification.
   - **OpenPGP / GPG**: RFC 4880 ASCII-armored detached signatures (`.asc`, `.sig`) verified against public keyrings.
 - **Unified Signature Envelopes**:
   - `FLOWSIG:v1:<format>:<base64-signature>`: Text-safe detached signature armor.

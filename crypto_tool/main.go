@@ -203,6 +203,12 @@ func main() {
 			finalOutput = []byte(armored)
 		} else if *binaryFlag {
 			finalOutput = sigBytes
+		} else if format == "OPENPGP" {
+			// OpenPGP detached signatures are natively ASCII-armored
+			finalOutput = sigBytes
+		} else if format == "PKCS7" {
+			// PKCS#7 / CMS (.p7s) detached signatures are natively DER binary
+			finalOutput = sigBytes
 		} else {
 			armored := flowcrypto.WrapSignatureOnly(format, sigBytes)
 			finalOutput = []byte(armored + "\n")
@@ -225,22 +231,31 @@ func main() {
 			keyOrCertBytes, err = os.ReadFile(effectivePubKey)
 		} else if *certFlag != "" {
 			keyOrCertBytes, err = os.ReadFile(*certFlag)
-		} else if *caCertFlag != "" {
-			keyOrCertBytes, err = os.ReadFile(*caCertFlag)
 		} else if *keyringFlag != "" {
 			keyOrCertBytes, err = os.ReadFile(*keyringFlag)
-		} else {
-			fmt.Fprintf(os.Stderr, "Error: verification requires -public-key, -cert, -ca-cert, or -keyring\n")
-			os.Exit(1)
 		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading verification key/cert: %v\n", err)
 			os.Exit(1)
 		}
 
+		var caCertBytes []byte
+		if *caCertFlag != "" {
+			caCertBytes, err = os.ReadFile(*caCertFlag)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error reading CA certificate %s: %v\n", *caCertFlag, err)
+				os.Exit(1)
+			}
+		}
+
+		if len(keyOrCertBytes) == 0 && len(caCertBytes) == 0 {
+			fmt.Fprintf(os.Stderr, "Error: verification requires -public-key, -cert, -ca-cert, or -keyring\n")
+			os.Exit(1)
+		}
+
 		// Check if input is a unified FLOWSIGNED envelope
 		if flowcrypto.IsSignedPayload(inputBytes) {
-			content, res, err := flowcrypto.VerifyPayloadAuto(inputBytes, keyOrCertBytes)
+			content, res, err := flowcrypto.VerifyPayloadAutoWithCA(inputBytes, keyOrCertBytes, caCertBytes)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Verification FAILED: %v\n", err)
 				os.Exit(1)
@@ -286,7 +301,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		res, err := flowcrypto.VerifyAuto(inputBytes, sigBytes, keyOrCertBytes)
+		res, err := flowcrypto.VerifyAutoWithCA(inputBytes, sigBytes, keyOrCertBytes, caCertBytes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Verification FAILED: %v\n", err)
 			os.Exit(1)

@@ -29,7 +29,7 @@ func resourceSourceLabel(source string) string {
 
 	if strings.HasPrefix(source, "sql://") || strings.HasPrefix(source, "db://") ||
 		strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
-		return source
+		return maskSensitiveSourceForDB(source, false)
 	}
 
 	if absPath, err := filepath.Abs(source); err == nil {
@@ -98,11 +98,6 @@ func LoadResourceVerified(ctx context.Context, source string, opts SecurityOptio
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed reading certificate %s: %w", opts.CertPath, err)
 		}
-	} else if opts.CACertPath != "" {
-		keyOrCertBytes, err = os.ReadFile(opts.CACertPath)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed reading CA certificate %s: %w", opts.CACertPath, err)
-		}
 	} else if opts.KeyringPath != "" {
 		keyOrCertBytes, err = os.ReadFile(opts.KeyringPath)
 		if err != nil {
@@ -110,10 +105,19 @@ func LoadResourceVerified(ctx context.Context, source string, opts SecurityOptio
 		}
 	}
 
+	var caCertBytes []byte
+	if opts.CACertPath != "" {
+		caCertBytes, err = os.ReadFile(opts.CACertPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed reading CA certificate %s: %w", opts.CACertPath, err)
+		}
+	}
+
 	// 1. Detect if an outer digital signature is present (unified envelope or detached companion)
 	isOuterSignedEnvelope := flowcrypto.IsSignedPayload(content)
 	effectiveSig := opts.SignaturePath
-	if effectiveSig == "" && !strings.Contains(source, "://") {
+	shouldCheckCompanion := opts.SignaturePath != "" || opts.VerifySignature || len(keyOrCertBytes) > 0 || len(caCertBytes) > 0
+	if effectiveSig == "" && shouldCheckCompanion && !strings.Contains(source, "://") {
 		for _, ext := range []string{".sig", ".asc", ".p7s"} {
 			candidate := source + ext
 			if _, err := os.Stat(candidate); err == nil {
@@ -127,13 +131,13 @@ func LoadResourceVerified(ctx context.Context, source string, opts SecurityOptio
 	var verResult *flowcrypto.VerificationResult
 
 	if hasOuterSignature {
-		if len(keyOrCertBytes) == 0 {
+		if len(keyOrCertBytes) == 0 && len(caCertBytes) == 0 {
 			return nil, nil, fmt.Errorf("resource %q has a digital signature, but no public key (-public-key) or certificate (-cert) was provided for verification", resourceSourceLabel(source))
 		}
 
 		if isOuterSignedEnvelope {
 			// Unified signed envelope
-			unwrapped, res, err := flowcrypto.VerifyPayloadAuto(content, keyOrCertBytes)
+			unwrapped, res, err := flowcrypto.VerifyPayloadAutoWithCA(content, keyOrCertBytes, caCertBytes)
 			if err != nil {
 				return nil, nil, fmt.Errorf("digital signature verification failed for resource %q: %w", resourceSourceLabel(source), err)
 			}
@@ -146,7 +150,7 @@ func LoadResourceVerified(ctx context.Context, source string, opts SecurityOptio
 				return nil, nil, fmt.Errorf("failed reading signature file %s: %w", effectiveSig, err)
 			}
 
-			res, err := flowcrypto.VerifyAuto(content, sigBytes, keyOrCertBytes)
+			res, err := flowcrypto.VerifyAutoWithCA(content, sigBytes, keyOrCertBytes, caCertBytes)
 			if err != nil {
 				return nil, nil, fmt.Errorf("digital signature verification failed for resource %q: %w", resourceSourceLabel(source), err)
 			}
@@ -176,10 +180,10 @@ func LoadResourceVerified(ctx context.Context, source string, opts SecurityOptio
 
 		// In case of Sign-then-Encrypt, check if decrypted payload was itself signed
 		if flowcrypto.IsSignedPayload(content) {
-			if len(keyOrCertBytes) == 0 {
+			if len(keyOrCertBytes) == 0 && len(caCertBytes) == 0 {
 				return nil, nil, fmt.Errorf("decrypted payload in %q is digitally signed, but no public key (-public-key) or certificate (-cert) was provided", resourceSourceLabel(source))
 			}
-			unwrapped, res, err := flowcrypto.VerifyPayloadAuto(content, keyOrCertBytes)
+			unwrapped, res, err := flowcrypto.VerifyPayloadAutoWithCA(content, keyOrCertBytes, caCertBytes)
 			if err != nil {
 				return nil, nil, fmt.Errorf("digital signature verification failed for decrypted payload in %q: %w", resourceSourceLabel(source), err)
 			}

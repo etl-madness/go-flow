@@ -1,6 +1,7 @@
 package flowcrypto
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -47,7 +48,7 @@ type pkcs7SignerInfo struct {
 	Version            int
 	IssuerAndSerial    pkcs7IssuerAndSerialNumber
 	DigestAlgorithm    pkix.AlgorithmIdentifier
-	SignedAttributes   []pkcs7Attribute `asn1:"optional,tag:0"`
+	SignedAttributes   []pkcs7Attribute `asn1:"optional,tag:0,set"`
 	SignatureAlgorithm pkix.AlgorithmIdentifier
 	Signature          []byte
 }
@@ -162,6 +163,12 @@ func SignPKCS7(data []byte, cert *x509.Certificate, privKey crypto.PrivateKey) (
 // VerifyPKCS7 parses and verifies a detached PKCS#7 / CMS SignedData structure against the provided data in pure Go.
 // Returns the verified signer certificate or an error.
 func VerifyPKCS7(data []byte, p7Bytes []byte, rootCert *x509.Certificate) (*x509.Certificate, error) {
+	return VerifyPKCS7WithCA(data, p7Bytes, nil, rootCert)
+}
+
+// VerifyPKCS7WithCA parses and verifies a detached PKCS#7 / CMS SignedData structure against the provided data,
+// optional signer certificate, and optional root CA certificate.
+func VerifyPKCS7WithCA(data []byte, p7Bytes []byte, signerCert *x509.Certificate, rootCert *x509.Certificate) (*x509.Certificate, error) {
 	if len(p7Bytes) == 0 {
 		return nil, errors.New("empty PKCS#7 payload")
 	}
@@ -194,6 +201,19 @@ func VerifyPKCS7(data []byte, p7Bytes []byte, rootCert *x509.Certificate) (*x509
 		}
 	}
 
+	if signerCert != nil {
+		found := false
+		for _, c := range certs {
+			if c.Equal(signerCert) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			certs = append(certs, signerCert)
+		}
+	}
+
 	if len(certs) == 0 && rootCert != nil {
 		certs = append(certs, rootCert)
 	}
@@ -208,12 +228,15 @@ func VerifyPKCS7(data []byte, p7Bytes []byte, rootCert *x509.Certificate) (*x509
 	var matchedCert *x509.Certificate
 	for _, c := range certs {
 		if c.SerialNumber.Cmp(signer.IssuerAndSerial.SerialNumber) == 0 {
-			matchedCert = c
-			break
+			if len(signer.IssuerAndSerial.IssuerName.FullBytes) == 0 ||
+				bytes.Equal(c.RawIssuer, signer.IssuerAndSerial.IssuerName.FullBytes) {
+				matchedCert = c
+				break
+			}
 		}
 	}
 	if matchedCert == nil {
-		matchedCert = certs[0]
+		return nil, fmt.Errorf("signer certificate with serial %s matching PKCS#7 SignerInfo was not found", signer.IssuerAndSerial.SerialNumber.String())
 	}
 
 	// Calculate data hash according to digest algorithm

@@ -9,7 +9,7 @@
 | Standard | Algorithms & Key Types | Formats | Verification Compatibility |
 | :--- | :--- | :--- | :--- |
 | **OpenSSL / PKI X.509** | RSA (2048/4096-bit PKCS#1v1.5 & PSS), ECDSA (P-256, P-384, P-521), Ed25519 | PEM Private/Public Keys, X.509 Certificates (`.pem`, `.crt`, `.cer`) | Cross-platform |
-| **Windows Authenticode / PKCS#7 / CMS** | RSA, ECDSA (RFC 2315 / RFC 5652 SignedData) | Detached CMS / PKCS#7 (`.p7s`), PEM or DER format | Cross-platform (pure Go ASN.1 parser) |
+| **PKCS#7 / CMS** | RSA, ECDSA (RFC 2315 / RFC 5652 SignedData) | Detached CMS / PKCS#7 (`.p7s`), PEM or DER format | Cross-platform (pure Go ASN.1 parser) |
 | **GPG / OpenPGP** | RSA, Ed25519 (RFC 4880 OpenPGP) | ASCII-armored detached signatures (`.asc`, `.sig`), Armored Keyrings | Cross-platform (pure Go OpenPGP) |
 
 ---
@@ -92,7 +92,7 @@ The `crypto_tool` utility can generate asymmetric keypairs and self-signed X.509
   -sig-type openssl
 ```
 
-### B. Windows Authenticode / PKCS#7 Detached Signature (`.p7s`)
+### B. PKCS#7 / CMS Detached Signature (`.p7s`)
 Creates an RFC 2315 / RFC 5652 PKCS#7 SignedData structure embedding the X.509 signer certificate:
 ```bash
 ./crypto_tool -action sign \
@@ -136,7 +136,7 @@ Embeds signature and content into a single file suitable for database storage or
 ```
 *(If `-signature` is omitted, `crypto_tool` automatically searches for companion files `<in>.sig`, `<in>.asc`, or `<in>.p7s`)*.
 
-### Verify Windows PKCS#7 Signature
+### Verify PKCS#7 / CMS Signature
 ```bash
 ./crypto_tool -action verify \
   -in pipeline.xml \
