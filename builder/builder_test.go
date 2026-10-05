@@ -2823,3 +2823,86 @@ func TestPipelineMetadataRoundTrip(t *testing.T) {
 		t.Errorf("expected script description %q, got %q", originalDesc, importedScript.Description)
 	}
 }
+
+func TestSanitizePathAndExecutionSecurity(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
+
+	server, err := NewServer(storage, 8080)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	// 1. Test sanitizePath rejects directory traversal
+	if _, err := server.sanitizePath("../../escaped"); err == nil {
+		t.Error("expected error for directory traversal path in sanitizePath, got nil")
+	}
+
+	// 2. Test isAllowedScriptWritePath rejects directory traversal
+	if server.isAllowedScriptWritePath("../../evil.xml") {
+		t.Error("expected isAllowedScriptWritePath to reject ../../evil.xml")
+	}
+	if !server.isAllowedScriptWritePath("safe_run_script.xml") {
+		t.Error("expected isAllowedScriptWritePath to accept relative safe_run_script.xml")
+	}
+	if !server.isAllowedScriptWritePath(filepath.Join(os.TempDir(), "temp_script.xml")) {
+		t.Error("expected isAllowedScriptWritePath to accept file inside os.TempDir()")
+	}
+
+	// 3. Test handleExecuteStream rejects cross-site requests
+	reqCrossSite := httptest.NewRequest(http.MethodGet, "/api/execute/stream?source=file&file=test.xml", nil)
+	reqCrossSite.Header.Set("Sec-Fetch-Site", "cross-site")
+	recCrossSite := httptest.NewRecorder()
+	server.handleExecuteStream(recCrossSite, reqCrossSite)
+	if recCrossSite.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for Sec-Fetch-Site: cross-site, got: %d", recCrossSite.Code)
+	}
+
+	// 4. Test handleExecuteStream rejects cross-origin requests
+	reqCrossOrigin := httptest.NewRequest(http.MethodGet, "/api/execute/stream?source=file&file=test.xml", nil)
+	reqCrossOrigin.Header.Set("Origin", "http://malicious.site")
+	reqCrossOrigin.Host = "127.0.0.1:8080"
+	recCrossOrigin := httptest.NewRecorder()
+	server.handleExecuteStream(recCrossOrigin, reqCrossOrigin)
+	if recCrossOrigin.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for cross-origin request, got: %d", recCrossOrigin.Code)
+	}
+
+	// 5. Test handleExecuteStream rejects path traversal when writing builder draft
+	script, err := storage.CreateScript("Draft Security Test", "Testing script path security")
+	if err != nil {
+		t.Fatalf("failed to create script: %v", err)
+	}
+	reqBadPath := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/execute/stream?source=builder&script_id=%d&file=../../traversal.xml", script.ID), nil)
+	recBadPath := httptest.NewRecorder()
+	server.handleExecuteStream(recBadPath, reqBadPath)
+	respBody := recBadPath.Body.String()
+	if !strings.Contains(respBody, "access denied") {
+		t.Errorf("expected access denied error in SSE response for path traversal, got: %s", respBody)
+	}
+
+	// 6. Test handleExecuteStream rejects cross-origin Referer when Origin is omitted
+	reqCrossReferer := httptest.NewRequest(http.MethodGet, "/api/execute/stream?source=file&file=test.xml", nil)
+	reqCrossReferer.Header.Set("Referer", "http://attacker.com/dashboard")
+	reqCrossReferer.Host = "127.0.0.1:8080"
+	recCrossReferer := httptest.NewRecorder()
+	server.handleExecuteStream(recCrossReferer, reqCrossReferer)
+	if recCrossReferer.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for cross-origin Referer, got: %d", recCrossReferer.Code)
+	}
+
+	// 7. Test handleExecuteStream rejects path traversal in filesystem mode
+	reqFsTraversal := httptest.NewRequest(http.MethodGet, "/api/execute/stream?source=file&file=../../windows/system.xml", nil)
+	recFsTraversal := httptest.NewRecorder()
+	server.handleExecuteStream(recFsTraversal, reqFsTraversal)
+	respFs := recFsTraversal.Body.String()
+	if !strings.Contains(respFs, "Access denied") {
+		t.Errorf("expected Access denied for filesystem mode traversal, got: %s", respFs)
+	}
+}
+

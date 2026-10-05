@@ -46,8 +46,20 @@ func buildExportQuery(tableName, xmlColumn string) string {
 }
 
 func resolveSecureKey(cliKey string) string {
+	return resolveSecureKeyWithFile(cliKey, "")
+}
+
+func resolveSecureKeyWithFile(cliKey, keyFilePath string) string {
 	if strings.TrimSpace(cliKey) != "" {
+		fmt.Fprintf(os.Stderr, "[WARNING] Passing encryption keys via CLI flags (-secure-key) may expose secrets in system process listings. Consider using the FLOW_SECURE_KEY environment variable or -key-file instead.\n")
 		return strings.TrimSpace(cliKey)
+	}
+	if strings.TrimSpace(keyFilePath) != "" {
+		data, err := os.ReadFile(strings.TrimSpace(keyFilePath))
+		if err == nil {
+			return strings.TrimSpace(string(data))
+		}
+		fmt.Fprintf(os.Stderr, "[WARNING] Failed reading key file %s: %v\n", keyFilePath, err)
 	}
 	if envKey := strings.TrimSpace(os.Getenv("FLOW_SECURE_KEY")); envKey != "" {
 		return envKey
@@ -68,6 +80,7 @@ func main() {
 	desc := flag.String("desc", "Imported via Go importer", "Description of the XML content (import only)")
 	encrypted := flag.Bool("encrypted", false, "Encrypt content before importing, or decrypt content after exporting")
 	secureKey := flag.String("secure-key", "", "Encryption/decryption key (falls back to FLOW_SECURE_KEY or SECURE_KEY env var)")
+	keyFile := flag.String("key-file", "", "Path to file containing encryption key/passphrase (avoids exposing key in process listings)")
 	flag.Parse()
 
 	actionValue := strings.ToLower(strings.TrimSpace(*action))
@@ -75,7 +88,7 @@ func main() {
 		log.Fatalf("Invalid action %q: expected import or export", *action)
 	}
 	isExport := *exportFlag || actionValue == "export"
-	key := resolveSecureKey(*secureKey)
+	key := resolveSecureKeyWithFile(*secureKey, *keyFile)
 
 	if *encrypted && key == "" {
 		log.Fatalf("Error: -encrypted was specified, but no key was provided. Specify -secure-key or set FLOW_SECURE_KEY.")
@@ -129,7 +142,7 @@ func main() {
 		if *filePath == "" || *filePath == "-" {
 			_, err = os.Stdout.Write(finalBytes)
 		} else {
-			err = os.WriteFile(*filePath, finalBytes, 0644)
+			err = os.WriteFile(*filePath, finalBytes, 0600)
 		}
 		if err != nil {
 			log.Fatalf("Failed to write exported content: %v", err)

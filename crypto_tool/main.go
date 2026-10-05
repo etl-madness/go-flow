@@ -12,8 +12,19 @@ import (
 )
 
 func resolveSecureKey(cliKey string) string {
+	return resolveSecureKeyWithFile(cliKey, "")
+}
+
+func resolveSecureKeyWithFile(cliKey, keyFilePath string) string {
 	if strings.TrimSpace(cliKey) != "" {
 		return strings.TrimSpace(cliKey)
+	}
+	if strings.TrimSpace(keyFilePath) != "" {
+		data, err := os.ReadFile(strings.TrimSpace(keyFilePath))
+		if err == nil {
+			return strings.TrimSpace(string(data))
+		}
+		fmt.Fprintf(os.Stderr, "[WARNING] Failed reading key file %s: %v\n", keyFilePath, err)
 	}
 	if envKey := strings.TrimSpace(os.Getenv("FLOW_SECURE_KEY")); envKey != "" {
 		return envKey
@@ -85,6 +96,7 @@ func main() {
 	outFileFlag := flag.String("out", "", "Output file path (or '-' / empty for stdout)")
 	keyFlag := flag.String("secure-key", "", "Key or passphrase for encryption/decryption (falls back to FLOW_SECURE_KEY)")
 	keyAlias := flag.String("key", "", "Alias for -secure-key")
+	keyFileFlag := flag.String("key-file", "", "Path to file containing key/passphrase for encryption/decryption (avoids exposing key in process listings)")
 	binaryFlag := flag.Bool("binary", false, "Output raw binary ciphertext instead of armored text format")
 
 	// Signature & Keypair flags
@@ -335,11 +347,14 @@ func main() {
 	}
 
 	// 6. Resolve Encryption Key (for Encrypt/Decrypt)
-	effectiveKey := *keyFlag
-	if effectiveKey == "" {
-		effectiveKey = *keyAlias
+	cliProvidedKey := *keyFlag
+	if cliProvidedKey == "" {
+		cliProvidedKey = *keyAlias
 	}
-	effectiveKey = resolveSecureKey(effectiveKey)
+	if cliProvidedKey != "" {
+		fmt.Fprintf(os.Stderr, "[WARNING] Passing encryption keys via CLI flags (-key/-secure-key) may expose secrets in system process listings. Consider using the FLOW_SECURE_KEY environment variable or -key-file instead.\n")
+	}
+	effectiveKey := resolveSecureKeyWithFile(cliProvidedKey, *keyFileFlag)
 
 	switch action {
 	case "encrypt":

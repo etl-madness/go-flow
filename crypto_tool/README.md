@@ -29,7 +29,8 @@ go build -o crypto_tool ./crypto_tool
 | `-gen-key` | `bool` | `false` | Shortcut for `-action gen-key`. Generates a 256-bit cryptographically secure key. |
 | `-in` | `string` | `""` | Input file path (or `-` / empty for standard input `stdin`). |
 | `-out` | `string` | `""` | Output file path (or `-` / empty for standard output `stdout`). |
-| `-secure-key` | `string` | `""` | Encryption or decryption key/passphrase. Falls back to `FLOW_SECURE_KEY` or `SECURE_KEY` env vars. |
+| `-key-file` | `string` | `""` | Path to file containing encryption/decryption key/passphrase (preferred over CLI flag to prevent process table exposure). |
+| `-secure-key` | `string` | `""` | Encryption or decryption key/passphrase (CLI warning logged; prefer `-key-file` or `FLOW_SECURE_KEY`). Falls back to `FLOW_SECURE_KEY` or `SECURE_KEY` env vars. |
 | `-key` | `string` | `""` | Alias for `-secure-key`. |
 | `-binary` | `bool` | `false` | Output raw binary ciphertext or signature instead of the default text-safe armored format. |
 
@@ -150,9 +151,13 @@ crypto_tool -action verify -in scripts.xml.signed -public-key pub.pem -out verif
 
 When `-action encrypt` or `-action decrypt` is invoked, `crypto_tool` resolves the key in the following order:
 
-1. `-secure-key` or `-key` CLI flag
-2. `FLOW_SECURE_KEY` environment variable
-3. `SECURE_KEY` environment variable
+1. `-key-file <path>` CLI flag *(Recommended: reads key directly from file, avoiding exposure in OS process tables)*
+2. `-secure-key` or `-key` CLI flag *(Emits security warning to stderr advising against passing keys on command lines)*
+3. `FLOW_SECURE_KEY` environment variable
+4. `SECURE_KEY` environment variable
+
+> [!TIP]
+> In production and automated CI/CD scripts, prefer using `-key-file` or `FLOW_SECURE_KEY` to avoid exposing sensitive passphrases to other users on the host via `ps -ef` or Windows Task Manager.
 
 ---
 

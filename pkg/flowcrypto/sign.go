@@ -1,7 +1,6 @@
 package flowcrypto
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
@@ -18,8 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/armor"
+	pgpcrypto "github.com/ProtonMail/gopenpgp/v2/crypto"
 )
 
 // GenerateRSAKeyPair creates a new RSA private/public key pair in PEM format.
@@ -163,34 +161,24 @@ func GenerateSelfSignedCertificate(privKey crypto.PrivateKey, pubKey crypto.Publ
 	return pem.EncodeToMemory(block), nil
 }
 
-// GenerateOpenPGPKeyPair creates a new OpenPGP RSA entity and returns ASCII-armored private and public keys.
+// GenerateOpenPGPKeyPair creates a new OpenPGP RSA keypair and returns ASCII-armored private and public keys.
 func GenerateOpenPGPKeyPair(name, comment, email string) (privArmored, pubArmored []byte, err error) {
-	entity, err := openpgp.NewEntity(name, comment, email, nil)
+	key, err := pgpcrypto.GenerateKey(strings.TrimSpace(name), strings.TrimSpace(email), "rsa", 2048)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed creating OpenPGP entity: %w", err)
+		return nil, nil, fmt.Errorf("failed creating OpenPGP key: %w", err)
 	}
 
-	var privBuf bytes.Buffer
-	privWriter, err := armor.Encode(&privBuf, openpgp.PrivateKeyType, nil)
+	privStr, err := key.Armor()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed armoring OpenPGP private key: %w", err)
 	}
-	if err := entity.SerializePrivate(privWriter, nil); err != nil {
-		return nil, nil, err
-	}
-	privWriter.Close()
 
-	var pubBuf bytes.Buffer
-	pubWriter, err := armor.Encode(&pubBuf, openpgp.PublicKeyType, nil)
+	pubStr, err := key.GetArmoredPublicKey()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed armoring OpenPGP public key: %w", err)
 	}
-	if err := entity.Serialize(pubWriter); err != nil {
-		return nil, nil, err
-	}
-	pubWriter.Close()
 
-	return privBuf.Bytes(), pubBuf.Bytes(), nil
+	return []byte(privStr), []byte(pubStr), nil
 }
 
 // ParsePrivateKeyPEM parses a PEM-encoded private key (PKCS#1, PKCS#8, or EC).
@@ -264,29 +252,43 @@ func SignOpenSSL(data []byte, privKeyPEM []byte) (sigBytes []byte, keyType strin
 
 // SignOpenPGP signs arbitrary data using an armored OpenPGP private key.
 func SignOpenPGP(data []byte, privKeyArmored []byte, passphrase string) (sigArmored []byte, err error) {
-	keyring, err := openpgp.ReadArmoredKeyRing(bytes.NewReader(privKeyArmored))
+	key, err := pgpcrypto.NewKeyFromArmored(string(privKeyArmored))
 	if err != nil {
-		return nil, fmt.Errorf("failed reading OpenPGP private keyring: %w", err)
-	}
-	if len(keyring) == 0 {
-		return nil, errors.New("no entities found in OpenPGP private keyring")
+		return nil, fmt.Errorf("failed reading OpenPGP private key: %w", err)
 	}
 
-	entity := keyring[0]
-	if entity.PrivateKey != nil && entity.PrivateKey.Encrypted {
+	isLocked, err := key.IsLocked()
+	if err != nil {
+		return nil, fmt.Errorf("failed checking OpenPGP key lock status: %w", err)
+	}
+
+	if isLocked {
 		if passphrase == "" {
 			return nil, errors.New("OpenPGP private key is encrypted but no passphrase was provided")
 		}
-		if err := entity.PrivateKey.Decrypt([]byte(passphrase)); err != nil {
+		unlockedKey, err := key.Unlock([]byte(passphrase))
+		if err != nil {
 			return nil, fmt.Errorf("failed decrypting OpenPGP private key: %w", err)
 		}
+		key = unlockedKey
 	}
 
-	var sigBuf bytes.Buffer
-	if err := openpgp.ArmoredDetachSign(&sigBuf, entity, bytes.NewReader(data), nil); err != nil {
+	keyRing, err := pgpcrypto.NewKeyRing(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed creating OpenPGP keyring: %w", err)
+	}
+
+	sig, err := keyRing.SignDetached(pgpcrypto.NewPlainMessage(data))
+	if err != nil {
 		return nil, fmt.Errorf("OpenPGP signing failed: %w", err)
 	}
-	return sigBuf.Bytes(), nil
+
+	armoredSig, err := sig.GetArmored()
+	if err != nil {
+		return nil, fmt.Errorf("failed armoring OpenPGP signature: %w", err)
+	}
+
+	return []byte(armoredSig), nil
 }
 
 // SignPKCS7Detached generates a Windows CMS / PKCS#7 detached signature.

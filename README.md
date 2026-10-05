@@ -101,7 +101,7 @@ Whether you are looking to streamline database batch jobs, replace fragile shell
 * **Supported Standards:**
   * **OpenSSL / PKI X.509:** RSA (PKCS#1v1.5 & PSS), ECDSA, Ed25519 PEM keys and X.509 certificates.
   * **PKCS#7 / CMS:** Detached signatures (`.p7s`) verified via pure Go ASN.1 and X.509 parsers.
-  * **GPG / OpenPGP:** ASCII-armored detached signatures (`.asc`, `.sig`) and keyrings.
+  * **GPG / OpenPGP:** ASCII-armored detached signatures (`.asc`, `.sig`) and keyrings powered by `gopenpgp/v2`.
 
 * **Unified Envelopes & Companion Files:** Supports self-contained `FLOWSIGNED:v1:...` packages, `FLOWSIG:v1:...` text envelopes, and auto-detecting companion signature files (`.sig`, `.asc`, `.p7s`).
 
@@ -236,7 +236,8 @@ For database-backed encrypted execution and offline encryption tooling, see [doc
 | `-config` | `string` | `""` | Optional path (or `sql://...` URI) to an override XML config file (variables, databases). |
 | `-options` | `string` | `""` | Optional path (or `sql://...` URI) to XML file containing pre-configured default CLI option parameters. |
 | `-encrypted` | `bool` | `false` | Indicates config, options, or script content retrieved from source/database is encrypted, or encrypts exports. |
-| `-secure-key` | `string` | `""` | Key or passphrase for decryption/encryption (falls back to `FLOW_SECURE_KEY` or `SECURE_KEY`). |
+| `-key-file` | `string` | `""` | Path to file containing decryption key/passphrase (preferred over CLI flag to prevent process table exposure). |
+| `-secure-key` | `string` | `""` | Key or passphrase for decryption/encryption (CLI warning logged; prefer `-key-file` or `FLOW_SECURE_KEY`). |
 | `-verify-signature` | `bool` | `false` | Enforce digital signature verification before decrypting or running pipeline. |
 | `-public-key` | `string` | `""` | Public key file path (PEM or OpenPGP) for digital signature verification. |
 | `-cert` | `string` | `""` | X.509 certificate file path (PEM or DER) for digital signature verification. |

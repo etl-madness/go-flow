@@ -193,7 +193,8 @@ flowchart TD
 | :--- | :---: | :---: | :--- |
 | `-file` | `string` | `scripts.xml` | Path to pipeline XML or `sql://...` database URI. |
 | `-encrypted` | `bool` | `false` | Explicitly declares that resource is encrypted. *(Note: Auto-detected if payload starts with `FLOWENC:v1:`)*. |
-| `-secure-key` | `string` | `""` | Passphrase or key for AES-256 decryption. Falls back to `FLOW_SECURE_KEY` or `SECURE_KEY`. |
+| `-key-file` | `string` | `""` | Path to file containing decryption key/passphrase (preferred over CLI flag). |
+| `-secure-key` | `string` | `""` | Passphrase or key for AES-256 decryption (CLI warning logged; prefer `-key-file` or `FLOW_SECURE_KEY`). Falls back to `FLOW_SECURE_KEY` or `SECURE_KEY`. |
 | `-verify-signature` | `bool` | `false` | Enforce signature verification before decrypting or running pipeline. |
 | `-public-key` | `string` | `""` | Public key file path (RSA, ECDSA, Ed25519 PEM or OpenPGP keyring) for verification. |
 | `-cert` | `string` | `""` | X.509 certificate file path (PEM or DER) for digital signature verification. |
@@ -215,7 +216,8 @@ flowchart TD
 | `-action` | `string` | `encrypt` | Action to execute: `encrypt`, `decrypt`, `gen-key`, `sign`, `verify`, or `gen-keypair`. |
 | `-in` | `string` | `""` | Input file path (or `-` / empty for `stdin`). |
 | `-out` | `string` | `""` | Output file path (or `-` / empty for `stdout`). |
-| `-secure-key`, `-key` | `string` | `""` | Key or passphrase for encryption/decryption. |
+| `-key-file` | `string` | `""` | Path to file containing key/passphrase (preferred to avoid process table exposure). |
+| `-secure-key`, `-key` | `string` | `""` | Key or passphrase for encryption/decryption (CLI warning logged). |
 | `-binary` | `bool` | `false` | Emit/read raw binary ciphertext instead of armored text (`FLOWENC:v1:`). |
 | `-sig-type` | `string` | `openssl` | Signature format for `-action sign`: `openssl`, `pgp`, or `pkcs7`. |
 | `-signature`, `-sig` | `string` | `""` | Detached signature file path for `-action verify`. |
@@ -281,20 +283,25 @@ When multiple sources provide keys, `flow.exe` and `crypto_tool` resolve them st
 
 ```mermaid
 flowchart TD
-    P1["1. Explicit CLI Flag<br>(-secure-key / -key)"]
-    P2["2. XML Options Profile<br>(&lt;secure-key&gt; in -options)"]
-    P3["3. FLOW_SECURE_KEY<br>(Environment Variable)"]
-    P4["4. SECURE_KEY<br>(Generic Fallback Env Var)"]
+    P0["1. Key File<br>(-key-file &lt;path&gt;)"]
+    P1["2. Explicit CLI Flag<br>(-secure-key / -key)"]
+    P2["3. XML Options Profile<br>(&lt;secure-key&gt; in -options)"]
+    P3["4. FLOW_SECURE_KEY<br>(Environment Variable)"]
+    P4["5. SECURE_KEY<br>(Generic Fallback Env Var)"]
 
+    P0 -->|"If not provided"| P1
     P1 -->|"If not provided"| P2
     P2 -->|"If not provided"| P3
     P3 -->|"If not provided"| P4
 
     classDef high fill:#e6fffa,stroke:#047857,stroke-width:2px;
     classDef item fill:#f0f9ff,stroke:#0284c7,stroke-width:2px;
-    class P1 high;
+    class P0,P1 high;
     class P2,P3,P4 item;
 ```
+
+> [!TIP]
+> **Process Table Security:** Supplying keys directly via `-secure-key` or `-key` on the CLI exposes the secret to other users via `ps aux` or Windows Task Manager. In automated and shared environments, always supply secrets via `-key-file` or `FLOW_SECURE_KEY`. A warning is logged to `stderr` whenever a plaintext key is passed via CLI flags.
 
 ---
 

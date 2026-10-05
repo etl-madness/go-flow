@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -292,31 +293,44 @@ func outputStreamSummary(run flow.RunResult, file *string, config *string) {
 	)
 }
 
+var kvPasswordRegex = regexp.MustCompile(`(?i)\b(password|pwd)\s*=\s*[^;]+`)
+
 func maskSensitiveSourceForDB(source string, debug bool) string {
 	source = strings.TrimSpace(source)
 	if source == "" || debug {
 		return source
 	}
 
-	if strings.HasPrefix(source, "sql://") || strings.HasPrefix(source, "db://") {
-		raw := strings.TrimPrefix(strings.TrimPrefix(source, "sql://"), "db://")
+	prefix := ""
+	raw := source
+	if strings.HasPrefix(source, "sql://") {
+		prefix = "sql://"
+		raw = strings.TrimPrefix(source, "sql://")
+	} else if strings.HasPrefix(source, "db://") {
+		prefix = "db://"
+		raw = strings.TrimPrefix(source, "db://")
+	}
+
+	if prefix != "" {
 		parts := strings.SplitN(raw, "#", 2)
-		if len(parts) == 2 && strings.Contains(parts[0], "@") {
-			prefix := "sql://"
-			if strings.HasPrefix(source, "db://") {
-				prefix = "db://"
-			}
-			driverAndDSN := strings.SplitN(parts[0], "@", 2)
-			if len(driverAndDSN) == 2 {
-				maskedDSN := maskURLUserInfo(driverAndDSN[1])
-				if maskedDSN != driverAndDSN[1] {
-					return prefix + driverAndDSN[0] + "@" + maskedDSN + "#" + parts[1]
-				}
-			}
+		connSpec := parts[0]
+		fragment := ""
+		if len(parts) == 2 {
+			fragment = "#" + parts[1]
+		}
+
+		if strings.Contains(connSpec, "@") {
+			driverAndDSN := strings.SplitN(connSpec, "@", 2)
+			driver := driverAndDSN[0]
+			dsn := driverAndDSN[1]
+			maskedDSN := maskURLUserInfo(dsn)
+			maskedDSN = kvPasswordRegex.ReplaceAllString(maskedDSN, "${1}=******")
+			return prefix + driver + "@" + maskedDSN + fragment
 		}
 	}
 
-	return maskURLUserInfo(source)
+	masked := maskURLUserInfo(source)
+	return kvPasswordRegex.ReplaceAllString(masked, "${1}=******")
 }
 
 func maskURLUserInfo(source string) string {

@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/sha512"
+	"crypto/subtle"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -212,6 +213,10 @@ func VerifyPKCS7WithCA(data []byte, p7Bytes []byte, signerCert *x509.Certificate
 		}
 	}
 
+	if signerCert == nil && rootCert == nil {
+		return nil, errors.New("PKCS#7 signature verification requires a trusted signer certificate or root CA")
+	}
+
 	if len(certs) == 0 && rootCert != nil {
 		certs = append(certs, rootCert)
 	}
@@ -272,13 +277,8 @@ func VerifyPKCS7WithCA(data []byte, p7Bytes []byte, signerCert *x509.Certificate
 		if len(foundDigest) == 0 {
 			return nil, errors.New("PKCS#7 messageDigest signed attribute not found")
 		}
-		if len(foundDigest) != len(dataDigest) {
-			return nil, errors.New("PKCS#7 message digest length mismatch")
-		}
-		for i := range foundDigest {
-			if foundDigest[i] != dataDigest[i] {
-				return nil, errors.New("PKCS#7 message digest mismatch (data has been tampered with)")
-			}
+		if len(foundDigest) != len(dataDigest) || subtle.ConstantTimeCompare(foundDigest, dataDigest) != 1 {
+			return nil, errors.New("PKCS#7 message digest mismatch (data has been tampered with)")
 		}
 
 		rawAttrs, err := asn1.MarshalWithParams(signer.SignedAttributes, "set")

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -97,6 +99,14 @@ func (r *defaultURIResolver) resolve(rawURI string) (io.ReadCloser, error) {
 	}
 
 	if strings.HasPrefix(rawURI, "http://") || strings.HasPrefix(rawURI, "https://") {
+		parsedURL, err := url.Parse(rawURI)
+		if err != nil {
+			return nil, fmt.Errorf("invalid URL %q: %w", rawURI, err)
+		}
+		if isCloudMetadataOrLinkLocal(parsedURL.Hostname()) {
+			return nil, fmt.Errorf("HTTP GET %s blocked: access to cloud metadata and link-local addresses is prohibited", rawURI)
+		}
+
 		resp, err := r.client.Get(rawURI)
 		if err != nil {
 			return nil, err
@@ -110,9 +120,13 @@ func (r *defaultURIResolver) resolve(rawURI string) (io.ReadCloser, error) {
 			return nil, fmt.Errorf("HTTP error %d: %s", resp.StatusCode, resp.Status)
 		}
 		defer resp.Body.Close()
-		payload, err := io.ReadAll(resp.Body)
+		lr := io.LimitReader(resp.Body, maxHTTPResourceBytes+1)
+		payload, err := io.ReadAll(lr)
 		if err != nil {
 			return nil, err
+		}
+		if int64(len(payload)) > maxHTTPResourceBytes {
+			return nil, fmt.Errorf("HTTP response from %s exceeded maximum allowed size (%d bytes)", rawURI, maxHTTPResourceBytes)
 		}
 		return io.NopCloser(bytes.NewReader(normalizeXMLBytes(payload))), nil
 	}
@@ -124,12 +138,28 @@ func (r *defaultURIResolver) resolve(rawURI string) (io.ReadCloser, error) {
 			filePath = filePath[1:]
 		}
 	}
-	f, err := os.Open(filePath)
+
+	// Canonicalize and restrict local filesystem reads to the current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed getting current directory: %w", err)
+	}
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("invalid file path %q: %w", filePath, err)
+	}
+	rel, err := filepath.Rel(cwd, absPath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return nil, fmt.Errorf("access denied: requested path %q is outside the working directory", filePath)
+	}
+
+	f, err := os.Open(absPath)
 	if err != nil {
 		return nil, err
 	}
-	payload, err := io.ReadAll(f)
-	f.Close()
+	defer f.Close()
+	lr := io.LimitReader(f, maxHTTPResourceBytes+1)
+	payload, err := io.ReadAll(lr)
 	if err != nil {
 		return nil, err
 	}

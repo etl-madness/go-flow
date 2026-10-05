@@ -87,8 +87,19 @@ func fqdnHostname() string {
 }
 
 func resolveSecureKey(cliKey string) string {
+	return resolveSecureKeyWithFile(cliKey, "")
+}
+
+func resolveSecureKeyWithFile(cliKey, keyFilePath string) string {
 	if strings.TrimSpace(cliKey) != "" {
 		return strings.TrimSpace(cliKey)
+	}
+	if strings.TrimSpace(keyFilePath) != "" {
+		data, err := os.ReadFile(strings.TrimSpace(keyFilePath))
+		if err == nil {
+			return strings.TrimSpace(string(data))
+		}
+		log.Printf("[WARNING] Failed reading key file %s: %v", keyFilePath, err)
 	}
 	if envKey := strings.TrimSpace(os.Getenv("FLOW_SECURE_KEY")); envKey != "" {
 		return envKey
@@ -243,6 +254,7 @@ func main() {
 	dbDsn := flag.String("dsn", "", "Optional external database DSN for import/export directly to external DB")
 	encryptedFlag := flag.Bool("encrypted", false, "Indicates that config, options, or script content is encrypted and must be decrypted, or encrypts exports")
 	secureKeyFlag := flag.String("secure-key", "", "Key or passphrase for decryption/encryption (falls back to FLOW_SECURE_KEY or SECURE_KEY env var)")
+	keyFileFlag := flag.String("key-file", "", "Path to file containing key/passphrase for encryption/decryption (avoids exposing key in process listings)")
 	verifySigFlag := flag.Bool("verify-signature", false, "Verify digital signature before decrypting or executing pipeline")
 	pubKeyFlag := flag.String("public-key", "", "Public key file path for digital signature verification (RSA, ECDSA, Ed25519)")
 	certFlag := flag.String("cert", "", "X.509 certificate file path for digital signature verification")
@@ -271,9 +283,10 @@ func main() {
 
 	var effectiveKey string
 	if cliSetFlags["secure-key"] {
+		log.Println("[WARNING] Passing encryption keys via the -secure-key CLI flag may expose secrets in system process listings. Consider using the FLOW_SECURE_KEY environment variable or -key-file instead.")
 		effectiveKey = *secureKeyFlag
 	} else {
-		effectiveKey = resolveSecureKey("")
+		effectiveKey = resolveSecureKeyWithFile("", *keyFileFlag)
 	}
 
 	secOpts := SecurityOptions{
@@ -401,7 +414,7 @@ func main() {
 		if *exportFile == "-" {
 			_, err = os.Stdout.Write(finalBytes)
 		} else {
-			err = os.WriteFile(*exportFile, finalBytes, 0644)
+			err = os.WriteFile(*exportFile, finalBytes, 0600)
 			if err == nil {
 				fmt.Printf("Successfully exported %s %q to %s (encrypted: %t).\n", *exportType, *exportName, *exportFile, *encryptedFlag)
 			}

@@ -352,3 +352,33 @@ func TestNormalizeXMLBytes(t *testing.T) {
 		})
 	}
 }
+
+func TestXSLTURIResolver_SecurityHardening(t *testing.T) {
+	resolver := newDefaultURIResolver()
+
+	// 1. SSRF: Cloud metadata endpoint
+	_, err := resolver.resolve("http://169.254.169.254/latest/meta-data")
+	if err == nil || !strings.Contains(err.Error(), "blocked") {
+		t.Fatalf("expected cloud metadata SSRF to be blocked, got: %v", err)
+	}
+
+	// 2. SSRF: Google metadata internal hostname
+	_, err = resolver.resolve("http://metadata.google.internal/computeMetadata/v1/")
+	if err == nil || !strings.Contains(err.Error(), "blocked") {
+		t.Fatalf("expected Google metadata SSRF to be blocked, got: %v", err)
+	}
+
+	// 3. Path Traversal: Local file outside working directory
+	_, err = resolver.resolve("../../some_secret_outside_repo.xml")
+	if err == nil || !strings.Contains(err.Error(), "outside the working directory") {
+		t.Fatalf("expected directory traversal to be blocked, got: %v", err)
+	}
+
+	// 4. Embedded schema fallback should succeed
+	rc, err := resolver.resolve("https://example.com/xsd/pipeline.xsd")
+	if err != nil {
+		t.Fatalf("expected pipeline.xsd resolution to succeed, got: %v", err)
+	}
+	defer rc.Close()
+}
+

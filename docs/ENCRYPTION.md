@@ -12,6 +12,7 @@ This system allows you to protect sensitive pipeline configurations, connection 
 * **Key Derivation:** **PBKDF2-HMAC-SHA256** with **100,000 iterations** and a cryptographically secure 16-byte random salt generated via `crypto/rand`.
 * **Tamper Proofing:** 128-bit (16-byte) authentication tag; any modification, bit flip, or truncated payload is automatically rejected with an authentication error before any processing occurs.
 * **Pure Go Implementation:** Implemented with Go's standard library (`crypto/aes`, `crypto/cipher`, `crypto/rand`, `crypto/sha256`) and pure-Go PBKDF2 (`golang.org/x/crypto/pbkdf2`). No CGO, Windows DPAPI, or macOS Keychain dependencies required.
+* **In-Memory Zeroization:** Derived symmetric AES key buffers are zeroed out (`ZeroBytes`) immediately upon cipher initialization to prevent plaintext key exposure in memory dumps.
 
 ---
 
@@ -34,14 +35,18 @@ The envelope prefix enables `flow.exe`, `db_importer`, and `crypto_tool` to auto
 ---
 
 ## 3. Key Management & Precedence
-
-Encryption and decryption keys can be passed through CLI flags or environment variables:
+ 
+Encryption and decryption keys can be passed through key files, CLI flags, or environment variables:
 
 | Priority | Method | Description |
 | :---: | :--- | :--- |
-| **1 (Highest)** | `-secure-key <key>` | Command-line parameter supplied directly to `flow.exe`, `db_importer`, or `crypto_tool`. |
-| **2** | `FLOW_SECURE_KEY` | Environment variable (recommended for containerized and automated production runs). |
-| **3** | `SECURE_KEY` | Generic fallback environment variable. |
+| **1 (Highest)** | `-key-file <path>` | Path to a secure key file. **Recommended** to avoid exposing plaintext passphrases in OS process listings (`ps`, Task Manager). |
+| **2** | `-secure-key <key>` | Command-line parameter supplied directly to `flow.exe`, `db_importer`, or `crypto_tool`. *(Note: emits a warning to stderr recommending `-key-file`)*. |
+| **3** | `FLOW_SECURE_KEY` | Environment variable (ideal for containerized and automated production runs). |
+| **4** | `SECURE_KEY` | Generic fallback environment variable. |
+
+> [!TIP]
+> For production automation and scheduled jobs, always supply keys via `-key-file` or `FLOW_SECURE_KEY`. Passing plaintext keys via CLI arguments (`-secure-key`) makes them visible to other local processes and unprivileged users inspecting process arguments.
 
 ---
 

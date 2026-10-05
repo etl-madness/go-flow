@@ -68,19 +68,35 @@ flow.exe -options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?da
 
 ## Encrypted Import & Export
 
-The db_importer supports AES-256-GCM encryption with PBKDF2 key derivation. The encryption key can be passed via `-secure-key` or via the `FLOW_SECURE_KEY` (or `SECURE_KEY`) environment variable.
+The db_importer supports AES-256-GCM encryption with PBKDF2 key derivation.
+
+> **Security Note**: Passing encryption keys directly via CLI flags (`-secure-key`) may expose secrets in system process listings (`ps`, Task Manager). For secure operations, supply the key using `-key-file` or the `FLOW_SECURE_KEY` (or `SECURE_KEY`) environment variable.
+
+Precedence order for key resolution:
+1. `-secure-key` CLI flag (with process exposure warning)
+2. `-key-file` (reads secret from file)
+3. `FLOW_SECURE_KEY` environment variable
+4. `SECURE_KEY` environment variable
+
+Exported files containing decrypted content are automatically restricted to `0600` permissions (owner read/write only).
 
 ### Import and Encrypt into Database
 ```shell
-go run mssql_importer.go -dsn "sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true" -table pipeline -name "github_ai_credit_usage" -file "github_ai_credit_usage.xml" -encrypted -secure-key "MySecretKey123"
+# Recommended: Read key from file
+go run mssql_importer.go -dsn "sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true" -table pipeline -name "github_ai_credit_usage" -file "github_ai_credit_usage.xml" -encrypted -key-file "/path/to/secret.key"
+
+# Or via environment variable:
+export FLOW_SECURE_KEY="MySecretKey123"
+go run mssql_importer.go -dsn "sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true" -table pipeline -name "github_ai_credit_usage" -file "github_ai_credit_usage.xml" -encrypted
 ```
 
 ### Export from Database and Decrypt to File
 ```shell
-go run mssql_importer.go -action export -dsn "sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true" -table pipeline -name "github_ai_credit_usage" -file "github_ai_credit_usage_decrypted.xml" -encrypted -secure-key "MySecretKey123"
+# Export and write with 0600 permissions
+go run mssql_importer.go -action export -dsn "sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true" -table pipeline -name "github_ai_credit_usage" -file "github_ai_credit_usage_decrypted.xml" -encrypted -key-file "/path/to/secret.key"
 ```
 
 ### Run Encrypted from Database with go-flow
 ```shell
-flow.exe -encrypted -secure-key "MySecretKey123" -options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT OptionsXML from dbo.flow_options_content where Name = 'OPTIONS_GITHUB_AI_CREDIT_USAGE'"
+flow.exe -encrypted -key-file "/path/to/secret.key" -options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT OptionsXML from dbo.flow_options_content where Name = 'OPTIONS_GITHUB_AI_CREDIT_USAGE'"
 ```

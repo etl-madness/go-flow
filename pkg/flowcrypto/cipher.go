@@ -47,6 +47,7 @@ func EncryptBytes(plaintext []byte, key string) ([]byte, error) {
 
 	// 2. Derive 256-bit AES key
 	derivedKey := DeriveKey(key, salt)
+	defer ZeroBytes(derivedKey)
 
 	// 3. Initialize AES cipher
 	block, err := aes.NewCipher(derivedKey)
@@ -95,6 +96,7 @@ func DecryptBytes(packed []byte, key string) ([]byte, error) {
 
 	// 2. Derive key from passphrase and salt
 	derivedKey := DeriveKey(key, salt)
+	defer ZeroBytes(derivedKey)
 
 	// 3. Initialize AES cipher
 	block, err := aes.NewCipher(derivedKey)
