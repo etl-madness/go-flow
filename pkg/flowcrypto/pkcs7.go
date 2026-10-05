@@ -96,9 +96,7 @@ func SignPKCS7(data []byte, cert *x509.Certificate, privKey crypto.PrivateKey) (
 		{Type: oidMessageDigest, Value: asn1.RawValue{Class: asn1.ClassUniversal, Tag: asn1.TagSet, IsCompound: true, Bytes: encDigest}},
 	}
 
-	rawAttrs, err := asn1.Marshal(struct {
-		A []pkcs7Attribute `asn1:"set"`
-	}{A: attrs})
+	rawAttrs, err := asn1.MarshalWithParams(attrs, "set")
 	if err != nil {
 		return nil, fmt.Errorf("failed marshaling signed attributes: %w", err)
 	}
