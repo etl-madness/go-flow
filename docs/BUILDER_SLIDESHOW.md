@@ -1,4 +1,3 @@
-# Flow Builder: Visual Pipeline Designer & Runtime Orchestration
 <!-- slide -->
 <!-- Slide 1: Title & Mascot Introduction -->
 # Flow Builder: Visual Pipeline Designer & Runtime Orchestration

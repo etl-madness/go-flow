@@ -47,36 +47,44 @@ type PipelineRunRecord struct {
 	RunID        string     `json:"run_id"`
 	FilePath     string     `json:"file_path"`
 	ConfigPath   string     `json:"config_path"`
-	Status       string     `json:"status"`
-	StartedAt    *time.Time `json:"started_at"`
-	FinishedAt   *time.Time `json:"finished_at"`
-	DurationMs   int64      `json:"duration_ms"`
-	TaskCount    int        `json:"task_count"`
-	UserName     string     `json:"user_name"`
-	Hostname     string     `json:"hostname"`
-	OptionsPath  string     `json:"options_path"`
-	ErrorClass   string     `json:"error_class"`
-	ErrorMessage string     `json:"error_message"`
+	Status           string     `json:"status"`
+	StartedAt        *time.Time `json:"started_at"`
+	FinishedAt       *time.Time `json:"finished_at"`
+	DurationMs       int64      `json:"duration_ms"`
+	TaskCount        int        `json:"task_count"`
+	UserName         string     `json:"user_name"`
+	OSUserName       string     `json:"os_user_name,omitempty"`
+	DatabaseUserName string     `json:"database_user_name,omitempty"`
+	DBUserName       string     `json:"db_user_name,omitempty"`
+	SPID             int64      `json:"spid,omitempty"`
+	Hostname         string     `json:"hostname"`
+	OptionsPath      string     `json:"options_path"`
+	ErrorClass       string     `json:"error_class"`
+	ErrorMessage     string     `json:"error_message"`
 }
 
 // PipelineEventRecord mirrors the schema of pipeline_events for event inspection.
 type PipelineEventRecord struct {
-	ID           int64      `json:"id,omitempty"`
-	RunID        string     `json:"run_id"`
-	ExecutionID  string     `json:"execution_id"`
-	SequenceNum  int64      `json:"sequence_num"`
-	OccurredAt   *time.Time `json:"occurred_at"`
-	EventType    string     `json:"event_type"`
-	NodeKind     string     `json:"node_kind"`
-	NodeID       string     `json:"node_id"`
-	Status       string     `json:"status"`
-	UserName     string     `json:"user_name"`
-	Hostname     string     `json:"hostname"`
-	OptionsPath  string     `json:"options_path"`
-	ErrorMessage string     `json:"error_message"`
-	RowsRead     int64      `json:"rows_read"`
-	RowsWritten  int64      `json:"rows_written"`
-	RowsAffected int64      `json:"rows_affected"`
+	ID               int64      `json:"id,omitempty"`
+	RunID            string     `json:"run_id"`
+	ExecutionID      string     `json:"execution_id"`
+	SequenceNum      int64      `json:"sequence_num"`
+	OccurredAt       *time.Time `json:"occurred_at"`
+	EventType        string     `json:"event_type"`
+	NodeKind         string     `json:"node_kind"`
+	NodeID           string     `json:"node_id"`
+	Status           string     `json:"status"`
+	UserName         string     `json:"user_name"`
+	OSUserName       string     `json:"os_user_name,omitempty"`
+	DatabaseUserName string     `json:"database_user_name,omitempty"`
+	DBUserName       string     `json:"db_user_name,omitempty"`
+	SPID             int64      `json:"spid,omitempty"`
+	Hostname         string     `json:"hostname"`
+	OptionsPath      string     `json:"options_path"`
+	ErrorMessage     string     `json:"error_message"`
+	RowsRead         int64      `json:"rows_read"`
+	RowsWritten      int64      `json:"rows_written"`
+	RowsAffected     int64      `json:"rows_affected"`
 }
 
 // isTableNotFoundError detects standard database errors when a table does not exist.
@@ -197,17 +205,15 @@ func QueryPipelineRuns(ctx context.Context, db *sql.DB, driver string, runsTable
 	}
 
 	whereClause := strings.Join(whereParts, " AND ")
-	cols := "run_id, file_path, config_path, status, started_at, finished_at, duration_ms, task_count, user_name, hostname, options_path, error_class, error_message"
-
 	var query string
 	switch driver {
 	case "sqlserver":
-		query = fmt.Sprintf("SELECT TOP (%d) %s FROM %s WHERE %s ORDER BY started_at DESC", limit, cols, targetTable, whereClause)
+		query = fmt.Sprintf("SELECT TOP (%d) * FROM %s WHERE %s ORDER BY started_at DESC", limit, targetTable, whereClause)
 	case "oracle":
-		query = fmt.Sprintf("SELECT %s FROM %s WHERE %s ORDER BY started_at DESC FETCH FIRST %d ROWS ONLY", cols, targetTable, whereClause, limit)
+		query = fmt.Sprintf("SELECT * FROM %s WHERE %s ORDER BY started_at DESC FETCH FIRST %d ROWS ONLY", targetTable, whereClause, limit)
 	default:
 		// postgres, mysql, sqlite
-		query = fmt.Sprintf("SELECT %s FROM %s WHERE %s ORDER BY started_at DESC LIMIT %d", cols, targetTable, whereClause, limit)
+		query = fmt.Sprintf("SELECT * FROM %s WHERE %s ORDER BY started_at DESC LIMIT %d", targetTable, whereClause, limit)
 	}
 
 	rows, err := db.QueryContext(ctx, query, args...)
@@ -217,7 +223,7 @@ func QueryPipelineRuns(ctx context.Context, db *sql.DB, driver string, runsTable
 		}
 		// If oracle fails on FETCH FIRST, try without FETCH FIRST and cap in memory
 		if driver == "oracle" {
-			fallbackQuery := fmt.Sprintf("SELECT %s FROM %s WHERE %s ORDER BY started_at DESC", cols, targetTable, whereClause)
+			fallbackQuery := fmt.Sprintf("SELECT * FROM %s WHERE %s ORDER BY started_at DESC", targetTable, whereClause)
 			fallbackRows, fallbackErr := db.QueryContext(ctx, fallbackQuery, args...)
 			if fallbackErr != nil {
 				return nil, fallbackErr
@@ -229,40 +235,75 @@ func QueryPipelineRuns(ctx context.Context, db *sql.DB, driver string, runsTable
 	}
 	defer rows.Close()
 
+	colNames, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("failed retrieving columns for runs: %w", err)
+	}
+
 	var runs []PipelineRunRecord
 	for rows.Next() {
 		var (
-			rec                   PipelineRunRecord
-			runID                 sql.NullString
-			filePath              sql.NullString
-			configPath            sql.NullString
-			statusVal             sql.NullString
-			startedRaw            any
-			finishedRaw           any
-			durationMs            sql.NullInt64
-			taskCount             sql.NullInt64
-			userName              sql.NullString
-			hostname              sql.NullString
-			optionsPath           sql.NullString
-			errorClass            sql.NullString
-			errorMessage          sql.NullString
+			rec          PipelineRunRecord
+			runID        sql.NullString
+			filePath     sql.NullString
+			configPath   sql.NullString
+			statusVal    sql.NullString
+			startedRaw   any
+			finishedRaw  any
+			durationMs   sql.NullInt64
+			taskCount    sql.NullInt64
+			userName     sql.NullString
+			osUserName   sql.NullString
+			dbUserName   sql.NullString
+			spidVal      sql.NullInt64
+			hostname     sql.NullString
+			optionsPath  sql.NullString
+			errorClass   sql.NullString
+			errorMessage sql.NullString
+			discard      any
 		)
 
-		if err := rows.Scan(
-			&runID,
-			&filePath,
-			&configPath,
-			&statusVal,
-			&startedRaw,
-			&finishedRaw,
-			&durationMs,
-			&taskCount,
-			&userName,
-			&hostname,
-			&optionsPath,
-			&errorClass,
-			&errorMessage,
-		); err != nil {
+		dest := make([]any, len(colNames))
+		for i, c := range colNames {
+			switch strings.ToLower(c) {
+			case "run_id":
+				dest[i] = &runID
+			case "file_path":
+				dest[i] = &filePath
+			case "config_path":
+				dest[i] = &configPath
+			case "status":
+				dest[i] = &statusVal
+			case "started_at":
+				dest[i] = &startedRaw
+			case "finished_at":
+				dest[i] = &finishedRaw
+			case "duration_ms":
+				dest[i] = &durationMs
+			case "task_count":
+				dest[i] = &taskCount
+			case "user_name":
+				dest[i] = &userName
+			case "os_user_name":
+				dest[i] = &osUserName
+			case "db_user_name", "database_user_name":
+				dest[i] = &dbUserName
+			case "spid":
+				dest[i] = &spidVal
+			case "hostname":
+				dest[i] = &hostname
+			case "options_path":
+				dest[i] = &optionsPath
+			case "error_class":
+				dest[i] = &errorClass
+			case "error_message":
+				dest[i] = &errorMessage
+			default:
+				dest[i] = &discard
+			}
+		}
+
+		if err := rows.Scan(dest...); err != nil {
 			return nil, fmt.Errorf("failed scanning pipeline run row: %w", err)
 		}
 
@@ -275,6 +316,16 @@ func QueryPipelineRuns(ctx context.Context, db *sql.DB, driver string, runsTable
 		rec.DurationMs = durationMs.Int64
 		rec.TaskCount = int(taskCount.Int64)
 		rec.UserName = userName.String
+		rec.OSUserName = osUserName.String
+		if rec.OSUserName == "" {
+			rec.OSUserName = rec.UserName
+		}
+		if rec.UserName == "" {
+			rec.UserName = rec.OSUserName
+		}
+		rec.DBUserName = dbUserName.String
+		rec.DatabaseUserName = dbUserName.String
+		rec.SPID = spidVal.Int64
 		rec.Hostname = hostname.String
 		rec.OptionsPath = optionsPath.String
 		rec.ErrorClass = errorClass.String
@@ -304,8 +355,6 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 		targetTable = "dbo." + targetTable
 	}
 
-	cols := "run_id, execution_id, sequence_num, occurred_at, event_type, node_kind, node_id, status, user_name, hostname, options_path, error_message, rows_read, rows_written, rows_affected"
-
 	placeholder := "?"
 	switch driver {
 	case "postgres":
@@ -316,7 +365,7 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 		placeholder = ":1"
 	}
 
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE run_id = %s ORDER BY sequence_num ASC", cols, targetTable, placeholder)
+	query := fmt.Sprintf("SELECT * FROM %s WHERE run_id = %s ORDER BY sequence_num ASC", targetTable, placeholder)
 
 	rows, err := db.QueryContext(ctx, query, runID)
 	if err != nil {
@@ -327,10 +376,16 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 	}
 	defer rows.Close()
 
+	colNames, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("failed retrieving columns for events: %w", err)
+	}
+
 	var events []PipelineEventRecord
 	for rows.Next() {
 		var (
 			rec          PipelineEventRecord
+			idVal        sql.NullInt64
 			runIDVal     sql.NullString
 			execID       sql.NullString
 			seqNum       sql.NullInt64
@@ -340,34 +395,69 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 			nodeID       sql.NullString
 			statusVal    sql.NullString
 			userName     sql.NullString
+			osUserName   sql.NullString
+			dbUserName   sql.NullString
+			spidVal      sql.NullInt64
 			hostname     sql.NullString
 			optionsPath  sql.NullString
 			errorMessage sql.NullString
 			rowsRead     sql.NullInt64
 			rowsWritten  sql.NullInt64
 			rowsAffected sql.NullInt64
+			discard      any
 		)
 
-		if err := rows.Scan(
-			&runIDVal,
-			&execID,
-			&seqNum,
-			&occurredRaw,
-			&eventType,
-			&nodeKind,
-			&nodeID,
-			&statusVal,
-			&userName,
-			&hostname,
-			&optionsPath,
-			&errorMessage,
-			&rowsRead,
-			&rowsWritten,
-			&rowsAffected,
-		); err != nil {
+		dest := make([]any, len(colNames))
+		for i, c := range colNames {
+			switch strings.ToLower(c) {
+			case "id":
+				dest[i] = &idVal
+			case "run_id":
+				dest[i] = &runIDVal
+			case "execution_id":
+				dest[i] = &execID
+			case "sequence_num":
+				dest[i] = &seqNum
+			case "occurred_at":
+				dest[i] = &occurredRaw
+			case "event_type":
+				dest[i] = &eventType
+			case "node_kind":
+				dest[i] = &nodeKind
+			case "node_id":
+				dest[i] = &nodeID
+			case "status":
+				dest[i] = &statusVal
+			case "user_name":
+				dest[i] = &userName
+			case "os_user_name":
+				dest[i] = &osUserName
+			case "db_user_name", "database_user_name":
+				dest[i] = &dbUserName
+			case "spid":
+				dest[i] = &spidVal
+			case "hostname":
+				dest[i] = &hostname
+			case "options_path":
+				dest[i] = &optionsPath
+			case "error_message":
+				dest[i] = &errorMessage
+			case "rows_read":
+				dest[i] = &rowsRead
+			case "rows_written":
+				dest[i] = &rowsWritten
+			case "rows_affected":
+				dest[i] = &rowsAffected
+			default:
+				dest[i] = &discard
+			}
+		}
+
+		if err := rows.Scan(dest...); err != nil {
 			return nil, fmt.Errorf("failed scanning pipeline event row: %w", err)
 		}
 
+		rec.ID = idVal.Int64
 		rec.RunID = runIDVal.String
 		rec.ExecutionID = execID.String
 		rec.SequenceNum = seqNum.Int64
@@ -377,6 +467,16 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 		rec.NodeID = nodeID.String
 		rec.Status = statusVal.String
 		rec.UserName = userName.String
+		rec.OSUserName = osUserName.String
+		if rec.OSUserName == "" {
+			rec.OSUserName = rec.UserName
+		}
+		if rec.UserName == "" {
+			rec.UserName = rec.OSUserName
+		}
+		rec.DBUserName = dbUserName.String
+		rec.DatabaseUserName = dbUserName.String
+		rec.SPID = spidVal.Int64
 		rec.Hostname = hostname.String
 		rec.OptionsPath = optionsPath.String
 		rec.ErrorMessage = errorMessage.String

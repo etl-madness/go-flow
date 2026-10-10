@@ -59,7 +59,7 @@ Examples:
 SQL Server with Windows integrated security / trusted connection:
 
 ```powershell
-.\flow.exe --options "sql://sqlserver@sqlserver://T15P:1433?database=PROTO&integrated+security=true&trustServerCertificate=true#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name = 'OPTIONS_GITHUB_AI_CREDIT_USAGE'"
+.\flow.exe --options "sql://sqlserver@sqlserver://sqlserver.example.com:1433?database=MYDB&integrated+security=true&trustServerCertificate=true#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name = 'OPTIONS_GITHUB_AI_CREDIT_USAGE'"
 ```
 
 This pattern is useful when the SQL Server instance is running on a named host and you want to authenticate using a trusted Windows login instead of a username/password in the DSN itself.

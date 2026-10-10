@@ -371,3 +371,232 @@ func TestMaskSensitiveSourceForDB(t *testing.T) {
 	}
 }
 
+func TestFetchDatabaseSessionIdentity_SQLite(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open sqlite in-memory db: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	spid, dbUser, err := FetchDatabaseSessionIdentity(ctx, db, "sqlite")
+	if err != nil {
+		t.Fatalf("unexpected error fetching sqlite session identity: %v", err)
+	}
+	if spid <= 0 {
+		t.Errorf("expected positive process ID for sqlite spid, got %d", spid)
+	}
+	if dbUser == "" {
+		t.Errorf("expected non-empty database user, got empty string")
+	}
+}
+
+func TestDatabaseSink_EmitsSPIDAndDBUser(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open sqlite in-memory db: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`
+		CREATE TABLE pipeline_events (
+			run_id VARCHAR(64) NOT NULL,
+			execution_id VARCHAR(64) NOT NULL,
+			sequence_num INT NOT NULL,
+			occurred_at DATETIME NOT NULL,
+			event_type VARCHAR(64) NOT NULL,
+			node_kind VARCHAR(64) NOT NULL,
+			node_id VARCHAR(128) NOT NULL,
+			status VARCHAR(32) NOT NULL,
+			user_name VARCHAR(256),
+			os_user_name VARCHAR(256),
+			db_user_name VARCHAR(256),
+			spid BIGINT,
+			hostname VARCHAR(256),
+			options_path VARCHAR(2048),
+			error_message TEXT,
+			rows_read BIGINT,
+			rows_written BIGINT,
+			rows_affected BIGINT
+		);
+	`)
+	if err != nil {
+		t.Fatalf("failed to create pipeline_events table: %v", err)
+	}
+
+	sink := NewDatabaseSink(db, "sqlite")
+	sink.SetSessionIdentity(12345, "etl_db_user")
+
+	ctx := context.Background()
+	err = sink.Emit(ctx, flow.ExecutionEvent{
+		RunID:       "run-spid-1",
+		ExecutionID: "exec-spid-1",
+		Sequence:    1,
+		Type:        flow.EventNodeStarted,
+		NodeKind:    "query",
+		NodeID:      "node-1",
+		Status:      flow.RunStatusSucceeded,
+		UserName:    "os_alice",
+		Hostname:    "worker-node",
+	})
+	if err != nil {
+		t.Fatalf("failed to emit event: %v", err)
+	}
+
+	var (
+		userName   string
+		osUserName string
+		dbUserName string
+		spid       int64
+	)
+	row := db.QueryRow("SELECT user_name, os_user_name, db_user_name, spid FROM pipeline_events WHERE run_id = 'run-spid-1'")
+	if err := row.Scan(&userName, &osUserName, &dbUserName, &spid); err != nil {
+		t.Fatalf("failed scanning pipeline_events row: %v", err)
+	}
+
+	if userName != "os_alice" {
+		t.Errorf("expected user_name 'os_alice', got %q", userName)
+	}
+	if osUserName != "os_alice" {
+		t.Errorf("expected os_user_name 'os_alice', got %q", osUserName)
+	}
+	if dbUserName != "etl_db_user" {
+		t.Errorf("expected db_user_name 'etl_db_user', got %q", dbUserName)
+	}
+	if spid != 12345 {
+		t.Errorf("expected spid 12345, got %d", spid)
+	}
+}
+
+func TestLogRunSummaryToDB_IncludesSPIDAndDBUser(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open sqlite in-memory db: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`
+		CREATE TABLE pipeline_runs (
+			run_id VARCHAR(64) PRIMARY KEY,
+			file_path VARCHAR(255) NOT NULL,
+			config_path VARCHAR(255),
+			status VARCHAR(32) NOT NULL,
+			started_at DATETIME NOT NULL,
+			finished_at DATETIME NOT NULL,
+			duration_ms BIGINT NOT NULL,
+			task_count INT NOT NULL,
+			user_name VARCHAR(256),
+			os_user_name VARCHAR(256),
+			db_user_name VARCHAR(256),
+			spid BIGINT,
+			hostname VARCHAR(256),
+			options_path VARCHAR(2048),
+			error_class VARCHAR(128),
+			error_message TEXT
+		);
+	`)
+	if err != nil {
+		t.Fatalf("failed to create pipeline_runs table: %v", err)
+	}
+
+	now := time.Now().UTC()
+	rec := RunSummaryRecord{
+		RunID:            "run-summary-test",
+		FilePath:         "pipeline.xml",
+		Status:           "succeeded",
+		StartedAt:        now,
+		FinishedAt:       now.Add(time.Second),
+		Duration:         time.Second,
+		TaskCount:        3,
+		UserName:         "alice_os",
+		OSUserName:       "alice_os",
+		DatabaseUserName: "app_db_user",
+		DBUserName:       "app_db_user",
+		SPID:             98765,
+		Hostname:         "srv01",
+	}
+
+	ctx := context.Background()
+	if err := LogRunSummaryToDB(ctx, db, "sqlite", rec, false); err != nil {
+		t.Fatalf("failed LogRunSummaryToDB: %v", err)
+	}
+
+	var (
+		userName   string
+		osUserName string
+		dbUserName string
+		spid       int64
+	)
+	row := db.QueryRow("SELECT user_name, os_user_name, db_user_name, spid FROM pipeline_runs WHERE run_id = 'run-summary-test'")
+	if err := row.Scan(&userName, &osUserName, &dbUserName, &spid); err != nil {
+		t.Fatalf("failed scanning pipeline_runs: %v", err)
+	}
+
+	if osUserName != "alice_os" {
+		t.Errorf("expected os_user_name 'alice_os', got %q", osUserName)
+	}
+	if dbUserName != "app_db_user" {
+		t.Errorf("expected db_user_name 'app_db_user', got %q", dbUserName)
+	}
+	if spid != 98765 {
+		t.Errorf("expected spid 98765, got %d", spid)
+	}
+}
+
+func TestDatabaseSink_BackwardCompatibilityWithoutSPID(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open sqlite in-memory db: %v", err)
+	}
+	defer db.Close()
+
+	// Legacy table with ONLY the original 15 columns
+	_, err = db.Exec(`
+		CREATE TABLE pipeline_events (
+			run_id VARCHAR(64) NOT NULL,
+			execution_id VARCHAR(64) NOT NULL,
+			sequence_num INT NOT NULL,
+			occurred_at DATETIME NOT NULL,
+			event_type VARCHAR(64) NOT NULL,
+			node_kind VARCHAR(64) NOT NULL,
+			node_id VARCHAR(128) NOT NULL,
+			status VARCHAR(32) NOT NULL,
+			user_name VARCHAR(256),
+			hostname VARCHAR(256),
+			options_path VARCHAR(2048),
+			error_message TEXT,
+			rows_read BIGINT,
+			rows_written BIGINT,
+			rows_affected BIGINT
+		);
+	`)
+	if err != nil {
+		t.Fatalf("failed to create legacy pipeline_events table: %v", err)
+	}
+
+	sink := NewDatabaseSink(db, "sqlite")
+	sink.SetSessionIdentity(54321, "db_admin")
+
+	ctx := context.Background()
+	err = sink.Emit(ctx, flow.ExecutionEvent{
+		RunID:       "run-legacy-1",
+		ExecutionID: "exec-legacy-1",
+		Sequence:    1,
+		Type:        flow.EventNodeStarted,
+		UserName:    "os_bob",
+	})
+	if err != nil {
+		t.Fatalf("expected legacy insert to succeed without error, got: %v", err)
+	}
+
+	var userName string
+	err = db.QueryRow("SELECT user_name FROM pipeline_events WHERE run_id = 'run-legacy-1'").Scan(&userName)
+	if err != nil {
+		t.Fatalf("failed querying legacy row: %v", err)
+	}
+	if userName != "os_bob" {
+		t.Errorf("expected user_name 'os_bob', got %q", userName)
+	}
+}
+
+

@@ -2906,3 +2906,428 @@ func TestSanitizePathAndExecutionSecurity(t *testing.T) {
 	}
 }
 
+func TestExecuteStreamFormatOptionWithoutOptions(t *testing.T) {
+	tmpDir := t.TempDir()
+	testScript := filepath.Join(tmpDir, "test_format.xml")
+	xmlContent := `<?xml version="1.0" encoding="UTF-8"?>
+<pipeline name="format_test">
+    <flow>
+        <sql id="flow_1" description="flow task">SELECT 1;</sql>
+    </flow>
+</pipeline>`
+	if err := os.WriteFile(testScript, []byte(xmlContent), 0644); err != nil {
+		t.Fatalf("failed to write test XML: %v", err)
+	}
+
+	storage, err := NewStorage(":memory:")
+	if err != nil {
+		t.Fatalf("failed to init storage: %v", err)
+	}
+	defer storage.Close()
+
+	server, err := NewServer(storage, 0)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	// 1. Without options file and format=jsonpretty: args must contain -format jsonpretty
+	reqJSONPretty := httptest.NewRequest(http.MethodGet, "/api/execute/stream?source=file&file="+testScript+"&format=jsonpretty", nil)
+	recJSONPretty := httptest.NewRecorder()
+	server.handleExecuteStream(recJSONPretty, reqJSONPretty)
+	bodyJSONPretty := recJSONPretty.Body.String()
+	if !strings.Contains(bodyJSONPretty, "-format jsonpretty") {
+		t.Errorf("expected execution log to contain '-format jsonpretty', got:\n%s", bodyJSONPretty)
+	}
+	if strings.Contains(bodyJSONPretty, "-options") {
+		t.Errorf("expected execution log NOT to contain -options flag, got:\n%s", bodyJSONPretty)
+	}
+
+	// 2. Without options file and format=markdown: args must contain -format markdown
+	reqMD := httptest.NewRequest(http.MethodGet, "/api/execute/stream?source=file&file="+testScript+"&format=markdown", nil)
+	recMD := httptest.NewRecorder()
+	server.handleExecuteStream(recMD, reqMD)
+	bodyMD := recMD.Body.String()
+	if !strings.Contains(bodyMD, "-format markdown") {
+		t.Errorf("expected execution log to contain '-format markdown', got:\n%s", bodyMD)
+	}
+
+	// 3. Without options file and format=csv: args must contain -format csv
+	reqCSV := httptest.NewRequest(http.MethodGet, "/api/execute/stream?source=file&file="+testScript+"&format=csv", nil)
+	recCSV := httptest.NewRecorder()
+	server.handleExecuteStream(recCSV, reqCSV)
+	bodyCSV := recCSV.Body.String()
+	if !strings.Contains(bodyCSV, "-format csv") {
+		t.Errorf("expected execution log to contain '-format csv', got:\n%s", bodyCSV)
+	}
+
+	// 4. Without options file and format omitted: defaults to stream
+	reqDefault := httptest.NewRequest(http.MethodGet, "/api/execute/stream?source=file&file="+testScript, nil)
+	recDefault := httptest.NewRecorder()
+	server.handleExecuteStream(recDefault, reqDefault)
+	bodyDefault := recDefault.Body.String()
+	if !strings.Contains(bodyDefault, "-format stream") {
+		t.Errorf("expected execution log to default to '-format stream', got:\n%s", bodyDefault)
+	}
+
+	// 5. Without options file and unknown format: safely falls back to stream
+	reqUnknown := httptest.NewRequest(http.MethodGet, "/api/execute/stream?source=file&file="+testScript+"&format=invalid_format", nil)
+	recUnknown := httptest.NewRecorder()
+	server.handleExecuteStream(recUnknown, reqUnknown)
+	bodyUnknown := recUnknown.Body.String()
+	if !strings.Contains(bodyUnknown, "-format stream") {
+		t.Errorf("expected execution log for invalid format to fall back to '-format stream', got:\n%s", bodyUnknown)
+	}
+}
+
+func TestExecuteStreamFormatIgnoredWithOptionsFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	testScript := filepath.Join(tmpDir, "test_with_options.xml")
+	if err := os.WriteFile(testScript, []byte("<pipeline name=\"opt\"><flow><sql id=\"1\">SELECT 1;</sql></flow></pipeline>"), 0644); err != nil {
+		t.Fatalf("failed to write test script XML: %v", err)
+	}
+	testOptions := filepath.Join(tmpDir, "test_options.xml")
+	if err := os.WriteFile(testOptions, []byte("<options><format>jsonpretty</format></options>"), 0644); err != nil {
+		t.Fatalf("failed to write test options XML: %v", err)
+	}
+
+	storage, err := NewStorage(":memory:")
+	if err != nil {
+		t.Fatalf("failed to init storage: %v", err)
+	}
+	defer storage.Close()
+
+	server, err := NewServer(storage, 0)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	// When options file is supplied, -format CLI flag must NOT be appended even if format param is passed
+	reqWithOptions := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/execute/stream?source=file&file=%s&options=%s&format=csv", testScript, testOptions), nil)
+	recWithOptions := httptest.NewRecorder()
+	server.handleExecuteStream(recWithOptions, reqWithOptions)
+	bodyWithOptions := recWithOptions.Body.String()
+
+	if !strings.Contains(bodyWithOptions, "-options") {
+		t.Errorf("expected execution log to contain -options flag, got:\n%s", bodyWithOptions)
+	}
+	if strings.Contains(bodyWithOptions, "-format") {
+		t.Errorf("expected execution log NOT to contain -format flag when options file is loaded, got:\n%s", bodyWithOptions)
+	}
+}
+
+func TestExecuteStreamFormatUIElements(t *testing.T) {
+	indexBytes, err := os.ReadFile("tmpl/index.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/index.html: %v", err)
+	}
+	tmplStr := string(indexBytes)
+
+	requiredSnippets := []string{
+		`id="runner-format"`,
+		`id="runner-format-hint"`,
+		`id="runner-format-badge"`,
+		`id="runner-live-badge"`,
+		`updateOptionsFileUI()`,
+		`function updateOptionsFileUI()`,
+		`<option value="stream" selected>stream (Live Event Stream)</option>`,
+		`<option value="csv">csv (Comma-Separated)</option>`,
+		`<option value="json">json (Compact JSON)</option>`,
+		`<option value="jsonpretty">jsonpretty (Formatted JSON)</option>`,
+		`<option value="text">text (Plain Text)</option>`,
+		`<option value="markdown">markdown (Markdown Table)</option>`,
+		`url += '&format=' + encodeURIComponent(selectedFormat);`,
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(tmplStr, snippet) {
+			t.Errorf("expected tmpl/index.html to contain %q", snippet)
+		}
+		if !strings.Contains(IndexHTML, snippet) {
+			t.Errorf("expected IndexHTML in html_content.go to contain %q", snippet)
+		}
+	}
+}
+
+func TestFileBrowsingParentDirBounds(t *testing.T) {
+	storage, err := NewStorage(":memory:")
+	if err != nil {
+		t.Fatalf("failed to init storage: %v", err)
+	}
+	defer storage.Close()
+
+	server, err := NewServer(storage, 0)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	// 1. Browsing at working directory root "." should yield ParentDir == ""
+	reqRoot := httptest.NewRequest(http.MethodGet, "/api/files/browse?dir=.", nil)
+	recRoot := httptest.NewRecorder()
+	server.handleBrowseFiles(recRoot, reqRoot)
+	if recRoot.Code != http.StatusOK {
+		t.Fatalf("expected 200 browsing root, got %d: %s", recRoot.Code, recRoot.Body.String())
+	}
+	var respRoot BrowseResponse
+	if err := json.Unmarshal(recRoot.Body.Bytes(), &respRoot); err != nil {
+		t.Fatalf("failed to unmarshal browse response: %v", err)
+	}
+	if respRoot.ParentDir != "" {
+		t.Errorf("expected ParentDir to be empty when browsing working directory root, got: %q", respRoot.ParentDir)
+	}
+
+	// 2. Browsing a subdirectory inside working directory should have non-empty ParentDir pointing to root
+	tmpSubDir, err := os.MkdirTemp(".", "test_sub_browse_")
+	if err != nil {
+		t.Fatalf("failed to create temp sub dir: %v", err)
+	}
+	defer os.RemoveAll(tmpSubDir)
+
+	reqSub := httptest.NewRequest(http.MethodGet, "/api/files/browse?dir="+tmpSubDir, nil)
+	recSub := httptest.NewRecorder()
+	server.handleBrowseFiles(recSub, reqSub)
+	if recSub.Code != http.StatusOK {
+		t.Fatalf("expected 200 browsing sub dir, got %d: %s", recSub.Code, recSub.Body.String())
+	}
+	var respSub BrowseResponse
+	if err := json.Unmarshal(recSub.Body.Bytes(), &respSub); err != nil {
+		t.Fatalf("failed to unmarshal sub dir browse response: %v", err)
+	}
+	if respSub.ParentDir == "" {
+		t.Errorf("expected ParentDir to be non-empty when browsing subfolder %s", tmpSubDir)
+	}
+}
+
+func TestFileBrowserErrorRecoveryUI(t *testing.T) {
+	indexBytes, err := os.ReadFile("tmpl/index.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/index.html: %v", err)
+	}
+	tmplStr := string(indexBytes)
+
+	requiredSnippets := []string{
+		`id="file-browser-error"`,
+		`id="file-browser-error-text"`,
+		`browserLastGoodDir`,
+		`showFileBrowserError(`,
+		`dismissFileBrowserError()`,
+		`updateFileBrowserUpButton(`,
+		`Returned to last known good directory`,
+		`returned to ' + fallbackDir`,
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(tmplStr, snippet) {
+			t.Errorf("expected tmpl/index.html to contain %q", snippet)
+		}
+		if !strings.Contains(IndexHTML, snippet) {
+			t.Errorf("expected IndexHTML in html_content.go to contain %q", snippet)
+		}
+	}
+}
+
+func TestDatabaseDriverHighlightOnTest(t *testing.T) {
+	indexBytes, err := os.ReadFile("tmpl/index.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/index.html: %v", err)
+	}
+	tmplStr := string(indexBytes)
+
+	requiredSnippets := []string{
+		`id="driver-badge-' + db.id + '"`,
+		`savedDbTestStatuses`,
+		`localStorage.getItem('flow_builder_db_test_statuses')`,
+		`bg-emerald-950/80 text-emerald-300 border-emerald-700/60`,
+		`bg-rose-950/80 text-rose-300 border-rose-700/60`,
+		`driverBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono border bg-emerald-950/80 text-emerald-300 border-emerald-700/60'`,
+		`driverBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono border bg-rose-950/80 text-rose-300 border-rose-700/60'`,
+		`delete savedDbTestStatuses[id]`,
+		`localStorage.removeItem('flow_builder_db_test_statuses')`,
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(tmplStr, snippet) {
+			t.Errorf("expected tmpl/index.html to contain %q", snippet)
+		}
+		if !strings.Contains(IndexHTML, snippet) {
+			t.Errorf("expected IndexHTML in html_content.go to contain %q", snippet)
+		}
+	}
+}
+
+func TestPipelineEventRecord_SPIDAndDBUser(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open sqlite in-memory db: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+
+	createRunsSQL := `
+	CREATE TABLE pipeline_runs (
+		run_id TEXT PRIMARY KEY,
+		file_path TEXT,
+		config_path TEXT,
+		status TEXT,
+		started_at TEXT,
+		finished_at TEXT,
+		duration_ms INTEGER,
+		task_count INTEGER,
+		user_name TEXT,
+		os_user_name TEXT,
+		db_user_name TEXT,
+		spid INTEGER,
+		hostname TEXT,
+		options_path TEXT,
+		error_class TEXT,
+		error_message TEXT
+	);`
+	if _, err := db.Exec(createRunsSQL); err != nil {
+		t.Fatalf("failed to create pipeline_runs table: %v", err)
+	}
+
+	createEventsSQL := `
+	CREATE TABLE pipeline_events (
+		run_id TEXT,
+		execution_id TEXT,
+		sequence_num INTEGER,
+		occurred_at TEXT,
+		event_type TEXT,
+		node_kind TEXT,
+		node_id TEXT,
+		status TEXT,
+		user_name TEXT,
+		os_user_name TEXT,
+		db_user_name TEXT,
+		spid INTEGER,
+		hostname TEXT,
+		options_path TEXT,
+		error_message TEXT,
+		rows_read INTEGER,
+		rows_written INTEGER,
+		rows_affected INTEGER
+	);`
+	if _, err := db.Exec(createEventsSQL); err != nil {
+		t.Fatalf("failed to create pipeline_events table: %v", err)
+	}
+
+	now := time.Now().UTC()
+	startStr := now.Format(time.RFC3339)
+	endStr := now.Add(time.Minute).Format(time.RFC3339)
+
+	insertRunSQL := `INSERT INTO pipeline_runs (
+		run_id, file_path, config_path, status, started_at, finished_at, duration_ms, task_count,
+		user_name, os_user_name, db_user_name, spid, hostname, options_path, error_class, error_message
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+	_, err = db.Exec(insertRunSQL, "run-spid-100", "test.xml", "", "succeeded", startStr, endStr, 60000, 1,
+		"srv_runner", "srv_runner", "analytics_svc", 4242, "host-01", "", "", "")
+	if err != nil {
+		t.Fatalf("failed to insert run: %v", err)
+	}
+
+	insertEventSQL := `INSERT INTO pipeline_events (
+		run_id, execution_id, sequence_num, occurred_at, event_type, node_kind, node_id, status,
+		user_name, os_user_name, db_user_name, spid, hostname, options_path, error_message, rows_read, rows_written, rows_affected
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+	_, err = db.Exec(insertEventSQL, "run-spid-100", "exec-100", 1, startStr, "step_start", "query", "node_1", "success",
+		"srv_runner", "srv_runner", "analytics_svc", 4242, "host-01", "", "", 100, 50, 0)
+	if err != nil {
+		t.Fatalf("failed to insert event: %v", err)
+	}
+
+	// 1. Test QueryPipelineEvents
+	events, err := QueryPipelineEvents(ctx, db, "sqlite", "pipeline_events", "run-spid-100")
+	if err != nil {
+		t.Fatalf("QueryPipelineEvents failed: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	evt := events[0]
+	if evt.SPID != 4242 {
+		t.Errorf("expected SPID 4242, got %d", evt.SPID)
+	}
+	if evt.DBUserName != "analytics_svc" || evt.DatabaseUserName != "analytics_svc" {
+		t.Errorf("expected DBUserName 'analytics_svc', got DBUserName=%q DatabaseUserName=%q", evt.DBUserName, evt.DatabaseUserName)
+	}
+	if evt.OSUserName != "srv_runner" || evt.UserName != "srv_runner" {
+		t.Errorf("expected OSUserName 'srv_runner', got OSUserName=%q UserName=%q", evt.OSUserName, evt.UserName)
+	}
+
+	// 2. Test QueryPipelineRuns
+	runs, err := QueryPipelineRuns(ctx, db, "sqlite", "pipeline_runs", "", "", 10)
+	if err != nil {
+		t.Fatalf("QueryPipelineRuns failed: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("expected 1 run, got %d", len(runs))
+	}
+	run := runs[0]
+	if run.SPID != 4242 {
+		t.Errorf("expected run SPID 4242, got %d", run.SPID)
+	}
+	if run.DBUserName != "analytics_svc" || run.DatabaseUserName != "analytics_svc" {
+		t.Errorf("expected run DBUserName 'analytics_svc', got DBUserName=%q DatabaseUserName=%q", run.DBUserName, run.DatabaseUserName)
+	}
+	if run.OSUserName != "srv_runner" || run.UserName != "srv_runner" {
+		t.Errorf("expected run OSUserName 'srv_runner', got OSUserName=%q UserName=%q", run.OSUserName, run.UserName)
+	}
+}
+
+func TestPipelineEventModal_ContainsSPIDAndDBUser(t *testing.T) {
+	indexBytes, err := os.ReadFile("tmpl/index.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/index.html: %v", err)
+	}
+	tmplStr := string(indexBytes)
+
+	requiredSnippets := []string{
+		`id="event-detail-db-user"`,
+		`id="event-detail-spid"`,
+		`evt.os_user_name || evt.user_name`,
+		`evt.db_user_name || evt.database_user_name`,
+		`(evt.spid !== undefined && evt.spid !== null && evt.spid !== 0) ? evt.spid : '-'`,
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(tmplStr, snippet) {
+			t.Errorf("expected tmpl/index.html to contain %q", snippet)
+		}
+		if !strings.Contains(IndexHTML, snippet) {
+			t.Errorf("expected IndexHTML in html_content.go to contain %q", snippet)
+		}
+	}
+}
+
+func TestExecutionLogs_ContainsSPID(t *testing.T) {
+	indexBytes, err := os.ReadFile("tmpl/index.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/index.html: %v", err)
+	}
+	tmplStr := string(indexBytes)
+
+	requiredSnippets := []string{
+		`<th class="p-2.5">SPID</th>`,
+		`<th class="p-2.5 text-center">SPID</th>`,
+		`id="active-run-spid-display"`,
+		`id="active-run-db-user-display"`,
+		`run.spid ? '<span class="text-amber-400 font-semibold">' + escapeHtml(run.spid) + '</span>'`,
+		`active-run-spid-display`,
+		`(run.spid !== undefined && run.spid !== null && run.spid !== 0) ? run.spid : '-'`,
+		`evt.spid ? escapeHtml(evt.spid) : '<span class="text-slate-600">-</span>'`,
+		`+ (r.spid || '')`,
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(tmplStr, snippet) {
+			t.Errorf("expected tmpl/index.html to contain %q", snippet)
+		}
+		if !strings.Contains(IndexHTML, snippet) {
+			t.Errorf("expected IndexHTML in html_content.go to contain %q", snippet)
+		}
+	}
+}
+
+
+
+

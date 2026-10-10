@@ -1,0 +1,80 @@
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
+
+    <!-- 1. Pipeline Variables -->
+    <variables>
+        <variable name="DBPath" type="string" value="./demo_employees.db" />
+        <variable name="MinSalary" type="float" value="100000.00" />
+    </variables>
+
+    <!-- 2. Database Connection Definition
+         Uses SQLite for an immediately runnable, zero-dependency local example.
+         To target other database engines, adjust the driver and connection_string:
+           - SQL Server: driver="sqlserver" connection_string="sqlserver://server:1433?database=mydb"
+           - PostgreSQL: driver="postgres"  connection_string="postgres://user:pass@localhost:5432/mydb?sslmode=disable"
+           - MySQL:      driver="mysql"     connection_string="user:pass@tcp(localhost:3306)/mydb"
+    -->
+    <databases>
+        <database name="sample_db" driver="sqlite" connection_string="{{DBPath}}" />
+    </databases>
+
+    <flow>
+        <!-- 3. Setup Sample Table and Data (Self-contained demonstration) -->
+        <sql id="InitSampleData" db="sample_db">
+            <![CDATA[
+                CREATE TABLE IF NOT EXISTS employees (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    department TEXT NOT NULL,
+                    salary REAL NOT NULL
+                );
+                DELETE FROM employees;
+                INSERT INTO employees (id, name, department, salary) VALUES
+                    (101, 'Alice Smith', 'Engineering', 125000.50),
+                    (102, 'Bob Jones', 'Data Science', 118000.00),
+                    (103, 'Carol White', 'DevOps', 132500.75);
+            ]]>
+        </sql>
+
+        <!-- 4. Query Database and Iterate Over Rows in a Streaming Foreach Loop -->
+        <foreach id="SelectEmployees" db="sample_db">
+            <![CDATA[
+                SELECT id, name, department, salary
+                FROM employees
+                WHERE salary >= {{MinSalary}}
+                ORDER BY id;
+            ]]>
+
+            <!-- 5. Render Row Data into a Variable Using Go text/template -->
+            <template id="FormatEmployeeRow" output_var="FormattedRow">
+==================================================
+Employee ID: {{.id}}
+Name:        {{.name}}
+Department:  {{.department}}
+Salary:      ${{.salary}}
+==================================================
+            </template>
+
+            <!-- 6. Print Formatted Output Directly to Standard Output (os.stdio / os.Stdout) -->
+            <script id="PrintToStdio" language="go">
+                <![CDATA[
+                package main
+
+                import (
+                    "fmt"
+                    "os"
+                    "host/vars"
+                )
+
+                func main() {
+                    // Fetch the rendered template text from pipeline variables
+                    rowText := vars.GetString("FormattedRow")
+
+                    // Output directly to os.Stdout (os.stdio)
+                    fmt.Fprintln(os.Stdout, rowText)
+                }
+                ]]>
+            </script>
+        </foreach>
+    </flow>
+</pipeline>

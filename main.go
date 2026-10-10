@@ -734,6 +734,12 @@ func main() {
 
 			dbSink = NewDatabaseSink(logDB, driverType)
 			dbSink.debug = *debug
+			if *debug {
+				spid, user := dbSink.SessionIdentity()
+				if spid != 0 || user != "" {
+					log.Printf("Session identity for 'log_db': SPID=%d, db_user=%s", spid, user)
+				}
+			}
 			sinks = append(sinks, dbSink)
 			defer logDB.Close()
 		}
@@ -773,20 +779,29 @@ func main() {
 					results.Hostname = hostname
 				}
 			}
+			var dbSPID int64
+			var dbUser string
+			if dbSink != nil {
+				dbSPID, dbUser = dbSink.SessionIdentity()
+			}
 			summary := RunSummaryRecord{
-				RunID:        runID,
-				FilePath:     resourceSourceLabel(*filePath),
-				ConfigPath:   resourceSourceLabel(*configPath),
-				Status:       string(results.Status),
-				StartedAt:    results.StartedAt,
-				FinishedAt:   results.FinishedAt,
-				Duration:     results.FinishedAt.Sub(results.StartedAt),
-				TaskCount:    len(results.Nodes),
-				UserName:     results.UserName,
-				Hostname:     results.Hostname,
-				OptionsPath:  results.OptionsPath,
-				ErrorClass:   string(results.ErrorClass),
-				ErrorMessage: results.ErrorMessage,
+				RunID:            runID,
+				FilePath:         resourceSourceLabel(*filePath),
+				ConfigPath:       resourceSourceLabel(*configPath),
+				Status:           string(results.Status),
+				StartedAt:        results.StartedAt,
+				FinishedAt:       results.FinishedAt,
+				Duration:         results.FinishedAt.Sub(results.StartedAt),
+				TaskCount:        len(results.Nodes),
+				UserName:         results.UserName,
+				OSUserName:       results.UserName,
+				DatabaseUserName: dbUser,
+				DBUserName:       dbUser,
+				SPID:             dbSPID,
+				Hostname:         results.Hostname,
+				OptionsPath:      results.OptionsPath,
+				ErrorClass:       string(results.ErrorClass),
+				ErrorMessage:     results.ErrorMessage,
 			}
 			if err := LogRunSummaryToDB(ctx, logDB, driverType, summary, *debug); err != nil {
 				log.Printf("Failed to log run summary to database: %v", err)
@@ -828,20 +843,29 @@ func main() {
 			}
 			userName, hostname := runtimeIdentity()
 
+			var dbSPID int64
+			var dbUser string
+			if dbSink != nil {
+				dbSPID, dbUser = dbSink.SessionIdentity()
+			}
 			summary := RunSummaryRecord{
-				RunID:        runID,
-				FilePath:     resourceSourceLabel(*filePath),
-				ConfigPath:   resourceSourceLabel(*configPath),
-				Status:       status,
-				StartedAt:    start,
-				FinishedAt:   time.Now().UTC(),
-				Duration:     time.Now().UTC().Sub(start),
-				TaskCount:    len(nodes),
-				UserName:     userName,
-				Hostname:     hostname,
-				OptionsPath:  *optionsPath,
-				ErrorClass:   errClass,
-				ErrorMessage: errMsg,
+				RunID:            runID,
+				FilePath:         resourceSourceLabel(*filePath),
+				ConfigPath:       resourceSourceLabel(*configPath),
+				Status:           status,
+				StartedAt:        start,
+				FinishedAt:       time.Now().UTC(),
+				Duration:         time.Now().UTC().Sub(start),
+				TaskCount:        len(nodes),
+				UserName:         userName,
+				OSUserName:       userName,
+				DatabaseUserName: dbUser,
+				DBUserName:       dbUser,
+				SPID:             dbSPID,
+				Hostname:         hostname,
+				OptionsPath:      *optionsPath,
+				ErrorClass:       errClass,
+				ErrorMessage:     errMsg,
 			}
 			if err := LogRunSummaryToDB(ctx, logDB, driverType, summary, *debug); err != nil {
 				log.Printf("Failed to log run summary to database: %v", err)

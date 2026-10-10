@@ -1,5 +1,103 @@
 # Release Notes
 
+## Release Notes (v1.1.23) - Database Session Auditing, Combined Signatures & Encryption, CLI Reference & Builder UX Enhancements
+
+### Overview
+
+Version 1.1.23 delivers key observability, cryptographic, operational, and user experience enhancements across Flow:
+1. **Database Session Auditing & Identity Tracking**: Pipeline events (`PipelineEventRecord`) and run summaries (`PipelineRunRecord`, `RunSummaryRecord`) now capture and persist the database process / session ID (`SPID` or engine equivalent) and authenticated `database_user_name` alongside the operating system user (`os_user_name`) across Microsoft SQL Server, PostgreSQL, MySQL, Oracle, and SQLite.
+2. **Combined Encryption & Digital Signatures Architecture**: Comprehensive architecture and reference workflows for combining AES-256-GCM authenticated encryption with multi-standard digital signatures into single files via Sign-then-Encrypt, Encrypt-then-Sign, and unified envelopes, featuring Windows Digital Certificate (PowerShell / PKCS#7 / X.509) examples in `docs/COMBINED_ENCRYPTION_AND_SIGNATURES.md`.
+3. **Comprehensive CLI Reference Guide**: Detailed documentation published in `docs/cli_arguments.md` covering all command-line arguments, environment variables, exit codes, and examples for `flow.exe`, `crypto_tool`, and `db_importer`.
+4. **Builder Execution Output Format Selector**: Added an on-demand format selector (`text`, `json`, `csv`, `xml`, `mermaid`) to the Builder pipeline execution modal when running without a pre-loaded options file.
+5. **Builder File Browser Error Recovery**: Hardened directory navigation in the Builder file browser to detect inaccessible/permission-denied folders and automatically revert to the last known good directory instead of failing into an empty or broken state.
+6. **Builder Database Connection Test Highlights**: Updated the database settings tab in the Builder UI so that database driver badges turn emerald green on successful connection test and persist status across page reloads via `localStorage`.
+7. **Builder Telemetry & Step Event Modal Upgrades**: Enhanced the Step Event Detail modal in the Builder UI to surface OS User, Authenticated Database User, and SPID / Session ID, backed by resilient dynamic column discovery in telemetry queries.
+8. **Multi-Dialect DDL Schemas & Documentation**: Updated table creation scripts in `docs/db_logging_setup.md` for PostgreSQL, MySQL, SQLite, Microsoft SQL Server, and Oracle to include `os_user_name`, `db_user_name`, and `spid`, with transparent backward compatibility for legacy schemas.
+
+---
+
+### Included Changes
+
+#### 1. Database Session Auditing & Identity Tracking (`spid`, `db_user_name`, `os_user_name`)
+- **Telemetry Record Expansion**:
+  - Added `SPID int64`, `DatabaseUserName string`, `DBUserName string`, and `OSUserName string` to `PipelineEventRecord` and `PipelineRunRecord` in `builder/telemetry.go`.
+  - Added matching fields to `RunSummaryRecord` in `formating.go`.
+  - Maintained backward compatibility by preserving `user_name` in all models and database outputs.
+- **Dialect Session Identity Resolution (`FetchDatabaseSessionIdentity`)**:
+  - Dynamically inspects the connection and resolves session metadata upon initialization:
+    - **Microsoft SQL Server (`sqlserver`)**: `SELECT @@SPID, SYSTEM_USER`
+    - **PostgreSQL (`postgres`)**: `SELECT pg_backend_pid(), CURRENT_USER`
+    - **MySQL (`mysql`)**: `SELECT CONNECTION_ID(), CURRENT_USER()`
+    - **Oracle (`oracle`)**: `SELECT TO_NUMBER(SYS_CONTEXT('USERENV', 'SID')), SYS_CONTEXT('USERENV', 'SESSION_USER') FROM DUAL`
+    - **SQLite (`sqlite`)**: Host process PID `int64(os.Getpid())` and OS username (or `"sqlite"`).
+- **Dynamic Schema Discovery & Backward Compatibility**:
+  - `DatabaseSink` and `LogRunSummaryToDB` execute column detection probes (`SELECT * FROM <table> WHERE 1=0`) to identify table columns at runtime.
+  - If a table was created with an older schema missing `spid`, `db_user_name`, or `os_user_name`, queries insert cleanly without errors. When the columns exist, they are automatically populated.
+- **Dynamic Column Telemetry Queries**:
+  - Refactored `QueryPipelineEvents` and `QueryPipelineRuns` in `builder/telemetry.go` to use `rows.Columns()` for dynamic scanning, eliminating scan errors or panics regardless of whether legacy or upgraded schemas are in use.
+- **Runtime Engine Integration**:
+  - In `main.go`, attached session identity logging under `-debug` and wired `dbSPID` and `dbUser` into both streaming execution and standard batch execution flows.
+
+#### 2. Combined Encryption & Digital Signatures (`docs/COMBINED_ENCRYPTION_AND_SIGNATURES.md`)
+- **Multi-Layer Cryptographic Architectural Guidance**:
+  - Documented workflows for bundling AES-256-GCM symmetric encryption with asymmetric digital signatures into a single deployable artifact:
+    - **Sign-then-Encrypt (Confidential Signature)**: Payload is signed first into a `FLOWSIGNED:v1:...` envelope, then encrypted into `FLOWENC:v1:...`. Guarantees payload confidentiality, sender authenticity, and hides signer identity from external observers.
+    - **Encrypt-then-Sign (Publicly Verifiable Ciphertext)**: Payload is encrypted first into `FLOWENC:v1:...`, then signed into `FLOWSIGNED:v1:...`. Enables intermediate routers, CI/CD runners, or gateways to verify cryptographic integrity without possessing the decryption key.
+    - **Unified Self-Contained Envelopes**: Combines payload and signature into a single file with zero secondary `.sig` / `.asc` / `.p7s` companion file dependencies.
+- **Windows Digital Certificate Integration**:
+  - Documented end-to-end Windows PowerShell workflows for exporting certificates from the Windows Certificate Store (`cert:\LocalMachine\My` or `cert:\CurrentUser\My`), creating test self-signed certificates with `New-SelfSignedCertificate`, exporting public keys with `Export-Certificate`, and signing/verifying with `crypto_tool` using sanitized, generic placeholders (no real passwords, paths, or keys).
+
+#### 3. Comprehensive CLI Reference Guide (`docs/cli_arguments.md`)
+- Published complete, structured CLI documentation covering all utilities:
+  - **`flow.exe`**: Core pipeline execution flags (`-source`, `-options`, `-config`), execution variables (`-var key=value`), output formats (`-format`), debug/dry-run options, secure encryption flags (`-secure-key`, `-key-file`), digital signature verification flags (`-verify-signature`, `-cert`, `-ca-cert`, `-keyring`), draft repository import/export flags (`-import-file`, `-export-file`, `-dsn`), and Flow Builder server mode (`-builder`, `-port`).
+  - **`crypto_tool`**: Complete flag reference for all actions (`encrypt`, `decrypt`, `gen-key`, `gen-keypair`, `sign`, `verify`), supported algorithms (AES-256-GCM, RSA, ECDSA, Ed25519, OpenPGP, PKCS#7), key file handling, and armor formatting (`-wrap`, `-binary`).
+  - **`db_importer`**: SQL Server repository importer/exporter flags (`-server`, `-database`, `-table`, `-pipeline-name`, `-encrypted`, `-export`, `-key-file`).
+  - Includes standard exit codes, environment variable precedence rules, and process table secret protection best practices.
+
+#### 4. Flow Builder UI Enhancements & Fixes
+- **On-Demand Execution Format Selection**:
+  - Added an output format dropdown (`text`, `json`, `csv`, `xml`, `mermaid`) directly within the Builder pipeline execution modal.
+  - Enabled when no options file is loaded, allowing developers to execute pipelines and observe immediate formatted results without authoring an XML options draft.
+  - Passes format via SSE query parameters to `handleExecuteStream`.
+- **File Browser Resilience & Last Known Good Directory Recovery**:
+  - Fixed a UI issue where clicking the parent directory button (`..`) or navigating into an inaccessible/restricted directory caused a `failed to read directory` error that cleared the directory listing and stranded the user.
+  - Implemented automatic state retention and error recovery: on navigation failure, the UI surfaces an alert banner and immediately restores the last known good directory path and listing.
+- **Database Connection Test Status Indicator**:
+  - Fixed the database settings tab in the Builder UI so that testing a database connection updates the driver badge highlight to emerald green (`border-emerald-700/60 bg-emerald-950/80 text-emerald-300`) upon success, or red upon failure.
+  - Saved test statuses in `localStorage` under `flow_builder_db_test_statuses` so connection health state persists across tab switches and browser refreshes.
+- **Step Event Detail Modal Upgrades**:
+  - Updated the Builder Event Detail modal HTML in both `tmpl/index.html` and embedded `html_content.go` to display **OS User / Host**, **Database User**, and **SPID / Session**.
+  - Updated `openEventDetailModal()` to populate `evt.os_user_name || evt.user_name`, `evt.db_user_name || evt.database_user_name`, and `evt.spid`.
+- **Execution Logs SPID Field & Run Summary Integration**:
+  - Surfaced the **SPID** column directly in the Builder Execution Logs **Pipeline Runs table** (`#log-runs-tbody`), rendering each run's database process ID in amber monospace text.
+  - Added real-time SPID search filtering to `#log-runs-search`, allowing developers to search runs by database SPID/PID alongside run ID, script, host, and user.
+  - Integrated **SPID** and **DB User** into the **Selected Active Run Summary Bar** (`#log-active-run-summary`), displaying session connection parameters alongside duration, status, and total row counts.
+  - Added dedicated **SPID** column into the **Step Events table** (`#log-events-container`), showing session identity for individual pipeline execution steps.
+
+#### 5. Multi-Database Logging DDL Updates (`docs/db_logging_setup.md`)
+- Updated canonical DDL schemas for both `pipeline_runs` and `pipeline_events` across:
+  - **PostgreSQL**: Added `os_user_name VARCHAR(256)`, `db_user_name VARCHAR(256)`, `spid BIGINT`.
+  - **MySQL / MariaDB**: Added `os_user_name VARCHAR(256)`, `db_user_name VARCHAR(256)`, `spid BIGINT`.
+  - **SQLite**: Added `os_user_name TEXT`, `db_user_name TEXT`, `spid INTEGER`.
+  - **Microsoft SQL Server**: Added `os_user_name VARCHAR(256)`, `db_user_name VARCHAR(256)`, `spid BIGINT`.
+  - **Oracle**: Added `os_user_name VARCHAR2(256)`, `db_user_name VARCHAR2(256)`, `spid NUMBER(19)`.
+- Added an explanatory session auditing reference table detailing dialect resolution functions.
+
+#### 6. Automated Testing & Verification
+- Added unit tests in `formating_test.go`:
+  - `TestFetchDatabaseSessionIdentity_SQLite`: Validates host PID and user retrieval.
+  - `TestDatabaseSink_EmitsSPIDAndDBUser`: Verifies SPID, DB user, and OS user persistence.
+  - `TestLogRunSummaryToDB_IncludesSPIDAndDBUser`: Validates run summary auditing fields.
+  - `TestDatabaseSink_BackwardCompatibilityWithoutSPID`: Verifies flawless execution against legacy 15-column tables.
+- Added tests in `builder/builder_test.go`:
+  - `TestPipelineEventRecord_SPIDAndDBUser`: Verifies dynamic column scanning in `QueryPipelineEvents` and `QueryPipelineRuns`.
+  - `TestPipelineEventModal_ContainsSPIDAndDBUser`: Verifies event detail modal field bindings.
+  - `TestExecutionLogs_ContainsSPID`: Verifies SPID column headers, search filter, summary bar, and event table row bindings across both `tmpl/index.html` and embedded `html_content.go`.
+- Ran full test suite across all packages (`github.com/etl-madness/go-flow`, `builder`, `crypto_tool`, `db_importer`, `pkg/flowcrypto`); all 100% passing.
+- Rebuilt `flow.exe` binary.
+
+---
+
 ## Release Notes (v1.1.22) - Cross-Platform Encryption, Digital Signatures & Crypto Tooling
 
 ### Overview

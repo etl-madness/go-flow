@@ -1,62 +1,67 @@
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd"
+          name="db_select_template_stdio"
+          id="db_select_template_stdio">
+
     <variables>
-        <variable name="TargetTable" value="processed_logs" description="Default destination table" type="string" />
-        <variable name="log_db_cs" value="sqlserver://T15P:1433?database=PROTO&amp;integrated+security=true&amp;trustServerCertificate=true" description="Connection String for Log DB" type="string" />
+        <variable name="DBPath" value="./demo_employees.db" type="string" />
+        <variable name="MinSalary" value="100000.00" type="float" />
     </variables>
 
     <databases>
-        <database name="local_sqlite" driver="sqlite" connection_string="./pipeline_data.db" />
-        <database name="log_db" driver="sqlserver" connection_string="{{log_db_cs}}" description="Logging Database" conn_max_lifetime_seconds="300" max_idle_conns="10" max_open_conns="25" />
+        <database name="sample_db" driver="sqlite" connection_string="{{DBPath}}" />
     </databases>
 
-    <preflight>
-        <sql id="pre_select_from_db_1" db="log_db">
-            SELECT 1
-        </sql>
-        <sql id="PRE_TABLE_RUN_CHECK" db="log_db" output_var="PRE_TABLE_AVAIL">
-            SELECT CAST(
-                            CASE 
-                                WHEN EXISTS (
-                                    SELECT 1
-                                    FROM [PROTO].[dbo].[pipeline_runs]
-                                )
-                                THEN 1
-                                ELSE 0
-                            END AS VARCHAR(1)
-                        );
-        </sql>
-        <template id="PRE_RETURN_CHECK_STEP">
-            Return Value: {{.PRE_TABLE_AVAIL}}
-        </template>
-        <if id="PRE_IF_TABLE_COUNT_GT_0" var="PRE_TABLE_AVAIL" equals="1">
-            <then>
-                <sql id="PRE_SUCCESS_STEP" db="log_db">
-                    SELECT COUNT(*) FROM  [PROTO].[dbo].[pipeline_runs]
-                </sql>
-            </then>
-            <else>
-                <template id="PRE_FAIL_STEP">
-                    {{.PRE_TABLE_AVAIL}} Failed
-                </template>
-            </else>
-        </if>
-    </preflight>
-
     <flow>
-        <sql id="GET_LOGS" db="log_db">
-            SELECT  [run_id]
-                              ,[file_path]
-                              ,[config_path]
-                              ,[status]
-                              ,[started_at]
-                              ,[finished_at]
-                              ,[duration_ms]
-                              ,[task_count]
-                              ,[error_class]
-                              ,[error_message]
-                              ,[created_at]
-                          FROM [PROTO].[dbo].[pipeline_runs]
+        <sql id="InitSampleData" db="sample_db">
+            <![CDATA[
+                            CREATE TABLE IF NOT EXISTS employees (
+                                id INTEGER PRIMARY KEY,
+                                name TEXT NOT NULL,
+                                department TEXT NOT NULL,
+                                salary REAL NOT NULL
+                            );
+                            DELETE FROM employees;
+                            INSERT INTO employees (id, name, department, salary) VALUES
+                                (101, 'Alice Smith', 'Engineering', 125000.50),
+                                (102, 'Bob Jones', 'Data Science', 118000.00),
+                                (103, 'Carol White', 'DevOps', 132500.75);
+                        ]]>
         </sql>
+        <foreach id="SelectEmployees" db="sample_db">
+            <![CDATA[
+                SELECT id, name, department, salary
+                                FROM employees
+                                WHERE salary >= {{MinSalary}}
+                                ORDER BY id;
+            ]]>
+            <template id="FormatEmployeeRow" output_var="FormattedRow">
+                ==================================================
+                Employee ID: {{.id}}
+                Name:        {{.name}}
+                Department:  {{.department}}
+                Salary:      ${{.salary}}
+                ==================================================
+            </template>
+            <script id="PrintToStdio" language="go">
+                <![CDATA[
+                                package main
+                
+                                import (
+                                    "fmt"
+                                    "os"
+                                    "host/vars"
+                                )
+                
+                                func main() {
+                                    // Fetch the rendered template text from pipeline variables
+                                    rowText := vars.GetString("FormattedRow")
+                
+                                    // Output directly to os.Stdout (os.stdio)
+                                    fmt.Fprintln(os.Stdout, rowText)
+                                }
+                                ]]>
+            </script>
+        </foreach>
     </flow>
 </pipeline>

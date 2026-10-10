@@ -120,3 +120,9 @@ You can render complex SQL statements and pass them into SQL scripts or stream E
     </flow>
 </pipeline>
 ```
+
+### 6. Streaming Database Rows to Template and Standard Output (`os.stdio`)
+For a comprehensive guide and runnable example demonstrating database streaming row iteration, Go template formatting, and direct printing to `os.Stdout` (`os.stdio`), see:
+* Guide: [`docs/db_select_template_stdio.md`](db_select_template_stdio.md)
+* Example Pipeline: [`examples/db_select_template_stdio.xml`](../examples/db_select_template_stdio.xml)
+

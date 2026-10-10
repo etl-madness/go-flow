@@ -441,7 +441,7 @@ const IndexHTML = `<!DOCTYPE html>
                         <div>
                             <h2 class="text-base font-bold text-white flex items-center space-x-2">
                                 <span>🚀 Execute Pipeline</span>
-                                <span class="text-[11px] font-normal px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Live Stream</span>
+                                <span id="runner-live-badge" class="text-[11px] font-normal px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Live Stream</span>
                             </h2>
                             <p class="text-xs text-slate-400">Select pipeline script, config, and options from the filesystem or execute active draft.</p>
                         </div>
@@ -462,7 +462,7 @@ const IndexHTML = `<!DOCTYPE html>
                             </button>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                         <div class="flex flex-col space-y-1">
                             <div class="flex items-center justify-between">
                                 <label class="text-[11px] font-semibold text-slate-300">📜 Pipeline Script (<span class="text-amber-400">*</span>)</label>
@@ -495,11 +495,28 @@ const IndexHTML = `<!DOCTYPE html>
                             </div>
                             <div class="flex items-center">
                                 <input type="text" id="runner-options-file" list="quick-xml-files" value="" placeholder="options.xml (optional)" class="bg-slate-950 border border-slate-700 rounded-l px-2.5 py-1.5 text-xs text-slate-200 w-full focus:outline-none focus:border-blue-500 font-mono">
-                                <button type="button" onclick="document.getElementById('runner-options-file').value=''" title="Clear options file" class="bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-y border-slate-700 px-2 py-1.5 text-xs transition cursor-pointer">✕</button>
+                                <button type="button" onclick="document.getElementById('runner-options-file').value=''; syncScriptWithOptionsSelection(); updateOptionsFileUI();" title="Clear options file" class="bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-y border-slate-700 px-2 py-1.5 text-xs transition cursor-pointer">✕</button>
                                 <button type="button" onclick="openFileBrowser('runner-options-file', '.xml')" title="Browse filesystem for options.xml" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border-y border-r border-slate-700 rounded-r px-2.5 py-1.5 text-xs font-medium transition flex items-center space-x-1 whitespace-nowrap cursor-pointer">
                                     <span>📁 Browse</span>
                                 </button>
                             </div>
+                        </div>
+                        <div class="flex flex-col space-y-1" id="runner-format-group">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[11px] font-semibold text-slate-300">📊 Output Format</label>
+                                <span id="runner-format-badge" class="text-[10px] text-cyan-400 font-mono">-format</span>
+                            </div>
+                            <div class="flex items-center">
+                                <select id="runner-format" class="bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 w-full focus:outline-none focus:border-blue-500 font-mono cursor-pointer transition disabled:opacity-50 disabled:bg-slate-900 disabled:cursor-not-allowed disabled:text-slate-500">
+                                    <option value="stream" selected>stream (Live Event Stream)</option>
+                                    <option value="csv">csv (Comma-Separated)</option>
+                                    <option value="json">json (Compact JSON)</option>
+                                    <option value="jsonpretty">jsonpretty (Formatted JSON)</option>
+                                    <option value="text">text (Plain Text)</option>
+                                    <option value="markdown">markdown (Markdown Table)</option>
+                                </select>
+                            </div>
+                            <span id="runner-format-hint" class="text-[10px] text-slate-500 truncate" title="Format option applied when no options file is loaded">Select format (no options file)</span>
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/60 mt-1 text-xs">
@@ -604,7 +621,7 @@ const IndexHTML = `<!DOCTYPE html>
                         <div class="flex items-center space-x-2">
                             <div class="relative flex-1">
                                 <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400 text-xs">🔍</span>
-                                <input type="text" id="log-runs-search" placeholder="Search Run ID, script, host, user, error..." oninput="filterLogRuns()" class="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-md text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
+                                <input type="text" id="log-runs-search" placeholder="Search Run ID, SPID, script, host, user, error..." oninput="filterLogRuns()" class="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-md text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
                             </div>
                             <select id="log-runs-status-filter" onchange="filterLogRuns()" class="bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-md px-2.5 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer">
                                 <option value="all">All Statuses</option>
@@ -624,12 +641,13 @@ const IndexHTML = `<!DOCTYPE html>
                                     <th class="p-2.5">Pipeline / Script</th>
                                     <th class="p-2.5">Started At</th>
                                     <th class="p-2.5">Duration</th>
+                                    <th class="p-2.5">SPID</th>
                                     <th class="p-2.5">User & Host</th>
                                 </tr>
                             </thead>
                             <tbody id="log-runs-tbody" class="divide-y divide-slate-800/80">
                                 <tr>
-                                    <td colspan="6" class="p-8 text-center text-slate-500">Select a database above to load pipeline runs.</td>
+                                    <td colspan="7" class="p-8 text-center text-slate-500">Select a database above to load pipeline runs.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -657,7 +675,9 @@ const IndexHTML = `<!DOCTYPE html>
                                 <span class="text-[11px] text-slate-400" id="active-run-time-display"></span>
                             </div>
                             <div id="active-run-error-box" class="hidden text-[11px] text-rose-300 bg-rose-950/40 border border-rose-900/50 rounded p-1.5 font-mono"></div>
-                            <div class="flex items-center space-x-4 text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
+                            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
+                                <span>SPID: <b id="active-run-spid-display" class="text-amber-400 font-mono font-bold">-</b></span>
+                                <span>DB User: <b id="active-run-db-user-display" class="text-cyan-400 font-mono">-</b></span>
                                 <span>Total Rows Read: <b id="sum-rows-read" class="text-cyan-400 font-mono">0</b></span>
                                 <span>Written: <b id="sum-rows-written" class="text-emerald-400 font-mono">0</b></span>
                                 <span>Affected: <b id="sum-rows-affected" class="text-purple-400 font-mono">0</b></span>
@@ -676,13 +696,14 @@ const IndexHTML = `<!DOCTYPE html>
                                     <th class="p-2.5">Kind</th>
                                     <th class="p-2.5">Type</th>
                                     <th class="p-2.5">Status</th>
+                                    <th class="p-2.5 text-center">SPID</th>
                                     <th class="p-2.5 text-right">Rows</th>
                                     <th class="p-2.5 text-center">Details</th>
                                 </tr>
                             </thead>
                             <tbody id="log-events-tbody" class="divide-y divide-slate-800/80">
                                 <tr>
-                                    <td colspan="8" class="p-8 text-center text-slate-500">Select a pipeline run on the left to inspect its events.</td>
+                                    <td colspan="9" class="p-8 text-center text-slate-500">Select a pipeline run on the left to inspect its events.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1058,8 +1079,16 @@ const IndexHTML = `<!DOCTYPE html>
                         <span id="event-detail-time" class="text-slate-300"></span>
                     </div>
                     <div class="flex justify-between py-0.5 border-b border-slate-800/60">
-                        <span class="text-slate-500">User / Host:</span>
+                        <span class="text-slate-500">OS User / Host:</span>
                         <span class="text-slate-300"><span id="event-detail-user"></span>@<span id="event-detail-host"></span></span>
+                    </div>
+                    <div class="flex justify-between py-0.5 border-b border-slate-800/60">
+                        <span class="text-slate-500">Database User:</span>
+                        <span id="event-detail-db-user" class="text-slate-300 font-mono"></span>
+                    </div>
+                    <div class="flex justify-between py-0.5 border-b border-slate-800/60">
+                        <span class="text-slate-500">SPID / Session:</span>
+                        <span id="event-detail-spid" class="text-cyan-400 font-mono font-bold"></span>
                     </div>
                     <div class="flex justify-between py-0.5">
                         <span class="text-slate-500">Options Path:</span>
@@ -1126,6 +1155,14 @@ const IndexHTML = `<!DOCTYPE html>
                 <button onclick="refreshFileBrowser()" title="Refresh directory" class="px-2 py-0.5 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition cursor-pointer">
                     🔄
                 </button>
+            </div>
+
+            <div id="file-browser-error" class="hidden px-3 py-2 rounded-lg bg-red-950/80 border border-red-800/80 text-red-300 text-xs flex items-center justify-between">
+                <div class="flex items-center space-x-2 truncate flex-1">
+                    <span class="text-amber-400">⚠️</span>
+                    <span id="file-browser-error-text" class="truncate font-mono"></span>
+                </div>
+                <button type="button" onclick="dismissFileBrowserError()" title="Dismiss message" class="text-red-400 hover:text-red-200 text-sm ml-2 cursor-pointer leading-none">&times;</button>
             </div>
 
             <div>
@@ -2226,6 +2263,7 @@ const IndexHTML = `<!DOCTYPE html>
                 if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
                 return r.json();
             }).then(function(res) {
+                try { localStorage.removeItem('flow_builder_db_test_statuses'); } catch(e) {}
                 alert(res.message || 'Database purged successfully!');
                 window.location.href = '/';
             }).catch(function(err) {
@@ -2274,23 +2312,105 @@ const IndexHTML = `<!DOCTYPE html>
             }
         }
 
+        function updateOptionsFileUI() {
+            const optionsInput = document.getElementById('runner-options-file');
+            const formatSelect = document.getElementById('runner-format');
+            const formatHint = document.getElementById('runner-format-hint');
+            const formatBadge = document.getElementById('runner-format-badge');
+            const liveBadge = document.getElementById('runner-live-badge');
+            if (!optionsInput || !formatSelect) return;
+
+            const hasOptions = optionsInput.value.trim() !== '';
+            if (hasOptions) {
+                formatSelect.disabled = true;
+                if (formatHint) {
+                    formatHint.textContent = 'Controlled by options file';
+                    formatHint.className = 'text-[10px] text-amber-400 truncate';
+                    formatHint.title = 'Format is specified inside the loaded options XML file';
+                }
+                if (formatBadge) {
+                    formatBadge.textContent = 'from -options';
+                    formatBadge.className = 'text-[10px] text-amber-400/80 font-mono';
+                }
+                if (liveBadge) {
+                    liveBadge.textContent = 'Options Configured';
+                    liveBadge.className = 'text-[11px] font-normal px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30';
+                }
+            } else {
+                formatSelect.disabled = false;
+                if (formatHint) {
+                    formatHint.textContent = 'Select format (no options file)';
+                    formatHint.className = 'text-[10px] text-slate-500 truncate';
+                    formatHint.title = 'Choose CLI output format when running without an options file';
+                }
+                if (formatBadge) {
+                    formatBadge.textContent = '-format';
+                    formatBadge.className = 'text-[10px] text-cyan-400 font-mono';
+                }
+                if (liveBadge) {
+                    const fmt = formatSelect.value || 'stream';
+                    const fmtLabel = fmt === 'stream' ? 'Live Stream' : fmt.toUpperCase();
+                    liveBadge.textContent = fmtLabel;
+                    liveBadge.className = 'text-[11px] font-normal px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30';
+                }
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const optionsInput = document.getElementById('runner-options-file');
             if (optionsInput) {
-                optionsInput.addEventListener('change', syncScriptWithOptionsSelection);
+                optionsInput.addEventListener('change', function() {
+                    syncScriptWithOptionsSelection();
+                    updateOptionsFileUI();
+                });
                 optionsInput.addEventListener('input', function() {
                     if (this.value.trim() !== '') {
                         syncScriptWithOptionsSelection();
                     }
+                    updateOptionsFileUI();
                 });
             }
+            const formatSelect = document.getElementById('runner-format');
+            if (formatSelect) {
+                formatSelect.addEventListener('change', updateOptionsFileUI);
+            }
+            updateOptionsFileUI();
         });
 
         let browserTargetInputId = '';
         let browserFilterExt = '.xml';
         let browserCurrentDir = '.';
+        let browserLastGoodDir = '.';
         let browserParentDir = '';
         let browseCacheEntries = [];
+
+        function showFileBrowserError(msg) {
+            const banner = document.getElementById('file-browser-error');
+            const textEl = document.getElementById('file-browser-error-text');
+            if (banner && textEl) {
+                textEl.textContent = msg;
+                banner.classList.remove('hidden');
+            }
+        }
+
+        function dismissFileBrowserError() {
+            const banner = document.getElementById('file-browser-error');
+            if (banner) {
+                banner.classList.add('hidden');
+            }
+        }
+
+        function updateFileBrowserUpButton(parentDir, currentDir) {
+            const upBtn = document.getElementById('file-browser-up-btn');
+            if (!upBtn) return;
+            if (parentDir && parentDir !== currentDir) {
+                upBtn.disabled = false;
+                upBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+            } else {
+                upBtn.disabled = true;
+                upBtn.classList.add('opacity-40', 'cursor-not-allowed');
+            }
+        }
 
         function openFileBrowser(targetId, ext) {
             browserTargetInputId = targetId;
@@ -2313,8 +2433,9 @@ const IndexHTML = `<!DOCTYPE html>
                 subtitle.textContent = 'Choose a file from the filesystem';
             }
 
+            dismissFileBrowserError();
             modal.classList.remove('hidden');
-            loadDirectory(browserCurrentDir);
+            loadDirectory(browserCurrentDir || browserLastGoodDir || '.');
         }
 
         function closeFileBrowser() {
@@ -2322,45 +2443,59 @@ const IndexHTML = `<!DOCTYPE html>
             if (modal) modal.classList.add('hidden');
             const filterInput = document.getElementById('file-browser-filter');
             if (filterInput) filterInput.value = '';
+            dismissFileBrowserError();
         }
 
         function loadDirectory(dir) {
-            browserCurrentDir = dir;
-            const url = '/api/files/browse?dir=' + encodeURIComponent(dir) + '&ext=' + encodeURIComponent(browserFilterExt);
+            const targetDir = dir || '.';
+            const url = '/api/files/browse?dir=' + encodeURIComponent(targetDir) + '&ext=' + encodeURIComponent(browserFilterExt);
             fetch(url)
-                .then(r => {
-                    if (!r.ok) throw new Error('Failed to read directory');
+                .then(async r => {
+                    if (!r.ok) {
+                        const errText = await r.text();
+                        throw new Error(errText || 'Failed to read directory');
+                    }
                     return r.json();
                 })
                 .then(data => {
+                    dismissFileBrowserError();
                     browserCurrentDir = data.current_dir;
+                    browserLastGoodDir = data.current_dir;
                     browserParentDir = data.parent_dir;
                     document.getElementById('file-browser-current-path').textContent = data.current_dir || '.';
-                    const upBtn = document.getElementById('file-browser-up-btn');
-                    if (data.parent_dir && data.parent_dir !== data.current_dir) {
-                        upBtn.disabled = false;
-                        upBtn.classList.remove('opacity-40', 'cursor-not-allowed');
-                    } else {
-                        upBtn.disabled = true;
-                        upBtn.classList.add('opacity-40', 'cursor-not-allowed');
-                    }
+                    updateFileBrowserUpButton(data.parent_dir, data.current_dir);
                     browseCacheEntries = data.entries || [];
                     renderBrowseEntries(browseCacheEntries);
                 })
                 .catch(err => {
-                    document.getElementById('file-browser-list').innerHTML =
-                        '<div class="p-4 text-center text-red-400 text-xs">Error reading directory: ' + err.message + '</div>';
+                    const fallbackDir = browserLastGoodDir || '.';
+                    browserCurrentDir = fallbackDir;
+                    document.getElementById('file-browser-current-path').textContent = fallbackDir;
+                    updateFileBrowserUpButton(browserParentDir, fallbackDir);
+
+                    const cleanMsg = (err && err.message) ? err.message.trim() : 'Failed to read directory';
+                    showFileBrowserError(cleanMsg + ' — returned to ' + fallbackDir);
+
+                    if (browseCacheEntries && browseCacheEntries.length > 0) {
+                        renderBrowseEntries(browseCacheEntries);
+                    } else if (targetDir !== '.' && fallbackDir !== '.') {
+                        loadDirectory('.');
+                    } else {
+                        document.getElementById('file-browser-list').innerHTML =
+                            '<div class="p-4 text-center text-red-400 text-xs">Error reading directory: ' + escapeHtml(cleanMsg) +
+                            '<div class="mt-2 text-slate-400 text-[11px]">Returned to last known good directory: ' + escapeHtml(fallbackDir) + '</div></div>';
+                    }
                 });
         }
 
         function browseUp() {
-            if (browserParentDir) {
+            if (browserParentDir && browserParentDir !== browserCurrentDir) {
                 loadDirectory(browserParentDir);
             }
         }
 
         function refreshFileBrowser() {
-            loadDirectory(browserCurrentDir);
+            loadDirectory(browserCurrentDir || browserLastGoodDir || '.');
         }
 
         function filterBrowseResults(query) {
@@ -2429,6 +2564,7 @@ const IndexHTML = `<!DOCTYPE html>
                     }
                     if (browserTargetInputId === 'runner-options-file') {
                         syncScriptWithOptionsSelection();
+                        updateOptionsFileUI();
                     }
                     if (browserTargetInputId === 'import-file-path') {
                         const nameInput = document.getElementById('import-script-name');
@@ -2589,6 +2725,8 @@ const IndexHTML = `<!DOCTYPE html>
             const scriptFile = scriptInput ? scriptInput.value.trim() : '';
             const configFile = document.getElementById('runner-config-file').value.trim();
             const optionsFile = document.getElementById('runner-options-file').value.trim();
+            const formatSelect = document.getElementById('runner-format');
+            const selectedFormat = (formatSelect && !formatSelect.disabled) ? formatSelect.value : (formatSelect ? formatSelect.value : 'stream');
             const preflightCheckbox = document.getElementById('runner-preflight');
             const isPreflight = (typeof forcePreflight === 'boolean') ? forcePreflight : (preflightCheckbox ? preflightCheckbox.checked : false);
             if (preflightCheckbox && typeof forcePreflight === 'boolean') {
@@ -2620,6 +2758,9 @@ const IndexHTML = `<!DOCTYPE html>
                         '&script_id=' + currentScriptId +
                         '&config=' + encodeURIComponent(configFile) +
                         '&options=' + encodeURIComponent(optionsFile);
+            if (optionsFile === '') {
+                url += '&format=' + encodeURIComponent(selectedFormat);
+            }
             if (isPreflight) {
                 url += '&preflight=true';
             }
@@ -2639,8 +2780,9 @@ const IndexHTML = `<!DOCTYPE html>
                     clearInterval(timerInterval);
                     eventSource.close();
                     if (tbody.children.length === 0) {
+                        const fmtMsg = (optionsFile === '' && selectedFormat !== 'stream') ? (' (format: ' + escapeHtml(selectedFormat) + ')') : '';
                         tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">' +
-                            (data.error ? ((isPreflight ? 'Preflight stopped: ' : 'Execution stopped: ') + escapeHtml(data.error)) : ((isPreflight ? 'Preflight' : 'Execution') + ' completed with no node events.')) +
+                            (data.error ? ((isPreflight ? 'Preflight stopped: ' : 'Execution stopped: ') + escapeHtml(data.error)) : ((isPreflight ? 'Preflight' : 'Execution') + ' completed' + fmtMsg + '. See Console Stream Logs below.')) +
                             '</td></tr>';
                     }
                     if (data.status === 'SUCCESS') {
@@ -2748,6 +2890,11 @@ const IndexHTML = `<!DOCTYPE html>
         }
 
         let savedDatabasesList = [];
+        let savedDbTestStatuses = {};
+        try {
+            const cachedTestStatuses = localStorage.getItem('flow_builder_db_test_statuses');
+            if (cachedTestStatuses) savedDbTestStatuses = JSON.parse(cachedTestStatuses) || {};
+        } catch(e) {}
 
         const DRIVER_PLACEHOLDERS = {
             postgres: 'postgresql://user:pass@localhost:5432/dbname?sslmode=disable',
@@ -2806,14 +2953,41 @@ const IndexHTML = `<!DOCTYPE html>
                     sqlite: 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60',
                     oracle: 'bg-rose-950/80 text-rose-300 border-rose-700/60'
                 };
+                var testStatus = savedDbTestStatuses[db.id];
                 var badgeClass = driverBadgeColors[db.driver] || 'bg-slate-800 text-slate-300 border-slate-700';
+                var badgeTitle = 'Driver: ' + db.driver;
+
+                if (testStatus) {
+                    if (testStatus.success) {
+                        badgeClass = 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60';
+                        badgeTitle = 'Verified connection (' + (testStatus.latency ? testStatus.latency + 'ms' : 'connected') + ')';
+                    } else {
+                        badgeClass = 'bg-rose-950/80 text-rose-300 border-rose-700/60';
+                        badgeTitle = 'Connection test failed: ' + (testStatus.error || 'unreachable');
+                    }
+                }
+
+                var statusClass = 'hidden text-[10px] text-right mt-1';
+                var statusText = '';
+                var statusTitle = '';
+                if (testStatus) {
+                    if (testStatus.success) {
+                        statusClass = 'text-[10px] text-right mt-1 text-emerald-400 font-medium';
+                        statusText = '✓ ' + (testStatus.latency ? testStatus.latency + 'ms' : 'Connected');
+                        statusTitle = 'Connected successfully';
+                    } else {
+                        statusClass = 'text-[10px] text-right mt-1 text-rose-400 font-medium';
+                        statusText = '✕ Ping failed';
+                        statusTitle = testStatus.error || 'Connection failed';
+                    }
+                }
 
                 return '<tr class="hover:bg-slate-950/40 transition-colors">' +
                     '<td class="p-3">' +
                         '<div class="font-semibold text-slate-200 text-xs">' + escapeHtml(db.name) + '</div>' +
                     '</td>' +
                     '<td class="p-3">' +
-                        '<span class="px-2 py-0.5 rounded text-[10px] font-mono border ' + badgeClass + '">' + escapeHtml(db.driver) + '</span>' +
+                        '<span id="driver-badge-' + db.id + '" class="px-2 py-0.5 rounded text-[10px] font-mono border ' + badgeClass + '" title="' + escapeHtml(badgeTitle) + '">' + escapeHtml(db.driver) + '</span>' +
                     '</td>' +
                     '<td class="p-3">' +
                         '<div class="flex items-center space-x-2 font-mono text-[11px] text-slate-300">' +
@@ -2836,7 +3010,7 @@ const IndexHTML = `<!DOCTYPE html>
                                 '🗑️' +
                             '</button>' +
                         '</div>' +
-                        '<div id="test-status-' + db.id + '" class="hidden text-[10px] text-right mt-1"></div>' +
+                        '<div id="test-status-' + db.id + '" class="' + statusClass + '" title="' + escapeHtml(statusTitle) + '">' + escapeHtml(statusText) + '</div>' +
                     '</td>' +
                 '</tr>';
             }).join('');
@@ -2919,6 +3093,13 @@ const IndexHTML = `<!DOCTYPE html>
                 return r.json();
             })
             .then(res => {
+                if (idVal) {
+                    const numId = parseInt(idVal, 10);
+                    if (numId > 0 && savedDbTestStatuses[numId]) {
+                        delete savedDbTestStatuses[numId];
+                        try { localStorage.setItem('flow_builder_db_test_statuses', JSON.stringify(savedDbTestStatuses)); } catch(e) {}
+                    }
+                }
                 closeDatabaseModal();
                 loadSavedDatabases();
             })
@@ -2957,9 +3138,25 @@ const IndexHTML = `<!DOCTYPE html>
                 if (res.success) {
                     resBox.className = 'text-xs p-2.5 rounded border bg-emerald-950/60 border-emerald-700/60 text-emerald-300';
                     resBox.textContent = '✓ ' + res.message;
+                    const idVal = document.getElementById('db-conn-id').value;
+                    if (idVal) {
+                        const numId = parseInt(idVal, 10);
+                        if (numId > 0) {
+                            savedDbTestStatuses[numId] = { success: true, latency: res.latency };
+                            try { localStorage.setItem('flow_builder_db_test_statuses', JSON.stringify(savedDbTestStatuses)); } catch(e) {}
+                        }
+                    }
                 } else {
                     resBox.className = 'text-xs p-2.5 rounded border bg-rose-950/60 border-rose-700/60 text-rose-300';
                     resBox.textContent = '✕ ' + res.error;
+                    const idVal = document.getElementById('db-conn-id').value;
+                    if (idVal) {
+                        const numId = parseInt(idVal, 10);
+                        if (numId > 0) {
+                            savedDbTestStatuses[numId] = { success: false, error: res.error };
+                            try { localStorage.setItem('flow_builder_db_test_statuses', JSON.stringify(savedDbTestStatuses)); } catch(e) {}
+                        }
+                    }
                 }
             })
             .catch(err => {
@@ -2972,7 +3169,11 @@ const IndexHTML = `<!DOCTYPE html>
         function testSavedDatabase(id) {
             const statusEl = document.getElementById('test-status-' + id);
             const btn = document.getElementById('test-btn-' + id);
+            const driverBadge = document.getElementById('driver-badge-' + id);
             if (btn) btn.textContent = '...';
+            if (driverBadge) {
+                driverBadge.classList.add('animate-pulse');
+            }
             if (statusEl) {
                 statusEl.className = 'text-[10px] text-right mt-1 text-slate-400';
                 statusEl.textContent = 'Pinging...';
@@ -2990,21 +3191,50 @@ const IndexHTML = `<!DOCTYPE html>
             .then(r => r.json())
             .then(res => {
                 if (btn) btn.textContent = '⚡ Test';
-                if (!statusEl) return;
+                if (driverBadge) driverBadge.classList.remove('animate-pulse');
                 if (res.success) {
-                    statusEl.className = 'text-[10px] text-right mt-1 text-emerald-400 font-medium';
-                    statusEl.textContent = '✓ ' + (res.latency ? res.latency + 'ms' : 'Connected');
+                    savedDbTestStatuses[id] = { success: true, latency: res.latency };
+                    try { localStorage.setItem('flow_builder_db_test_statuses', JSON.stringify(savedDbTestStatuses)); } catch(e) {}
+                    if (driverBadge) {
+                        driverBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono border bg-emerald-950/80 text-emerald-300 border-emerald-700/60';
+                        driverBadge.title = 'Verified connection (' + (res.latency ? res.latency + 'ms' : 'connected') + ')';
+                    }
+                    if (statusEl) {
+                        statusEl.className = 'text-[10px] text-right mt-1 text-emerald-400 font-medium';
+                        statusEl.textContent = '✓ ' + (res.latency ? res.latency + 'ms' : 'Connected');
+                        statusEl.title = 'Connected successfully';
+                        statusEl.classList.remove('hidden');
+                    }
                 } else {
-                    statusEl.className = 'text-[10px] text-right mt-1 text-rose-400 font-medium';
-                    statusEl.textContent = '✕ Ping failed';
-                    statusEl.title = res.error || 'Connection failed';
+                    savedDbTestStatuses[id] = { success: false, error: res.error, latency: res.latency };
+                    try { localStorage.setItem('flow_builder_db_test_statuses', JSON.stringify(savedDbTestStatuses)); } catch(e) {}
+                    if (driverBadge) {
+                        driverBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono border bg-rose-950/80 text-rose-300 border-rose-700/60';
+                        driverBadge.title = 'Connection failed: ' + (res.error || 'Connection failed');
+                    }
+                    if (statusEl) {
+                        statusEl.className = 'text-[10px] text-right mt-1 text-rose-400 font-medium';
+                        statusEl.textContent = '✕ Ping failed';
+                        statusEl.title = res.error || 'Connection failed';
+                        statusEl.classList.remove('hidden');
+                    }
                 }
             })
             .catch(err => {
                 if (btn) btn.textContent = '⚡ Test';
-                if (!statusEl) return;
-                statusEl.className = 'text-[10px] text-right mt-1 text-rose-400 font-medium';
-                statusEl.textContent = '✕ ' + err.message;
+                if (driverBadge) driverBadge.classList.remove('animate-pulse');
+                savedDbTestStatuses[id] = { success: false, error: err.message };
+                try { localStorage.setItem('flow_builder_db_test_statuses', JSON.stringify(savedDbTestStatuses)); } catch(e) {}
+                if (driverBadge) {
+                    driverBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono border bg-rose-950/80 text-rose-300 border-rose-700/60';
+                    driverBadge.title = 'Connection error: ' + err.message;
+                }
+                if (statusEl) {
+                    statusEl.className = 'text-[10px] text-right mt-1 text-rose-400 font-medium';
+                    statusEl.textContent = '✕ ' + err.message;
+                    statusEl.title = err.message;
+                    statusEl.classList.remove('hidden');
+                }
             });
         }
 
@@ -3024,6 +3254,8 @@ const IndexHTML = `<!DOCTYPE html>
                 return r.json();
             })
             .then(() => {
+                delete savedDbTestStatuses[id];
+                try { localStorage.setItem('flow_builder_db_test_statuses', JSON.stringify(savedDbTestStatuses)); } catch(e) {}
                 loadSavedDatabases();
             })
             .catch(err => {
@@ -3173,7 +3405,7 @@ const IndexHTML = `<!DOCTYPE html>
                     return false;
                 }
                 if (search) {
-                    const haystack = ((r.run_id || '') + ' ' + (r.file_path || '') + ' ' + (r.config_path || '') + ' ' + (r.user_name || '') + ' ' + (r.hostname || '') + ' ' + (r.error_message || '')).toLowerCase();
+                    const haystack = ((r.run_id || '') + ' ' + (r.file_path || '') + ' ' + (r.config_path || '') + ' ' + (r.user_name || '') + ' ' + (r.hostname || '') + ' ' + (r.error_message || '') + ' ' + (r.spid || '')).toLowerCase();
                     if (!haystack.includes(search)) return false;
                 }
                 return true;
@@ -3188,7 +3420,7 @@ const IndexHTML = `<!DOCTYPE html>
         function renderEmptyLogRuns(message) {
             const tbody = document.getElementById('log-runs-tbody');
             if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-400">' + escapeHtml(message) + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400">' + escapeHtml(message) + '</td></tr>';
             const badge = document.getElementById('log-runs-count-badge');
             if (badge) badge.textContent = '0 Runs';
         }
@@ -3217,7 +3449,7 @@ const IndexHTML = `<!DOCTYPE html>
             if (!tbody) return;
 
             if (!runs || runs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500">No matching pipeline runs found.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-500">No matching pipeline runs found.</td></tr>';
                 return;
             }
 
@@ -3246,6 +3478,9 @@ const IndexHTML = `<!DOCTYPE html>
                     '</td>' +
                     '<td class="p-2.5 whitespace-nowrap text-slate-300 font-mono text-[11px]">' +
                         formatDuration(run.duration_ms) +
+                    '</td>' +
+                    '<td class="p-2.5 whitespace-nowrap text-slate-300 font-mono text-[11px]">' +
+                        (run.spid ? '<span class="text-amber-400 font-semibold">' + escapeHtml(run.spid) + '</span>' : '<span class="text-slate-600">-</span>') +
                     '</td>' +
                     '<td class="p-2.5 truncate max-w-[110px] text-slate-400 text-[11px]" title="' + escapeHtml(run.user_name || '') + '@' + escapeHtml(run.hostname || '') + '">' +
                         escapeHtml(run.user_name || '-') + '<span class="text-slate-600">@</span>' + escapeHtml(run.hostname || '-') +
@@ -3290,6 +3525,16 @@ const IndexHTML = `<!DOCTYPE html>
                 timeDisplay.textContent = 'Started: ' + formatTimestamp(run.started_at) + ' • Duration: ' + formatDuration(run.duration_ms);
             }
 
+            const spidDisplay = document.getElementById('active-run-spid-display');
+            if (spidDisplay) {
+                spidDisplay.textContent = (run.spid !== undefined && run.spid !== null && run.spid !== 0) ? run.spid : '-';
+            }
+
+            const dbUserDisplay = document.getElementById('active-run-db-user-display');
+            if (dbUserDisplay) {
+                dbUserDisplay.textContent = run.db_user_name || run.database_user_name || '-';
+            }
+
             const errorBox = document.getElementById('active-run-error-box');
             if (errorBox) {
                 if (run.error_message || run.error_class) {
@@ -3306,7 +3551,7 @@ const IndexHTML = `<!DOCTYPE html>
             if (summary) summary.classList.add('hidden');
             const tbody = document.getElementById('log-events-tbody');
             if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-slate-500">Select a pipeline run on the left to inspect its events.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-slate-500">Select a pipeline run on the left to inspect its events.</td></tr>';
             }
             const badge = document.getElementById('log-events-count-badge');
             if (badge) badge.textContent = '0 Events';
@@ -3316,7 +3561,7 @@ const IndexHTML = `<!DOCTYPE html>
             if (!logState.selectedDbId || !runId) return;
             const tbody = document.getElementById('log-events-tbody');
             if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-slate-400">Loading step events for run...</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-slate-400">Loading step events for run...</td></tr>';
             }
 
             fetch('/api/logs/events?db_id=' + encodeURIComponent(logState.selectedDbId) + '&run_id=' + encodeURIComponent(runId))
@@ -3342,7 +3587,7 @@ const IndexHTML = `<!DOCTYPE html>
         function renderEmptyLogEvents(message) {
             const tbody = document.getElementById('log-events-tbody');
             if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-slate-400">' + escapeHtml(message) + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-slate-400">' + escapeHtml(message) + '</td></tr>';
             const badge = document.getElementById('log-events-count-badge');
             if (badge) badge.textContent = '0 Events';
         }
@@ -3368,7 +3613,7 @@ const IndexHTML = `<!DOCTYPE html>
             if (affectedEl) affectedEl.textContent = totalAffected.toLocaleString();
 
             if (!events || events.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-slate-500">No events found for this run.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="p-8 text-center text-slate-500">No events found for this run.</td></tr>';
                 return;
             }
 
@@ -3393,6 +3638,7 @@ const IndexHTML = `<!DOCTYPE html>
                     '<td class="p-2.5 whitespace-nowrap"><span class="px-1.5 py-0.5 text-[10px] font-mono rounded bg-slate-800 text-slate-300">' + escapeHtml(evt.node_kind || '-') + '</span></td>' +
                     '<td class="p-2.5 whitespace-nowrap text-slate-300 text-xs">' + escapeHtml(evt.event_type || '-') + '</td>' +
                     '<td class="p-2.5 whitespace-nowrap"><span class="px-2 py-0.5 text-[10px] font-bold rounded border uppercase ' + statusClass + '">' + escapeHtml(evt.status || '-') + '</span></td>' +
+                    '<td class="p-2.5 whitespace-nowrap text-center font-mono text-[11px] text-amber-400">' + (evt.spid ? escapeHtml(evt.spid) : '<span class="text-slate-600">-</span>') + '</td>' +
                     '<td class="p-2.5 whitespace-nowrap text-right font-mono text-[11px] text-cyan-300">' + escapeHtml(rowsText) + '</td>' +
                     '<td class="p-2.5 text-center">' +
                         '<button type="button" onclick="openEventDetailModal(' + evt.sequence_num + ')" class="px-2 py-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded transition cursor-pointer" title="View details">' +
@@ -3425,9 +3671,13 @@ const IndexHTML = `<!DOCTYPE html>
             const execIdEl = document.getElementById('event-detail-exec-id');
             if (execIdEl) execIdEl.textContent = evt.execution_id || '-';
             const userEl = document.getElementById('event-detail-user');
-            if (userEl) userEl.textContent = evt.user_name || '-';
+            if (userEl) userEl.textContent = evt.os_user_name || evt.user_name || '-';
             const hostEl = document.getElementById('event-detail-host');
             if (hostEl) hostEl.textContent = evt.hostname || '-';
+            const dbUserEl = document.getElementById('event-detail-db-user');
+            if (dbUserEl) dbUserEl.textContent = evt.db_user_name || evt.database_user_name || '-';
+            const spidEl = document.getElementById('event-detail-spid');
+            if (spidEl) spidEl.textContent = (evt.spid !== undefined && evt.spid !== null && evt.spid !== 0) ? evt.spid : '-';
             const optEl = document.getElementById('event-detail-options');
             if (optEl) optEl.textContent = evt.options_path || '-';
             const readEl = document.getElementById('event-detail-read');

@@ -1380,9 +1380,12 @@ func (s *Server) handleBrowseFiles(w http.ResponseWriter, r *http.Request) {
 		return strings.ToLower(fileEntries[i].Name) < strings.ToLower(fileEntries[j].Name)
 	})
 
-	parentDir := filepath.ToSlash(filepath.Dir(cleanDir))
-	if cleanDir == "." || cleanDir == "" {
-		parentDir = ""
+	parentDir := ""
+	candidateParent := filepath.Dir(cleanDir)
+	if candidateParent != cleanDir {
+		if _, err := s.sanitizePath(candidateParent); err == nil {
+			parentDir = filepath.ToSlash(candidateParent)
+		}
 	}
 
 	resp := BrowseResponse{
@@ -1479,6 +1482,7 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 	scriptFile := strings.TrimSpace(r.URL.Query().Get("file"))
 	configFile := strings.TrimSpace(r.URL.Query().Get("config"))
 	optionsFile := strings.TrimSpace(r.URL.Query().Get("options"))
+	formatOpt := strings.TrimSpace(r.URL.Query().Get("format"))
 	source := strings.TrimSpace(r.URL.Query().Get("source")) // "builder" or "file"
 	preflightOnly := r.URL.Query().Get("preflight") == "true" || r.URL.Query().Get("preflight") == "1"
 
@@ -1572,7 +1576,17 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 	if preflightOnly {
 		args = append(args, "-preflight")
 	}
-	args = append(args, "-format", "stream")
+	if optionsFile == "" {
+		if formatOpt == "" {
+			formatOpt = "stream"
+		}
+		switch strings.ToLower(formatOpt) {
+		case "stream", "csv", "text", "json", "jsonpretty", "prettyjson", "markdown", "md", "table":
+			args = append(args, "-format", formatOpt)
+		default:
+			args = append(args, "-format", "stream")
+		}
+	}
 
 	sendSSE("log", map[string]any{"type": "log", "message": fmt.Sprintf("[FLOW] Running: %s %v", filepath.Base(exePath), args)})
 
