@@ -1,5 +1,109 @@
 # Release Notes
 
+## Release Notes (v1.1.24) - Interactive Builder Node Tooltips, In-App Documentation Modals, Dynamic Mermaid Diagrams & Azure SQL Authentication
+
+### Overview
+
+Version 1.1.24 introduces extensive developer experience, visualization, and cloud database connectivity improvements across Flow and Flow Builder:
+1. **Interactive Node Tooltips & Documentation Modals**: Added interactive help buttons (`?`) and contextual documentation tooltips across almost all node cards in the palette and canvas nodes in Flow Builder. Developers can now access full node specifications, attribute tables, XML examples, and architectural guidance without leaving the Builder canvas.
+2. **Dedicated Documentation REST Endpoints**: Implemented `/api/docs/component`, `/api/docs/connection-strings`, `/api/docs/http-client`, and component-specific endpoints with multi-tier fallback resolution (local disk candidates, working directory, and embedded binary assets via `embed.FS`).
+3. **Dynamic Mermaid Diagram Rendering**: Integrated modern Mermaid.js (`mermaid@11` ESM) with automatic DOM re-scanning (`runMermaidIn`) to render live, interactive flowcharts and architecture diagrams within documentation modals and tooltips.
+4. **Azure SQL & Active Directory (Entra ID) Authentication**: Added native Azure Active Directory / Entra ID token-based and MFA authentication support for Microsoft SQL Server via `github.com/microsoft/go-mssqldb/azuread`, with automatic driver resolution (`azuresql`) for `fedauth=` and `activedirectory` connection strings.
+5. **Comprehensive Component Documentation Suite**: Authored and standardized 24+ dedicated markdown reference guides in `docs/` and `builder/tmpl/` covering core pipeline operations (`assert`, `excel_read`, `excel_write`, `file_read`, `file_save`, `foreach`, `group`, `http_client`, `if_then_else`, `json_path`, `kv`, `parallel`, `preflight`, `script`, `sql`, `sql_bulk`, `template`, `template_html`, `variable`, `while`, `xml_path`, `yaml_path`, and `database_connection_strings`).
+6. **Developer Guides & Canonical Reference Reorganization**: Added dedicated guides for Builder tooltips, execution lifecycles, observability, themes, and standardized canonical reference filenames (`COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md`, `DATABASE_LOGGING_CONFIGURATION.md`, `FLOW_WITH_REMOTE_FILE_SOURCE.md`, `SUMMARY_OF_AVAILABLE_OPTIONS.md`, `USING_DESCRIPTIONS.md`).
+
+---
+
+### Included Changes
+
+#### 1. Interactive Node Tooltips & Contextual Documentation Modals
+- **Builder Canvas & Palette Help Triggers**:
+  - Added dedicated help buttons (`?`) to palette node cards (`builder/tmpl/partials/node_card.html`) and canvas step nodes (`builder/tmpl/partials/canvas_nodes.html`).
+  - Clicking any node help icon opens a responsive contextual modal displaying the component's markdown documentation, XML schema attributes, examples, and Mermaid flow diagrams.
+- **Node Catalog Metadata Integration**:
+  - Enriched `builder/catalog.go` node definitions with `DocTopic`, `Description`, and documentation routing metadata for 24+ component types (`assert`, `file_read`, `file_save`, `excel_read`, `excel_write`, `sql`, `sql_bulk`, `http_client`, `script`, `variable`, `template`, `template_html`, `group`, `foreach`, `parallel`, `while`, `if_then_else`, `json_path`, `yaml_path`, `xml_path`, `kv`, `preflight`, etc.).
+- **Asynchronous Markdown Loading & Modal Management**:
+  - Added modal rendering, caching, and clean DOM injection logic in `builder/tmpl/index.html` and pre-rendered `builder/html_content.go`.
+  - Added keyboard shortcut support (`Escape` to dismiss) and backdrop click dismissal.
+
+#### 2. Dedicated Documentation Endpoints & Resilient Fallback Chain
+- **RESTful Component Documentation Endpoints**:
+  - Registered `/api/docs/component?topic=<name>` and component-specific routes in `builder/server.go`:
+    - `/api/docs/connection-strings`
+    - `/api/docs/http-client`
+    - `/api/docs/assert`, `/api/docs/file-read`, `/api/docs/file-save`
+    - `/api/docs/excel-read`, `/api/docs/excel-write`
+    - `/api/docs/json-path`, `/api/docs/yaml-path`, `/api/docs/xml-path`
+    - `/api/docs/kv`, `/api/docs/script`, `/api/docs/sql`, `/api/docs/sql-bulk`
+    - `/api/docs/template`, `/api/docs/template-html`, `/api/docs/variable`
+    - `/api/docs/group`, `/api/docs/preflight`, `/api/docs/foreach`, `/api/docs/parallel`, `/api/docs/while`, `/api/docs/if-then-else`
+- **Multi-Tier Asset Resolution (`serveDocFile`)**:
+  - Priority 1: Reads live markdown files from the local filesystem (`docs/`, `../../docs/`, `builder/tmpl/`, or relative to the running binary executable).
+  - Priority 2: Falls back seamlessly to Go embedded `embed.FS` (`tmpl/docs_*.md`), guaranteeing full documentation availability even in self-contained single-binary distributions with no external file assets.
+  - Returns structured JSON payloads containing filename, resolved source path, and raw markdown content.
+
+#### 3. Dynamic Mermaid Diagram Rendering in Tooltips
+- **Mermaid ESM Integration**:
+  - Imported Mermaid.js 11 (`mermaid.esm.min.mjs`) with dark theme configuration (`theme: 'dark'`, `securityLevel: 'loose'`).
+  - Added markdown pre-processing that converts ```mermaid code blocks into `<pre class="mermaid">` tags.
+- **Dynamic Asynchronous Rendering**:
+  - Implemented `runMermaidIn(container)` to trigger Mermaid diagram rendering upon modal load and tab switching, resolving previous rendering issues where Mermaid diagrams inside dynamically opened modals failed to parse or render.
+
+#### 4. Azure SQL & Active Directory (Entra ID) Authentication
+- **Driver Integration (`github.com/microsoft/go-mssqldb/azuread`)**:
+  - Registered Microsoft Azure AD driver in `resource_loader.go`.
+  - Added dependency management in `go.mod` and `go.sum` for Azure Identity SDK and MSAL (`github.com/Azure/azure-sdk-for-go/sdk/azidentity`, `azcore`, MSAL).
+- **Automatic DSN & Driver Detection**:
+  - Enhanced `detectDriverFromDSN` in `formating.go`: detects `fedauth=` and `activedirectory` parameters in connection strings and maps the driver to `azuresql`.
+  - Updated `detectDriverType` in `formating.go`: handles `azuread` driver packages as `sqlserver`.
+  - Updated `loadFromDatabase` in `resource_loader.go`: automatically routes Azure AD connection strings through the `azuresql` driver for secure SQL URI script/draft loading.
+
+#### 5. Component Documentation Suite & Architecture Guides
+- **Modular Component Documentation (`docs/` & `builder/tmpl/`)**:
+  - Added dedicated, comprehensive guides with XML syntax, attribute tables, validation rules, and examples for:
+    - `assert.md` (`docs_assert.md`): Step assertions, comparisons, and custom failure messages.
+    - `database_connection_strings.md` (`docs_connection_strings.md`): Multi-dialect connection guide covering Azure SQL, SQL Server, PostgreSQL, MySQL, Oracle, and SQLite.
+    - `database_transactions.md`: Transaction scopes, isolation levels, and rollback behavior.
+    - `excel_read.md` & `excel_write.md`: Reading and writing Excel workbooks (`.xlsx`), worksheet targeting, cell ranges, and headers.
+    - `file_read.md` & `file_save.md`: File system I/O, encodings, appending, and buffered reads.
+    - `foreach.md` & `while.md`: Looping constructs, item variables, batching, and termination conditions.
+    - `group.md` & `parallel.md`: Logical grouping, sequential execution blocks, and concurrent parallel branch execution.
+    - `http_client.md`: REST API requests, headers, payload bodies, timeouts, and authentication.
+    - `if_then_else.md`: Conditional branching and predicate expressions.
+    - `json_path.md`, `yaml_path.md`, `xml_path.md`: Structured path extraction, parsing, and query filters.
+    - `kv.md`: Key-value storage and bulk operations.
+    - `preflight.md`: Pre-execution validation checks and environmental sanity checks.
+    - `script.md`: Embedded multi-language script execution (`go`, `python`, `powershell`, `bash`, `cmd`, `javascript`).
+    - `sql.md` & `sql_bulk.md`: Relational queries, parameter binding, multi-row streaming, and bulk inserts.
+    - `template.md` & `template_html.md`: Go text/template and html/template rendering with context injection.
+    - `variable.md`: Variable assignments, scope boundaries, and dynamic evaluations.
+- **Developer & Architecture Guides**:
+  - `docs/development_builder_modal_tooltips_guide.md`: Comprehensive guide for creating, updating, and testing Builder tooltips and documentation modals.
+  - `docs/development_execution_guide.md`: Core pipeline execution lifecycle and flow control architecture.
+  - `docs/development_observability_usage.md`: Observability, logging sinks, and database audit telemetry.
+  - `docs/development_themes_guide.md`: Builder theme styling and custom CSS tokens.
+- **Canonical Filename Standardization**:
+  - Renamed legacy documentation files to clear uppercase canonical titles:
+    - `docs/COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md` (formerly `cli_arguments.md`)
+    - `docs/DATABASE_LOGGING_CONFIGURATION.md` (formerly `db_logging_setup.md`)
+    - `docs/FLOW_WITH_REMOTE_FILE_SOURCE.md` (formerly `flow_command_source_examples.md`)
+    - `docs/SUMMARY_OF_AVAILABLE_OPTIONS.md` (formerly `pipeline_components.md`)
+    - `docs/USING_DESCRIPTIONS.md` (formerly `descriptions.md`)
+
+#### 6. Automated Testing & Verification
+- **Builder Documentation & Tooltip Test Suite**:
+  - Added 671 lines of unit tests in `builder/builder_test.go`:
+    - `TestDocsEndpoints`: Verifies 200 OK and valid JSON responses for all component documentation routes.
+    - `TestDocsFallbackToEmbedded`: Verifies proper fallback to embedded template assets when filesystem documents are inaccessible.
+    - `TestCatalogDocsMapping`: Validates catalog completeness and ensures every registered component links to valid documentation topics.
+    - `TestTooltipHtmlEscaping`: Verifies HTML entity escaping to prevent cross-site scripting (XSS) in tooltip modals.
+    - `TestMermaidHooksInTemplates`: Validates Mermaid initialization, container query selectors, and rendering hooks across `tmpl/index.html` and `html_content.go`.
+- **Azure SQL Connection & Driver Resolution Tests**:
+  - Verified driver detection logic in `formating_test.go` covering `azuresql`, `sqlserver`, `postgres`, `mysql`, `oracle`, and `sqlite`.
+- Full test suite passing across all packages (`github.com/etl-madness/go-flow`, `builder`, `crypto_tool`, `db_importer`, `pkg/flowcrypto`).
+
+---
+
 ## Release Notes (v1.1.23) - Database Session Auditing, Combined Signatures & Encryption, CLI Reference & Builder UX Enhancements
 
 ### Overview
