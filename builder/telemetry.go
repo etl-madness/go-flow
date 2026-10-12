@@ -57,6 +57,8 @@ type PipelineRunRecord struct {
 	DatabaseUserName string     `json:"database_user_name,omitempty"`
 	DBUserName       string     `json:"db_user_name,omitempty"`
 	SPID             int64      `json:"spid,omitempty"`
+	SSPID            int64      `json:"sspid,omitempty"`
+	ApplicationName  string     `json:"application_name,omitempty"`
 	Hostname         string     `json:"hostname"`
 	OptionsPath      string     `json:"options_path"`
 	ErrorClass       string     `json:"error_class"`
@@ -79,6 +81,8 @@ type PipelineEventRecord struct {
 	DatabaseUserName string     `json:"database_user_name,omitempty"`
 	DBUserName       string     `json:"db_user_name,omitempty"`
 	SPID             int64      `json:"spid,omitempty"`
+	SSPID            int64      `json:"sspid,omitempty"`
+	ApplicationName  string     `json:"application_name,omitempty"`
 	Hostname         string     `json:"hostname"`
 	OptionsPath      string     `json:"options_path"`
 	ErrorMessage     string     `json:"error_message"`
@@ -200,8 +204,27 @@ func QueryPipelineRuns(ctx context.Context, db *sql.DB, driver string, runsTable
 
 	if search = strings.TrimSpace(search); search != "" {
 		pattern := "%" + search + "%"
-		addFilter("(run_id LIKE ? OR file_path LIKE ? OR config_path LIKE ? OR user_name LIKE ? OR hostname LIKE ? OR error_class LIKE ? OR error_message LIKE ?)",
-			pattern, pattern, pattern, pattern, pattern, pattern, pattern)
+		var hasAppName bool
+		colsCheckRows, colsErr := db.QueryContext(ctx, fmt.Sprintf("SELECT * FROM %s WHERE 1=0", targetTable))
+		if colsErr == nil {
+			if cNames, cErr := colsCheckRows.Columns(); cErr == nil {
+				for _, c := range cNames {
+					if strings.EqualFold(c, "application_name") || strings.EqualFold(c, "app_name") {
+						hasAppName = true
+						break
+					}
+				}
+			}
+			colsCheckRows.Close()
+		}
+
+		if hasAppName {
+			addFilter("(run_id LIKE ? OR file_path LIKE ? OR config_path LIKE ? OR user_name LIKE ? OR hostname LIKE ? OR application_name LIKE ? OR error_class LIKE ? OR error_message LIKE ?)",
+				pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern)
+		} else {
+			addFilter("(run_id LIKE ? OR file_path LIKE ? OR config_path LIKE ? OR user_name LIKE ? OR hostname LIKE ? OR error_class LIKE ? OR error_message LIKE ?)",
+				pattern, pattern, pattern, pattern, pattern, pattern, pattern)
+		}
 	}
 
 	whereClause := strings.Join(whereParts, " AND ")
@@ -256,6 +279,8 @@ func QueryPipelineRuns(ctx context.Context, db *sql.DB, driver string, runsTable
 			osUserName   sql.NullString
 			dbUserName   sql.NullString
 			spidVal      sql.NullInt64
+			sspidVal     sql.NullInt64
+			appNameVal   sql.NullString
 			hostname     sql.NullString
 			optionsPath  sql.NullString
 			errorClass   sql.NullString
@@ -290,6 +315,10 @@ func QueryPipelineRuns(ctx context.Context, db *sql.DB, driver string, runsTable
 				dest[i] = &dbUserName
 			case "spid":
 				dest[i] = &spidVal
+			case "sspid":
+				dest[i] = &sspidVal
+			case "application_name", "app_name":
+				dest[i] = &appNameVal
 			case "hostname":
 				dest[i] = &hostname
 			case "options_path":
@@ -325,7 +354,17 @@ func QueryPipelineRuns(ctx context.Context, db *sql.DB, driver string, runsTable
 		}
 		rec.DBUserName = dbUserName.String
 		rec.DatabaseUserName = dbUserName.String
-		rec.SPID = spidVal.Int64
+		if sspidVal.Valid && sspidVal.Int64 != 0 {
+			rec.SSPID = sspidVal.Int64
+		} else {
+			rec.SSPID = spidVal.Int64
+		}
+		if spidVal.Valid && spidVal.Int64 != 0 {
+			rec.SPID = spidVal.Int64
+		} else {
+			rec.SPID = rec.SSPID
+		}
+		rec.ApplicationName = appNameVal.String
 		rec.Hostname = hostname.String
 		rec.OptionsPath = optionsPath.String
 		rec.ErrorClass = errorClass.String
@@ -398,6 +437,8 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 			osUserName   sql.NullString
 			dbUserName   sql.NullString
 			spidVal      sql.NullInt64
+			sspidVal     sql.NullInt64
+			appNameVal   sql.NullString
 			hostname     sql.NullString
 			optionsPath  sql.NullString
 			errorMessage sql.NullString
@@ -436,6 +477,10 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 				dest[i] = &dbUserName
 			case "spid":
 				dest[i] = &spidVal
+			case "sspid":
+				dest[i] = &sspidVal
+			case "application_name", "app_name":
+				dest[i] = &appNameVal
 			case "hostname":
 				dest[i] = &hostname
 			case "options_path":
@@ -476,7 +521,17 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 		}
 		rec.DBUserName = dbUserName.String
 		rec.DatabaseUserName = dbUserName.String
-		rec.SPID = spidVal.Int64
+		if sspidVal.Valid && sspidVal.Int64 != 0 {
+			rec.SSPID = sspidVal.Int64
+		} else {
+			rec.SSPID = spidVal.Int64
+		}
+		if spidVal.Valid && spidVal.Int64 != 0 {
+			rec.SPID = spidVal.Int64
+		} else {
+			rec.SPID = rec.SSPID
+		}
+		rec.ApplicationName = appNameVal.String
 		rec.Hostname = hostname.String
 		rec.OptionsPath = optionsPath.String
 		rec.ErrorMessage = errorMessage.String

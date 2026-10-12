@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     os_user_name VARCHAR(256),
     db_user_name VARCHAR(256),
     spid BIGINT,
+    application_name VARCHAR(256),
     hostname VARCHAR(256),
     options_path VARCHAR(2048),
     error_class VARCHAR(128),
@@ -58,6 +59,7 @@ CREATE TABLE IF NOT EXISTS pipeline_events (
     os_user_name VARCHAR(256),
     db_user_name VARCHAR(256),
     spid BIGINT,
+    application_name VARCHAR(256),
     hostname VARCHAR(256),
     options_path VARCHAR(2048),
     error_message TEXT,
@@ -83,6 +85,7 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     os_user_name VARCHAR(256),
     db_user_name VARCHAR(256),
     spid BIGINT,
+    application_name VARCHAR(256),
     hostname VARCHAR(256),
     options_path VARCHAR(2048),
     error_class VARCHAR(128),
@@ -104,6 +107,7 @@ CREATE TABLE IF NOT EXISTS pipeline_events (
     os_user_name VARCHAR(256),
     db_user_name VARCHAR(256),
     spid BIGINT,
+    application_name VARCHAR(256),
     hostname VARCHAR(256),
     options_path VARCHAR(2048),
     error_message TEXT,
@@ -129,6 +133,7 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     os_user_name TEXT,
     db_user_name TEXT,
     spid INTEGER,
+    application_name TEXT,
     hostname TEXT,
     options_path TEXT,
     error_class TEXT,
@@ -150,6 +155,7 @@ CREATE TABLE IF NOT EXISTS pipeline_events (
     os_user_name TEXT,
     db_user_name TEXT,
     spid INTEGER,
+    application_name TEXT,
     hostname TEXT,
     options_path TEXT,
     error_message TEXT,
@@ -178,6 +184,7 @@ BEGIN
         os_user_name VARCHAR(256),
         db_user_name VARCHAR(256),
         spid BIGINT,
+        application_name VARCHAR(256),
         hostname VARCHAR(256),
         options_path VARCHAR(2048),
         error_class VARCHAR(128),
@@ -204,6 +211,7 @@ BEGIN
         os_user_name VARCHAR(256),
         db_user_name VARCHAR(256),
         spid BIGINT,
+        application_name VARCHAR(256),
         hostname VARCHAR(256),
         options_path VARCHAR(2048),
         error_message NVARCHAR(MAX),
@@ -231,6 +239,7 @@ CREATE TABLE pipeline_runs (
     os_user_name VARCHAR2(256),
     db_user_name VARCHAR2(256),
     spid NUMBER(19),
+    application_name VARCHAR2(256),
     hostname VARCHAR2(256),
     options_path VARCHAR2(2048),
     error_class VARCHAR2(128),
@@ -252,6 +261,7 @@ CREATE TABLE pipeline_events (
     os_user_name VARCHAR2(256),
     db_user_name VARCHAR2(256),
     spid NUMBER(19),
+    application_name VARCHAR2(256),
     hostname VARCHAR2(256),
     options_path VARCHAR2(2048),
     error_message CLOB,
@@ -269,6 +279,7 @@ When logging pipeline events or runs to a database, the telemetry subsystem reco
 | :--- | :--- | :--- |
 | `os_user_name` / `user_name` | OS user executing the process (`go-flow`) | `user.Current()` / Windows environment |
 | `db_user_name` | Database user identity authenticated to the database | MSSQL: `SYSTEM_USER`<br>PostgreSQL: `CURRENT_USER`<br>MySQL: `CURRENT_USER()`<br>Oracle: `SYS_CONTEXT('USERENV', 'SESSION_USER')`<br>SQLite: `os.Getpid()` / `"sqlite"` |
-| `spid` | Server Process ID (SPID) or database session ID | MSSQL: `@@SPID`<br>PostgreSQL: `pg_backend_pid()`<br>MySQL: `CONNECTION_ID()`<br>Oracle: `SYS_CONTEXT('USERENV', 'SID')`<br>SQLite: `os.Getpid()` |
+| `spid` / `sspid` | Server Process ID (SPID) or database session ID (both `spid` and alias `sspid` are recognized) | MSSQL: `@@SPID`<br>PostgreSQL: `pg_backend_pid()`<br>MySQL: `CONNECTION_ID()`<br>Oracle: `SYS_CONTEXT('USERENV', 'SID')`<br>SQLite: `os.Getpid()` |
+| `application_name` / `app_name` | Application name executing the pipeline or connected to the database session | MSSQL: `ISNULL(APP_NAME(), '')`<br>PostgreSQL: `COALESCE(current_setting('application_name', true), '')`<br>MySQL: `COALESCE(@@session.program_name, '')`<br>Oracle: `COALESCE(SYS_CONTEXT('USERENV', 'MODULE'), SYS_CONTEXT('USERENV', 'CLIENT_PROGRAM_NAME'), '')`<br>Fallback/SQLite: Binary executable name (`flow`) |
 
-> **Backward Compatibility**: If an existing database table was created with earlier schemas that lack `os_user_name`, `db_user_name`, or `spid`, `go-flow` automatically detects available columns and performs inserts without error. When the columns exist, they are automatically populated.
+> **Backward Compatibility**: If an existing database table was created with earlier schemas that lack `os_user_name`, `db_user_name`, `spid`, `sspid`, or `application_name`, `go-flow` automatically detects available columns and performs inserts without error. When the columns exist, they are automatically populated.

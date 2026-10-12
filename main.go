@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -668,8 +670,12 @@ func main() {
 	}
 	defer registry.CloseDatabases()
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 2)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
 
 	executor := flow.NewExecutor(registry)
 	configureExecutorOptionsPath(executor, resourceSourceLabel(*optionsPath))
@@ -735,9 +741,9 @@ func main() {
 			dbSink = NewDatabaseSink(logDB, driverType)
 			dbSink.debug = *debug
 			if *debug {
-				spid, user := dbSink.SessionIdentity()
-				if spid != 0 || user != "" {
-					log.Printf("Session identity for 'log_db': SPID=%d, db_user=%s", spid, user)
+				spid, user, appName := dbSink.SessionIdentity()
+				if spid != 0 || user != "" || appName != "" {
+					log.Printf("Session identity for 'log_db': SPID=%d, db_user=%s, app_name=%s", spid, user, appName)
 				}
 			}
 			sinks = append(sinks, dbSink)
@@ -759,8 +765,93 @@ func main() {
 	}
 	// =========================================================================
 
+	var cancelOnce sync.Once
+	var isCanceling atomic.Bool
+	doneChan := make(chan struct{})
+	defer close(doneChan)
+
+	handleCancel := func() {
+		cancelOnce.Do(func() {
+			cancel()
+			fmt.Fprintln(os.Stderr, "\n[Control-C] Pipeline execution canceled by user. Cleaning up...")
+
+			// Make a quick attempt to log canceled into pipeline_run
+			if logDB != nil {
+				runID := ""
+				if dbSink != nil {
+					runID, _, _, _ = dbSink.RunDetails()
+					if runID == "" {
+						runID = dbSink.RunID()
+					}
+				}
+				if runID == "" {
+					runID = generateRunID()
+				}
+				userName, hostname := runtimeIdentity()
+				var dbSPID int64
+				var dbUser, appName string
+				if dbSink != nil {
+					dbSPID, dbUser, appName = dbSink.SessionIdentity()
+				}
+				summary := RunSummaryRecord{
+					RunID:            runID,
+					FilePath:         resourceSourceLabel(*filePath),
+					ConfigPath:       resourceSourceLabel(*configPath),
+					Status:           "canceled",
+					StartedAt:        start,
+					FinishedAt:       time.Now().UTC(),
+					Duration:         time.Since(start),
+					TaskCount:        len(nodes),
+					UserName:         userName,
+					OSUserName:       userName,
+					DatabaseUserName: dbUser,
+					DBUserName:       dbUser,
+					SPID:             dbSPID,
+					ApplicationName:  appName,
+					Hostname:         hostname,
+					OptionsPath:      *optionsPath,
+					ErrorClass:       "canceled",
+					ErrorMessage:     "Pipeline execution interrupted by user (Control-C)",
+				}
+
+				logCtx, logCancel := context.WithTimeout(context.Background(), 3*time.Second)
+				if err := LogRunSummaryToDB(logCtx, logDB, driverType, summary, *debug); err != nil && *debug {
+					log.Printf("Failed to log canceled run summary to database: %v", err)
+				}
+				logCancel()
+			}
+
+			// Cleanly close all database connections
+			registry.CloseDatabases()
+			if logDB != nil {
+				_ = logDB.Close()
+			}
+
+			os.Exit(1)
+		})
+	}
+
+	go func() {
+		for {
+			select {
+			case <-sigChan:
+				if isCanceling.Swap(true) {
+					fmt.Fprintln(os.Stderr, "\n[Control-C] Forcing immediate exit...")
+					os.Exit(1)
+				}
+				handleCancel()
+			case <-doneChan:
+				return
+			}
+		}
+	}()
+
 	if strings.ToLower(*format) == "stream" {
 		results, execErr := executor.ExecuteRun(ctx, nodes)
+		if ctx.Err() != nil {
+			handleCancel()
+			return
+		}
 
 		if logDB != nil {
 			runID := results.RunID
@@ -780,9 +871,9 @@ func main() {
 				}
 			}
 			var dbSPID int64
-			var dbUser string
+			var dbUser, appName string
 			if dbSink != nil {
-				dbSPID, dbUser = dbSink.SessionIdentity()
+				dbSPID, dbUser, appName = dbSink.SessionIdentity()
 			}
 			summary := RunSummaryRecord{
 				RunID:            runID,
@@ -798,6 +889,7 @@ func main() {
 				DatabaseUserName: dbUser,
 				DBUserName:       dbUser,
 				SPID:             dbSPID,
+				ApplicationName:  appName,
 				Hostname:         results.Hostname,
 				OptionsPath:      results.OptionsPath,
 				ErrorClass:       string(results.ErrorClass),
@@ -817,6 +909,10 @@ func main() {
 
 	} else {
 		results, execErr := executor.Execute(ctx, nodes)
+		if ctx.Err() != nil {
+			handleCancel()
+			return
+		}
 
 		// Record run summary if log_db connection exists
 		if logDB != nil {
@@ -844,9 +940,9 @@ func main() {
 			userName, hostname := runtimeIdentity()
 
 			var dbSPID int64
-			var dbUser string
+			var dbUser, appName string
 			if dbSink != nil {
-				dbSPID, dbUser = dbSink.SessionIdentity()
+				dbSPID, dbUser, appName = dbSink.SessionIdentity()
 			}
 			summary := RunSummaryRecord{
 				RunID:            runID,
@@ -862,6 +958,7 @@ func main() {
 				DatabaseUserName: dbUser,
 				DBUserName:       dbUser,
 				SPID:             dbSPID,
+				ApplicationName:  appName,
 				Hostname:         hostname,
 				OptionsPath:      *optionsPath,
 				ErrorClass:       errClass,

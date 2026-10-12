@@ -379,7 +379,7 @@ func TestFetchDatabaseSessionIdentity_SQLite(t *testing.T) {
 	defer db.Close()
 
 	ctx := context.Background()
-	spid, dbUser, err := FetchDatabaseSessionIdentity(ctx, db, "sqlite")
+	spid, dbUser, appName, err := FetchDatabaseSessionIdentity(ctx, db, "sqlite")
 	if err != nil {
 		t.Fatalf("unexpected error fetching sqlite session identity: %v", err)
 	}
@@ -388,6 +388,9 @@ func TestFetchDatabaseSessionIdentity_SQLite(t *testing.T) {
 	}
 	if dbUser == "" {
 		t.Errorf("expected non-empty database user, got empty string")
+	}
+	if appName == "" {
+		t.Errorf("expected non-empty application name, got empty string")
 	}
 }
 
@@ -412,6 +415,8 @@ func TestDatabaseSink_EmitsSPIDAndDBUser(t *testing.T) {
 			os_user_name VARCHAR(256),
 			db_user_name VARCHAR(256),
 			spid BIGINT,
+			sspid BIGINT,
+			application_name VARCHAR(256),
 			hostname VARCHAR(256),
 			options_path VARCHAR(2048),
 			error_message TEXT,
@@ -425,7 +430,7 @@ func TestDatabaseSink_EmitsSPIDAndDBUser(t *testing.T) {
 	}
 
 	sink := NewDatabaseSink(db, "sqlite")
-	sink.SetSessionIdentity(12345, "etl_db_user")
+	sink.SetSessionIdentity(12345, "etl_db_user", "flow_test_app")
 
 	ctx := context.Background()
 	err = sink.Emit(ctx, flow.ExecutionEvent{
@@ -448,9 +453,11 @@ func TestDatabaseSink_EmitsSPIDAndDBUser(t *testing.T) {
 		osUserName string
 		dbUserName string
 		spid       int64
+		sspid      int64
+		appName    string
 	)
-	row := db.QueryRow("SELECT user_name, os_user_name, db_user_name, spid FROM pipeline_events WHERE run_id = 'run-spid-1'")
-	if err := row.Scan(&userName, &osUserName, &dbUserName, &spid); err != nil {
+	row := db.QueryRow("SELECT user_name, os_user_name, db_user_name, spid, sspid, application_name FROM pipeline_events WHERE run_id = 'run-spid-1'")
+	if err := row.Scan(&userName, &osUserName, &dbUserName, &spid, &sspid, &appName); err != nil {
 		t.Fatalf("failed scanning pipeline_events row: %v", err)
 	}
 
@@ -465,6 +472,12 @@ func TestDatabaseSink_EmitsSPIDAndDBUser(t *testing.T) {
 	}
 	if spid != 12345 {
 		t.Errorf("expected spid 12345, got %d", spid)
+	}
+	if sspid != 12345 {
+		t.Errorf("expected sspid 12345, got %d", sspid)
+	}
+	if appName != "flow_test_app" {
+		t.Errorf("expected application_name 'flow_test_app', got %q", appName)
 	}
 }
 
@@ -489,6 +502,8 @@ func TestLogRunSummaryToDB_IncludesSPIDAndDBUser(t *testing.T) {
 			os_user_name VARCHAR(256),
 			db_user_name VARCHAR(256),
 			spid BIGINT,
+			sspid BIGINT,
+			application_name VARCHAR(256),
 			hostname VARCHAR(256),
 			options_path VARCHAR(2048),
 			error_class VARCHAR(128),
@@ -513,6 +528,7 @@ func TestLogRunSummaryToDB_IncludesSPIDAndDBUser(t *testing.T) {
 		DatabaseUserName: "app_db_user",
 		DBUserName:       "app_db_user",
 		SPID:             98765,
+		ApplicationName:  "flow_worker_app",
 		Hostname:         "srv01",
 	}
 
@@ -526,9 +542,11 @@ func TestLogRunSummaryToDB_IncludesSPIDAndDBUser(t *testing.T) {
 		osUserName string
 		dbUserName string
 		spid       int64
+		sspid      int64
+		appName    string
 	)
-	row := db.QueryRow("SELECT user_name, os_user_name, db_user_name, spid FROM pipeline_runs WHERE run_id = 'run-summary-test'")
-	if err := row.Scan(&userName, &osUserName, &dbUserName, &spid); err != nil {
+	row := db.QueryRow("SELECT user_name, os_user_name, db_user_name, spid, sspid, application_name FROM pipeline_runs WHERE run_id = 'run-summary-test'")
+	if err := row.Scan(&userName, &osUserName, &dbUserName, &spid, &sspid, &appName); err != nil {
 		t.Fatalf("failed scanning pipeline_runs: %v", err)
 	}
 
@@ -540,6 +558,12 @@ func TestLogRunSummaryToDB_IncludesSPIDAndDBUser(t *testing.T) {
 	}
 	if spid != 98765 {
 		t.Errorf("expected spid 98765, got %d", spid)
+	}
+	if sspid != 98765 {
+		t.Errorf("expected sspid 98765, got %d", sspid)
+	}
+	if appName != "flow_worker_app" {
+		t.Errorf("expected application_name 'flow_worker_app', got %q", appName)
 	}
 }
 

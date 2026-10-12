@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -40,6 +41,7 @@ type DatabaseSink struct {
 	colsDetected   bool
 	spid           int64
 	dbUser         string
+	appName        string
 	mu             sync.RWMutex
 	runID          string
 	status         string
@@ -112,12 +114,24 @@ var knownEventCols = map[string]bool{
 	"db_user_name":       true,
 	"database_user_name": true,
 	"spid":               true,
+	"sspid":              true,
+	"application_name":   true,
+	"app_name":           true,
 	"hostname":           true,
 	"options_path":       true,
 	"error_message":      true,
 	"rows_read":          true,
 	"rows_written":       true,
 	"rows_affected":      true,
+}
+
+func defaultApplicationName() string {
+	name := filepath.Base(os.Args[0])
+	name = strings.TrimSuffix(name, filepath.Ext(name))
+	if name == "" || name == "." {
+		return "flow"
+	}
+	return name
 }
 
 func filterAvailableEventCols(cols []string) []string {
@@ -134,13 +148,13 @@ func filterAvailableEventCols(cols []string) []string {
 	return result
 }
 
-// FetchDatabaseSessionIdentity queries the database for the current connection SPID (or equivalent)
-// and database user name based on the driver dialect.
+// FetchDatabaseSessionIdentity queries the database for the current connection SPID (or equivalent),
+// database user name, and application name based on the driver dialect.
 func FetchDatabaseSessionIdentity(ctx context.Context, querier interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-}, driver string) (spid int64, dbUser string, err error) {
+}, driver string) (spid int64, dbUser string, appName string, err error) {
 	if querier == nil {
-		return 0, "", fmt.Errorf("nil database querier")
+		return 0, "", defaultApplicationName(), fmt.Errorf("nil database querier")
 	}
 
 	normDriver := strings.ToLower(driver)
@@ -148,58 +162,84 @@ func FetchDatabaseSessionIdentity(ctx context.Context, querier interface {
 	case strings.Contains(normDriver, "sqlserver") || strings.Contains(normDriver, "mssql"):
 		var sVal sql.NullInt64
 		var uVal sql.NullString
-		err = querier.QueryRowContext(ctx, "SELECT @@SPID, SYSTEM_USER").Scan(&sVal, &uVal)
+		var aVal sql.NullString
+		err = querier.QueryRowContext(ctx, "SELECT @@SPID, SYSTEM_USER, ISNULL(APP_NAME(), '')").Scan(&sVal, &uVal, &aVal)
 		if err == nil {
-			return sVal.Int64, uVal.String, nil
+			app := strings.TrimSpace(aVal.String)
+			if app == "" {
+				app = defaultApplicationName()
+			}
+			return sVal.Int64, uVal.String, app, nil
 		}
 	case strings.Contains(normDriver, "postgres") || strings.Contains(normDriver, "pq") || strings.Contains(normDriver, "pgx"):
 		var sVal sql.NullInt64
 		var uVal sql.NullString
-		err = querier.QueryRowContext(ctx, "SELECT pg_backend_pid(), CURRENT_USER").Scan(&sVal, &uVal)
+		var aVal sql.NullString
+		err = querier.QueryRowContext(ctx, "SELECT pg_backend_pid(), CURRENT_USER, COALESCE(current_setting('application_name', true), '')").Scan(&sVal, &uVal, &aVal)
 		if err == nil {
-			return sVal.Int64, uVal.String, nil
+			app := strings.TrimSpace(aVal.String)
+			if app == "" {
+				app = defaultApplicationName()
+			}
+			return sVal.Int64, uVal.String, app, nil
 		}
 	case strings.Contains(normDriver, "mysql"):
 		var sVal sql.NullInt64
 		var uVal sql.NullString
-		err = querier.QueryRowContext(ctx, "SELECT CONNECTION_ID(), CURRENT_USER()").Scan(&sVal, &uVal)
+		var aVal sql.NullString
+		err = querier.QueryRowContext(ctx, "SELECT CONNECTION_ID(), CURRENT_USER(), COALESCE(@@session.program_name, '')").Scan(&sVal, &uVal, &aVal)
+		if err != nil {
+			// Fallback if @@session.program_name is unsupported in older MySQL/MariaDB
+			err = querier.QueryRowContext(ctx, "SELECT CONNECTION_ID(), CURRENT_USER()").Scan(&sVal, &uVal)
+		}
 		if err == nil {
-			return sVal.Int64, uVal.String, nil
+			app := strings.TrimSpace(aVal.String)
+			if app == "" {
+				app = defaultApplicationName()
+			}
+			return sVal.Int64, uVal.String, app, nil
 		}
 	case strings.Contains(normDriver, "oracle") || strings.Contains(normDriver, "ora"):
 		var sVal sql.NullInt64
 		var uVal sql.NullString
-		err = querier.QueryRowContext(ctx, "SELECT TO_NUMBER(SYS_CONTEXT('USERENV', 'SID')), SYS_CONTEXT('USERENV', 'SESSION_USER') FROM DUAL").Scan(&sVal, &uVal)
+		var aVal sql.NullString
+		err = querier.QueryRowContext(ctx, "SELECT TO_NUMBER(SYS_CONTEXT('USERENV', 'SID')), SYS_CONTEXT('USERENV', 'SESSION_USER'), COALESCE(SYS_CONTEXT('USERENV', 'MODULE'), SYS_CONTEXT('USERENV', 'CLIENT_PROGRAM_NAME'), '') FROM DUAL").Scan(&sVal, &uVal, &aVal)
 		if err == nil {
-			return sVal.Int64, uVal.String, nil
+			app := strings.TrimSpace(aVal.String)
+			if app == "" {
+				app = defaultApplicationName()
+			}
+			return sVal.Int64, uVal.String, app, nil
 		}
 	case strings.Contains(normDriver, "sqlite"):
 		userName, _ := runtimeIdentity()
 		if userName == "" {
 			userName = "sqlite"
 		}
-		return int64(os.Getpid()), userName, nil
+		return int64(os.Getpid()), userName, defaultApplicationName(), nil
 	}
 
 	userName, _ := runtimeIdentity()
-	return int64(os.Getpid()), userName, nil
+	return int64(os.Getpid()), userName, defaultApplicationName(), nil
 }
 
 // NewDatabaseSink constructs a DatabaseSink and pre-builds the dialect-specific SQL query
 func NewDatabaseSink(db *sql.DB, driver string) *DatabaseSink {
 	sink := &DatabaseSink{
-		DB:     db,
-		Driver: driver,
+		DB:      db,
+		Driver:  driver,
+		appName: defaultApplicationName(),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	if db != nil {
-		spid, dbUser, err := FetchDatabaseSessionIdentity(ctx, db, driver)
+		spid, dbUser, appName, err := FetchDatabaseSessionIdentity(ctx, db, driver)
 		if err == nil {
 			sink.spid = spid
 			sink.dbUser = dbUser
+			sink.appName = appName
 		}
 		sink.detectColumns(ctx)
 	} else {
@@ -245,6 +285,13 @@ func (s *DatabaseSink) SPID() int64 {
 	return s.spid
 }
 
+// SSPID returns the session ID or process ID captured for the database connection
+func (s *DatabaseSink) SSPID() int64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.spid
+}
+
 // DBUser returns the database user name captured for the database connection
 func (s *DatabaseSink) DBUser() string {
 	s.mu.RLock()
@@ -252,19 +299,31 @@ func (s *DatabaseSink) DBUser() string {
 	return s.dbUser
 }
 
-// SessionIdentity returns both SPID and DB User
-func (s *DatabaseSink) SessionIdentity() (int64, string) {
+// ApplicationName returns the application name captured for the database connection
+func (s *DatabaseSink) ApplicationName() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.spid, s.dbUser
+	return s.appName
+}
+
+// SessionIdentity returns SPID, DB User, and Application Name
+func (s *DatabaseSink) SessionIdentity() (int64, string, string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.spid, s.dbUser, s.appName
 }
 
 // SetSessionIdentity explicitly overrides the session identity for testing or connection pooling
-func (s *DatabaseSink) SetSessionIdentity(spid int64, dbUser string) {
+func (s *DatabaseSink) SetSessionIdentity(spid int64, dbUser string, appName ...string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.spid = spid
 	s.dbUser = dbUser
+	if len(appName) > 0 && appName[0] != "" {
+		s.appName = appName[0]
+	} else if s.appName == "" {
+		s.appName = defaultApplicationName()
+	}
 }
 
 // Emit satisfies the flow.EventSink interface and persists execution events to the database
@@ -287,6 +346,7 @@ func (s *DatabaseSink) Emit(ctx context.Context, event flow.ExecutionEvent) erro
 	query := s.insertQuery
 	spid := s.spid
 	dbUser := s.dbUser
+	appName := s.appName
 	s.mu.Unlock()
 
 	if query == "" || len(cols) == 0 {
@@ -324,8 +384,10 @@ func (s *DatabaseSink) Emit(ctx context.Context, event flow.ExecutionEvent) erro
 			args = append(args, osUser)
 		case "db_user_name", "database_user_name":
 			args = append(args, dbUser)
-		case "spid":
+		case "spid", "sspid":
 			args = append(args, spid)
+		case "application_name", "app_name":
+			args = append(args, appName)
 		case "hostname":
 			args = append(args, event.Hostname)
 		case "options_path":
@@ -581,6 +643,7 @@ type RunSummaryRecord struct {
 	DatabaseUserName string
 	DBUserName       string
 	SPID             int64
+	ApplicationName  string
 	Hostname         string
 	OptionsPath      string
 	ErrorClass       string
@@ -607,6 +670,9 @@ var knownRunCols = map[string]bool{
 	"db_user_name":       true,
 	"database_user_name": true,
 	"spid":               true,
+	"sspid":              true,
+	"application_name":   true,
+	"app_name":           true,
 	"hostname":           true,
 	"options_path":       true,
 	"error_class":        true,
@@ -662,6 +728,10 @@ func LogRunSummaryToDB(ctx context.Context, db *sql.DB, driverType string, rec R
 	if dbUser == "" {
 		dbUser = rec.DatabaseUserName
 	}
+	appName := rec.ApplicationName
+	if appName == "" {
+		appName = defaultApplicationName()
+	}
 
 	args := make([]any, 0, len(cols))
 	for _, c := range cols {
@@ -688,8 +758,10 @@ func LogRunSummaryToDB(ctx context.Context, db *sql.DB, driverType string, rec R
 			args = append(args, osUser)
 		case "db_user_name", "database_user_name":
 			args = append(args, dbUser)
-		case "spid":
+		case "spid", "sspid":
 			args = append(args, rec.SPID)
+		case "application_name", "app_name":
+			args = append(args, appName)
 		case "hostname":
 			args = append(args, rec.Hostname)
 		case "options_path":

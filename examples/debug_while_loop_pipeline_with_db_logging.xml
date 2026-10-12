@@ -1,0 +1,137 @@
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd"
+          name="debug_while_loop"
+          id="debug_while_loop">
+
+    <variables>
+        <variable name="JobStatus" value="RUNNING" type="string" description="State monitored by while loop" />
+        <variable name="TargetBatch" value="BATCH_2026_10" type="string" />
+        <variable name="Threshold" value="100.50" type="float" />
+        <variable name="ProcessedCount" value="0" type="int" />
+        <variable name="log_db_cs" value="sqlserver://db-server.example.com:1433?database=EXAMPLE_DB&amp;integrated+security=true&amp;trustServerCertificate=true&amp;app+name=Flow_Logger" type="string" />
+
+    </variables>
+    <databases>
+        <database name="log_db" driver="sqlserver" connection_string="{{log_db_cs}}" conn_max_lifetime_seconds="300" max_idle_conns="10" max_open_conns="25" />
+    </databases>
+    <flow>
+        <!--
+            While Loop: Continues while JobStatus == "RUNNING" up to max_iterations.
+            Flow automatically injects the zero-based iteration index {{WHILE_INDEX}}.
+        -->
+        <while id="MonitorWhileLoop" var="JobStatus" equals="RUNNING" max_iterations="5"
+               description="Executes iteratively, dumping all variables at each WHILE_INDEX pass">
+
+            <!-- Step 1: Dump all variables at current WHILE_INDEX using host/vars.GetAll() -->
+            <script id="DumpVarsInWhile" language="go">
+                <![CDATA[
+                    package main
+
+                    import (
+                        "fmt"
+                        "os"
+                        "sort"
+                        "host/vars"
+                    )
+
+                    func main() {
+                        idx := vars.GetInt("WHILE_INDEX")
+                        header := fmt.Sprintf("\n========== Variables at WHILE_INDEX %d ==========", idx)
+                        fmt.Println(header)
+                        fmt.Fprintln(os.Stdout, header)
+
+                        allVars := vars.GetAll()
+                        keys := make([]string, 0, len(allVars))
+                        for k := range allVars {
+                            keys = append(keys, k)
+                        }
+                        sort.Strings(keys)
+                        for _, name := range keys {
+                            line := fmt.Sprintf("  %-20s = %v", name, allVars[name])
+                            fmt.Println(line)
+                            fmt.Fprintln(os.Stdout, line)
+                        }
+                        footer := "================================================="
+                        fmt.Println(footer)
+                        fmt.Fprintln(os.Stdout, footer)
+                    }
+                ]]>
+            </script>
+
+            <!-- Step 2: Simulate processing & increment ProcessedCount -->
+            <script id="IncrementProcessedCount" language="go" output_var="ProcessedCount">
+                <![CDATA[
+                    package main
+
+                    import (
+                        "fmt"
+                        "host/vars"
+                    )
+
+                    func main() {
+                        count := vars.GetInt("ProcessedCount") + 25
+                        fmt.Print(count)
+                    }
+                ]]>
+            </script>
+
+            <!-- Step 3: Update loop condition (JobStatus) after 3 iterations (WHILE_INDEX: 0, 1, 2) -->
+            <script id="UpdateLoopStatus" language="go" output_var="JobStatus">
+                <![CDATA[
+                    package main
+
+                    import (
+                        "fmt"
+                        "host/vars"
+                    )
+
+                    func main() {
+                        idx := vars.GetInt("WHILE_INDEX")
+                        if idx >= 2 {
+                            fmt.Print("COMPLETED")
+                        } else {
+                            fmt.Print("RUNNING")
+                        }
+                    }
+                ]]>
+            </script>
+
+        </while>
+
+        <!-- Final Step: Dump all variables after exiting the while loop -->
+        <script id="DumpFinalVarsAfterWhile" language="go">
+            <![CDATA[
+                package main
+
+                import (
+                    "fmt"
+                    "os"
+                    "sort"
+                    "host/vars"
+                )
+
+                func main() {
+                    header := "\n========== Final Pipeline Variables After While Loop =========="
+                    fmt.Println(header)
+                    fmt.Fprintln(os.Stdout, header)
+
+                    allVars := vars.GetAll()
+                    keys := make([]string, 0, len(allVars))
+                    for k := range allVars {
+                        keys = append(keys, k)
+                    }
+                    sort.Strings(keys)
+                    for _, name := range keys {
+                        line := fmt.Sprintf("  %-20s = %v", name, allVars[name])
+                        fmt.Println(line)
+                        fmt.Fprintln(os.Stdout, line)
+                    }
+                    footer := "================================================================"
+                    fmt.Println(footer)
+                    fmt.Fprintln(os.Stdout, footer)
+                }
+            ]]>
+        </script>
+
+    </flow>
+</pipeline>

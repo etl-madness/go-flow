@@ -1,0 +1,124 @@
+<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd"
+          name="debug_while_loop"
+          id="debug_while_loop">
+
+    <variables>
+        <variable name="JobStatus" value="RUNNING" type="string" description="State monitored by while loop" />
+        <variable name="TargetBatch" value="BATCH_2026_10" type="string" />
+        <variable name="Threshold" value="100.50" type="float" />
+        <variable name="ProcessedCount" value="0" type="int" />
+        <variable name="log_db_cs" value="sqlserver://db-server.example.com:1433?database=EXAMPLE_DB&amp;integrated+security=true&amp;trustServerCertificate=true&amp;app+name=Flow_Logger" type="string" />
+    </variables>
+
+    <databases>
+        <database name="log_db" driver="sqlserver" connection_string="{{log_db_cs}}" conn_max_lifetime_seconds="300" max_idle_conns="10" max_open_conns="25" />
+    </databases>
+
+    <flow>
+        <!--
+            While Loop: Continues while JobStatus == "RUNNING" up to max_iterations.
+            Flow automatically injects the zero-based iteration index {{WHILE_INDEX}}.
+        -->
+        <while id="MonitorWhileLoop" var="JobStatus" equals="RUNNING" max_iterations="5"
+               description="Executes iteratively, dumping all variables at each WHILE_INDEX pass">
+
+            <!-- Step 1: Dump all variables at current WHILE_INDEX -->
+            <script id="DumpVarsInWhile" language="csx">
+                <![CDATA[
+                    using System;
+                    using System.Collections.Generic;
+
+                    int idx = int.TryParse(Environment.GetEnvironmentVariable("WHILE_INDEX"), out var i) ? i : 0;
+                    string header = $"\n========== Variables at WHILE_INDEX {idx} ==========";
+                    Console.WriteLine(header);
+
+                    var pipelineVarNames = new[] {
+                        "JobStatus", "LAST_OUTPUT", "ProcessedCount", "TargetBatch", "Threshold", "WHILE_INDEX", "log_db_cs"
+                    };
+
+                    var keys = new List<string>();
+                    foreach (var name in pipelineVarNames)
+                    {
+                        if (Environment.GetEnvironmentVariable(name) != null)
+                        {
+                            keys.Add(name);
+                        }
+                    }
+                    keys.Sort(StringComparer.Ordinal);
+
+                    foreach (var name in keys)
+                    {
+                        var val = Environment.GetEnvironmentVariable(name);
+                        Console.WriteLine($"  {name,-20} = {val}");
+                    }
+                    string footer = "=================================================";
+                    Console.WriteLine(footer);
+                ]]>
+            </script>
+
+            <!-- Step 2: Simulate processing & increment ProcessedCount -->
+            <script id="IncrementProcessedCount" language="csx" output_var="ProcessedCount">
+                <![CDATA[
+                    using System;
+
+                    int count = int.TryParse(Environment.GetEnvironmentVariable("ProcessedCount"), out var c) ? c : 0;
+                    count += 25;
+                    Console.Write(count);
+                ]]>
+            </script>
+
+            <!-- Step 3: Update loop condition (JobStatus) after 3 iterations (WHILE_INDEX: 0, 1, 2) -->
+            <script id="UpdateLoopStatus" language="csx" output_var="JobStatus">
+                <![CDATA[
+                    using System;
+
+                    int idx = int.TryParse(Environment.GetEnvironmentVariable("WHILE_INDEX"), out var i) ? i : 0;
+                    if (idx >= 2)
+                    {
+                        Console.Write("COMPLETED");
+                    }
+                    else
+                    {
+                        Console.Write("RUNNING");
+                    }
+                ]]>
+            </script>
+
+        </while>
+
+        <!-- Final Step: Dump all variables after exiting the while loop -->
+        <script id="DumpFinalVarsAfterWhile" language="csx">
+            <![CDATA[
+                using System;
+                using System.Collections.Generic;
+
+                string header = "\n========== Final Pipeline Variables After While Loop ==========";
+                Console.WriteLine(header);
+
+                var pipelineVarNames = new[] {
+                    "JobStatus", "LAST_OUTPUT", "ProcessedCount", "TargetBatch", "Threshold", "WHILE_INDEX", "log_db_cs"
+                };
+
+                var keys = new List<string>();
+                foreach (var name in pipelineVarNames)
+                {
+                    if (Environment.GetEnvironmentVariable(name) != null)
+                    {
+                        keys.Add(name);
+                    }
+                }
+                keys.Sort(StringComparer.Ordinal);
+
+                foreach (var name in keys)
+                {
+                    var val = Environment.GetEnvironmentVariable(name);
+                    Console.WriteLine($"  {name,-20} = {val}");
+                }
+                string footer = "================================================================";
+                Console.WriteLine(footer);
+            ]]>
+        </script>
+
+    </flow>
+</pipeline>
