@@ -1,14 +1,8 @@
-# Overview of the `<excel_read>` and `<excel_write>` Nodes in Flow
+# Overview of the `<excel_write>` Node in Flow
 
-The `<excel_read>` and `<excel_write>` nodes in `flow` enable direct integration with `.xlsx` workbooks. You can extract data from Excel into JSON for APIs or downstream processing, and you can export database queries directly into styled, native Excel files.
+The `<excel_write>` node in `flow` enables direct integration with `.xlsx` workbooks. You can extract data from Excel into JSON for APIs or downstream processing, and you can export database queries directly into styled, native Excel files.
 
 ## Key Attributes
-
-### `<excel_read>`
-* **`file`**: Target path of the `.xlsx` file to read. Supports `{{VarName}}` interpolation.
-* **`sheet`**: (Optional) The name of the worksheet to read. Defaults to the first sheet if omitted.
-* **`header`**: (Optional) Boolean (`true` / `false`). If `true` (default), the first row is treated as keys for the resulting JSON.
-* **`output_var` / `var`**: The pipeline variable where the extracted JSON string will be stored.
 
 ### `<excel_write>`
 * **`file`**: Target path on the local filesystem to save the `.xlsx` file. Supports interpolation.
@@ -39,30 +33,8 @@ Extract a report directly from a SQL database and save it as a native `.xlsx` fi
     </flow>
 </pipeline>
 ```
-
-### 2. Reading Excel Data into a JSON API Payload
-Extract configuration or bulk upload data from an Excel sheet and send it to an external API endpoint.
-
-```xml
-<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
-    <variables>
-        <variable name="FILE_PATH" type="string" value="./uploads/new_users.xlsx" />
-    </variables>
-    <flow>
-        <!-- Reads the "Users" sheet into JSON (using row 1 as keys) -->
-        <excel_read file="{{FILE_PATH}}" sheet="Users" output_var="USER_JSON_DATA" />
-        
-        <sql_bulk 
-            method="POST" 
-            uri="https://api.example.com/v1/users/bulk" 
-            content_type="application/json" 
-            data="{{USER_JSON_DATA}}" />
-    </flow>
-</pipeline>
-```
-
-### 3. Dynamic Excel Generation with Variables
+    
+### 2. Dynamic Excel Generation with Variables
 Use pipeline variables to dynamically name the output file and filter the SQL query.
 
 ```xml
@@ -83,35 +55,8 @@ Use pipeline variables to dynamically name the output file and filter the SQL qu
     </flow>
 </pipeline>
 ```
-
-### 4. Reading Excel Data Without Headers
-Sometimes data files don't have headers. You can set `header="false"` to process the raw rows programmatically in a later script.
-
-```xml
-<pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
-    <flow>
-        <excel_read file="./raw_data/metrics.xlsx" sheet="RawMetrics" header="false" output_var="RAW_DATA" />
-        
-        <!-- Process the array of arrays in a Go script -->
-        <script lang="go">
-            package main
-            import (
-                "fmt"
-                "encoding/json"
-                "host/vars"
-            )
-            func main() {
-                rawData := vars.GetString("RAW_DATA")
-                fmt.Printf("Successfully loaded raw data: %d bytes\n", len(rawData))
-                // Add custom JSON unmarshaling and validation here
-            }
-        </script>
-    </flow>
-</pipeline>
-```
-
-### 5. Multi-Sheet Export (Using Parallel execution)
+    
+### 3. Multi-Sheet Export (Using Parallel execution)
 Extract multiple datasets simultaneously from the database into different Excel files using the `<parallel>` node.
 
 ```xml
@@ -134,7 +79,8 @@ Extract multiple datasets simultaneously from the database into different Excel 
     </flow>
 </pipeline>
 ```
-### 6. Adding different tabs to the same Excel file
+
+### 4. Adding different tabs to the same Excel file
 You can create multiple sheets within a single Excel file by specifying different `sheet` attributes in multiple `<excel_write>` nodes pointing to the same file.
 
 ```xml

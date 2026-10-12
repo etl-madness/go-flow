@@ -18,6 +18,9 @@ Flow features native, high-performance integration with both relational SQL data
 | **Redis / Valkey** | `redis`, `valkey` | Server KV | `redis://:password@localhost:6379/0` or `127.0.0.1:6379` | In-memory caching, pub/sub, pipelined bulk replication |
 | **etcd** | `etcd`, `etcdv3` | Distributed KV | `http://127.0.0.1:2379,http://127.0.0.1:22379` | Distributed configuration, metadata consensus, prefix scans |
 
+> [!TIP]
+> For an exhaustive reference of all driver options, SSL/TLS certificates, query pragmas, network packet sizing, and multi-scenario connection string examples across all supported engines, see the dedicated [Database Connection Strings & Driver Reference Guide](database_connection_strings.md).
+
 ---
 
 ## Database Connection Tuning `<database>`

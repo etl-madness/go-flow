@@ -6,10 +6,12 @@
     <variables>
         <variable name="DBPath" value="./demo_employees.db" type="string" />
         <variable name="MinSalary" value="100000.00" type="float" />
+        <variable name="log_db_cs" value="sqlserver://T15P:1433?database=PROTO&amp;integrated+security=true&amp;trustServerCertificate=true" type="string" />
     </variables>
 
     <databases>
         <database name="sample_db" driver="sqlite" connection_string="{{DBPath}}" />
+        <database name="log_db" driver="sqlserver" connection_string="{{log_db_cs}}" conn_max_lifetime_seconds="300" max_idle_conns="10" max_open_conns="25" />
     </databases>
 
     <flow>

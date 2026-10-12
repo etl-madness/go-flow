@@ -3328,6 +3328,677 @@ func TestExecutionLogs_ContainsSPID(t *testing.T) {
 	}
 }
 
+func TestConnectionStringsDocAPI(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_docs.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
+
+	srv, err := NewServer(storage, 0)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	srv.authToken = "secret-token"
+
+	// 1. Unauthorized request should return 401
+	unauthReq := httptest.NewRequest(http.MethodGet, "/api/docs/connection-strings", nil)
+	unauthRec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(unauthRec, unauthReq)
+	if unauthRec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized, got %d", unauthRec.Code)
+	}
+
+	// 2. Authorized request should return 200 with JSON content
+	authReq := httptest.NewRequest(http.MethodGet, "/api/docs/connection-strings?token=secret-token", nil)
+	authRec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(authRec, authReq)
+	if authRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", authRec.Code, authRec.Body.String())
+	}
+
+	var resp struct {
+		Filename string `json:"filename"`
+		Path     string `json:"path"`
+		Content  string `json:"content"`
+	}
+	if err := json.Unmarshal(authRec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse JSON response: %v", err)
+	}
+
+	if resp.Filename != "database_connection_strings.md" {
+		t.Errorf("expected filename database_connection_strings.md, got %q", resp.Filename)
+	}
+	if len(resp.Content) == 0 {
+		t.Errorf("expected non-empty documentation content")
+	}
+
+	// Verify key drivers are documented
+	requiredKeywords := []string{
+		"PostgreSQL",
+		"sqlserver",
+		"azuresql",
+		"Microsoft Entra",
+		"MySQL",
+		"SQLite",
+		"Oracle",
+		"MultiSubnetFailover",
+		"MultipleActiveResultSets",
+	}
+	for _, kw := range requiredKeywords {
+		if !strings.Contains(resp.Content, kw) {
+			t.Errorf("expected documentation content to mention %q", kw)
+		}
+	}
+}
+
+func TestConnectionStringsDocUI(t *testing.T) {
+	indexBytes, err := os.ReadFile("tmpl/index.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/index.html: %v", err)
+	}
+	tmplStr := string(indexBytes)
+
+	requiredSnippets := []string{
+		`id="db-docs-modal"`,
+		`id="db-docs-body"`,
+		`id="db-docs-filter"`,
+		`openDbDocsModal`,
+		`closeDbDocsModal`,
+		`jumpToDbSection`,
+		`filterDbDocs`,
+		`renderMarkdownToHtml`,
+		`copyDbDocsRaw`,
+		`📖 Connection Guide`,
+		`📖 Connection String Guide`,
+		`/api/docs/connection-strings`,
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(tmplStr, snippet) {
+			t.Errorf("expected tmpl/index.html to contain %q", snippet)
+		}
+		if !strings.Contains(IndexHTML, snippet) {
+			t.Errorf("expected IndexHTML in html_content.go to contain %q", snippet)
+		}
+	}
+
+	// Verify canvas_nodes.html has Connection Guide button
+	canvasBytes, err := os.ReadFile("tmpl/partials/canvas_nodes.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/partials/canvas_nodes.html: %v", err)
+	}
+	if !strings.Contains(string(canvasBytes), "openDbDocsModal()") {
+		t.Errorf("expected canvas_nodes.html to contain openDbDocsModal()")
+	}
+}
+
+func TestHttpClientDocAPI(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_http_docs.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
+
+	srv, err := NewServer(storage, 0)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	srv.authToken = "secret-token"
+
+	// 1. Unauthorized request should return 401
+	unauthReq := httptest.NewRequest(http.MethodGet, "/api/docs/http-client", nil)
+	unauthRec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(unauthRec, unauthReq)
+	if unauthRec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized, got %d", unauthRec.Code)
+	}
+
+	// 2. Authorized request should return 200 with JSON content
+	authReq := httptest.NewRequest(http.MethodGet, "/api/docs/http-client?token=secret-token", nil)
+	authRec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(authRec, authReq)
+	if authRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", authRec.Code, authRec.Body.String())
+	}
+
+	var resp struct {
+		Filename string `json:"filename"`
+		Path     string `json:"path"`
+		Content  string `json:"content"`
+	}
+	if err := json.Unmarshal(authRec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response JSON: %v", err)
+	}
+
+	if resp.Filename != "http_client.md" {
+		t.Errorf("expected filename http_client.md, got %q", resp.Filename)
+	}
+	if len(resp.Content) == 0 {
+		t.Errorf("expected non-empty documentation content")
+	}
+
+	// Verify key topics are documented
+	requiredKeywords := []string{
+		"http_client",
+		"url",
+		"method",
+		"headers",
+		"into",
+		"tls_insecure_skip_verify",
+		"proxy",
+		"timeout",
+		"follow_redirects",
+	}
+	for _, kw := range requiredKeywords {
+		if !strings.Contains(resp.Content, kw) {
+			t.Errorf("expected documentation content to mention %q", kw)
+		}
+	}
+}
+
+func TestHttpClientDocUI(t *testing.T) {
+	indexBytes, err := os.ReadFile("tmpl/index.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/index.html: %v", err)
+	}
+	tmplStr := string(indexBytes)
+
+	requiredSnippets := []string{
+		`id="http-docs-modal"`,
+		`id="http-docs-body"`,
+		`id="http-docs-filter"`,
+		`openHttpDocsModal`,
+		`closeHttpDocsModal`,
+		`jumpToHttpSection`,
+		`filterHttpDocs`,
+		`copyHttpDocsRaw`,
+		`updateNodeModalGuideButton`,
+		`node-modal-guide-btn`,
+		`📖 HTTP Client Guide`,
+		`/api/docs/http-client`,
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(tmplStr, snippet) {
+			t.Errorf("expected tmpl/index.html to contain %q", snippet)
+		}
+		if !strings.Contains(IndexHTML, snippet) {
+			t.Errorf("expected IndexHTML in html_content.go to contain %q", snippet)
+		}
+	}
+
+	// Verify node_card.html has HTTP Client Guide button
+	cardBytes, err := os.ReadFile("tmpl/partials/node_card.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/partials/node_card.html: %v", err)
+	}
+	if !strings.Contains(string(cardBytes), "openHttpDocsModal()") {
+		t.Errorf("expected node_card.html to contain openHttpDocsModal()")
+	}
+}
+
+func TestComponentDocsAPI(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_component_docs.db")
+	storage, err := NewStorage(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+	defer storage.Close()
+
+	srv, err := NewServer(storage, 0)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+	srv.authToken = "secret-token"
+
+	testCases := []struct {
+		name             string
+		endpoint         string
+		expectedFile     string
+		requiredKeywords []string
+	}{
+		{
+			name:             "assert endpoint",
+			endpoint:         "/api/docs/assert",
+			expectedFile:     "assert.md",
+			requiredKeywords: []string{"assert", "var", "on_failure"},
+		},
+		{
+			name:             "file-read endpoint",
+			endpoint:         "/api/docs/file-read",
+			expectedFile:     "file_read.md",
+			requiredKeywords: []string{"file_read", "path", "into"},
+		},
+		{
+			name:             "file-save endpoint",
+			endpoint:         "/api/docs/file-save",
+			expectedFile:     "file_save.md",
+			requiredKeywords: []string{"file_save", "path", "append"},
+		},
+		{
+			name:             "excel-read endpoint",
+			endpoint:         "/api/docs/excel-read",
+			expectedFile:     "excel_read.md",
+			requiredKeywords: []string{"excel_read", "sheet", "header"},
+		},
+		{
+			name:             "excel-write endpoint",
+			endpoint:         "/api/docs/excel-write",
+			expectedFile:     "excel_write.md",
+			requiredKeywords: []string{"excel_write", "sheet", "db"},
+		},
+		{
+			name:             "json-path endpoint",
+			endpoint:         "/api/docs/json-path",
+			expectedFile:     "json_path.md",
+			requiredKeywords: []string{"json_path", "query", "into"},
+		},
+		{
+			name:             "yaml-path endpoint",
+			endpoint:         "/api/docs/yaml-path",
+			expectedFile:     "yaml_path.md",
+			requiredKeywords: []string{"yaml_path", "query", "into"},
+		},
+		{
+			name:             "xml-path endpoint",
+			endpoint:         "/api/docs/xml-path",
+			expectedFile:     "xml_path.md",
+			requiredKeywords: []string{"xml_xpath", "xpath", "query"},
+		},
+		{
+			name:             "xml-xpath endpoint",
+			endpoint:         "/api/docs/xml-xpath",
+			expectedFile:     "xml_path.md",
+			requiredKeywords: []string{"xml_xpath", "xpath", "query"},
+		},
+		{
+			name:             "component generic endpoint for assert",
+			endpoint:         "/api/docs/component?type=assert",
+			expectedFile:     "assert.md",
+			requiredKeywords: []string{"assert", "var"},
+		},
+		{
+			name:             "component generic endpoint for json_path",
+			endpoint:         "/api/docs/component?type=json_path",
+			expectedFile:     "json_path.md",
+			requiredKeywords: []string{"json_path", "query"},
+		},
+		{
+			name:             "kv endpoint",
+			endpoint:         "/api/docs/kv",
+			expectedFile:     "kv.md",
+			requiredKeywords: []string{"kv", "bucket", "bbolt", "redis"},
+		},
+		{
+			name:             "script endpoint",
+			endpoint:         "/api/docs/script",
+			expectedFile:     "script.md",
+			requiredKeywords: []string{"script", "powershell", "language"},
+		},
+		{
+			name:             "component generic endpoint for kv",
+			endpoint:         "/api/docs/component?type=kv",
+			expectedFile:     "kv.md",
+			requiredKeywords: []string{"kv", "bucket"},
+		},
+		{
+			name:             "component generic endpoint for script",
+			endpoint:         "/api/docs/component?type=script",
+			expectedFile:     "script.md",
+			requiredKeywords: []string{"script", "language"},
+		},
+		{
+			name:             "sql endpoint",
+			endpoint:         "/api/docs/sql",
+			expectedFile:     "sql.md",
+			requiredKeywords: []string{"sql", "db", "output_var"},
+		},
+		{
+			name:             "sql-bulk endpoint",
+			endpoint:         "/api/docs/sql-bulk",
+			expectedFile:     "sql_bulk.md",
+			requiredKeywords: []string{"sql_bulk", "target_table", "batch_size"},
+		},
+		{
+			name:             "template endpoint",
+			endpoint:         "/api/docs/template",
+			expectedFile:     "template.md",
+			requiredKeywords: []string{"template", "into", "text/template"},
+		},
+		{
+			name:             "template-html endpoint",
+			endpoint:         "/api/docs/template-html",
+			expectedFile:     "template_html.md",
+			requiredKeywords: []string{"template_html", "html/template", "escaping"},
+		},
+		{
+			name:             "html-template endpoint",
+			endpoint:         "/api/docs/html-template",
+			expectedFile:     "template_html.md",
+			requiredKeywords: []string{"template_html", "html/template"},
+		},
+		{
+			name:             "component generic endpoint for sql",
+			endpoint:         "/api/docs/component?type=sql",
+			expectedFile:     "sql.md",
+			requiredKeywords: []string{"sql"},
+		},
+		{
+			name:             "component generic endpoint for sql_bulk",
+			endpoint:         "/api/docs/component?type=sql_bulk",
+			expectedFile:     "sql_bulk.md",
+			requiredKeywords: []string{"sql_bulk"},
+		},
+		{
+			name:             "component generic endpoint for template",
+			endpoint:         "/api/docs/component?type=template",
+			expectedFile:     "template.md",
+			requiredKeywords: []string{"template"},
+		},
+		{
+			name:             "component generic endpoint for template_html",
+			endpoint:         "/api/docs/component?type=template_html",
+			expectedFile:     "template_html.md",
+			requiredKeywords: []string{"template_html"},
+		},
+		{
+			name:             "variable endpoint",
+			endpoint:         "/api/docs/variable",
+			expectedFile:     "variable.md",
+			requiredKeywords: []string{"variable", "name", "value"},
+		},
+		{
+			name:             "variables endpoint",
+			endpoint:         "/api/docs/variables",
+			expectedFile:     "variable.md",
+			requiredKeywords: []string{"variable", "name", "value"},
+		},
+		{
+			name:             "component generic endpoint for variable",
+			endpoint:         "/api/docs/component?type=variable",
+			expectedFile:     "variable.md",
+			requiredKeywords: []string{"variable"},
+		},
+		{
+			name:             "component generic endpoint for variables",
+			endpoint:         "/api/docs/component?type=variables",
+			expectedFile:     "variable.md",
+			requiredKeywords: []string{"variable"},
+		},
+		{
+			name:             "group endpoint",
+			endpoint:         "/api/docs/group",
+			expectedFile:     "group.md",
+			requiredKeywords: []string{"group", "transaction", "savepoint"},
+		},
+		{
+			name:             "component generic endpoint for group",
+			endpoint:         "/api/docs/component?type=group",
+			expectedFile:     "group.md",
+			requiredKeywords: []string{"group"},
+		},
+		{
+			name:             "direct route for preflight",
+			endpoint:         "/api/docs/preflight",
+			expectedFile:     "preflight.md",
+			requiredKeywords: []string{"preflight"},
+		},
+		{
+			name:             "component generic endpoint for preflight",
+			endpoint:         "/api/docs/component?type=preflight",
+			expectedFile:     "preflight.md",
+			requiredKeywords: []string{"preflight"},
+		},
+		{
+			name:             "direct route for foreach",
+			endpoint:         "/api/docs/foreach",
+			expectedFile:     "foreach.md",
+			requiredKeywords: []string{"foreach", "stream"},
+		},
+		{
+			name:             "direct route for loop",
+			endpoint:         "/api/docs/loop",
+			expectedFile:     "foreach.md",
+			requiredKeywords: []string{"foreach", "loop"},
+		},
+		{
+			name:             "component generic endpoint for foreach",
+			endpoint:         "/api/docs/component?type=foreach",
+			expectedFile:     "foreach.md",
+			requiredKeywords: []string{"foreach"},
+		},
+		{
+			name:             "component generic endpoint for loop",
+			endpoint:         "/api/docs/component?type=loop",
+			expectedFile:     "foreach.md",
+			requiredKeywords: []string{"loop"},
+		},
+		{
+			name:             "direct route for while",
+			endpoint:         "/api/docs/while",
+			expectedFile:     "while.md",
+			requiredKeywords: []string{"while", "max_iterations", "WHILE_INDEX"},
+		},
+		{
+			name:             "component generic endpoint for while",
+			endpoint:         "/api/docs/component?type=while",
+			expectedFile:     "while.md",
+			requiredKeywords: []string{"while"},
+		},
+		{
+			name:             "direct route for parallel",
+			endpoint:         "/api/docs/parallel",
+			expectedFile:     "parallel.md",
+			requiredKeywords: []string{"parallel", "max_threads"},
+		},
+		{
+			name:             "component generic endpoint for parallel",
+			endpoint:         "/api/docs/component?type=parallel",
+			expectedFile:     "parallel.md",
+			requiredKeywords: []string{"parallel"},
+		},
+		{
+			name:             "direct route for if",
+			endpoint:         "/api/docs/if",
+			expectedFile:     "if_then_else.md",
+			requiredKeywords: []string{"then", "else"},
+		},
+		{
+			name:             "direct route for if-then-else",
+			endpoint:         "/api/docs/if-then-else",
+			expectedFile:     "if_then_else.md",
+			requiredKeywords: []string{"then", "else"},
+		},
+		{
+			name:             "direct route for if_then_else",
+			endpoint:         "/api/docs/if_then_else",
+			expectedFile:     "if_then_else.md",
+			requiredKeywords: []string{"then", "else"},
+		},
+		{
+			name:             "component generic endpoint for if",
+			endpoint:         "/api/docs/component?type=if",
+			expectedFile:     "if_then_else.md",
+			requiredKeywords: []string{"then", "else"},
+		},
+		{
+			name:             "component generic endpoint for if_then_else",
+			endpoint:         "/api/docs/component?type=if_then_else",
+			expectedFile:     "if_then_else.md",
+			requiredKeywords: []string{"then", "else"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// 1. Unauthorized request should return 401
+			unauthReq := httptest.NewRequest(http.MethodGet, tc.endpoint, nil)
+			unauthRec := httptest.NewRecorder()
+			srv.Handler().ServeHTTP(unauthRec, unauthReq)
+			if unauthRec.Code != http.StatusUnauthorized {
+				t.Fatalf("expected 401 Unauthorized, got %d for %s", unauthRec.Code, tc.endpoint)
+			}
+
+			// 2. Authorized request should return 200 with JSON content
+			sep := "?"
+			if strings.Contains(tc.endpoint, "?") {
+				sep = "&"
+			}
+			authReq := httptest.NewRequest(http.MethodGet, tc.endpoint+sep+"token=secret-token", nil)
+			authRec := httptest.NewRecorder()
+			srv.Handler().ServeHTTP(authRec, authReq)
+			if authRec.Code != http.StatusOK {
+				t.Fatalf("expected 200 OK, got %d: %s", authRec.Code, authRec.Body.String())
+			}
+
+			var resp struct {
+				Filename string `json:"filename"`
+				Path     string `json:"path"`
+				Content  string `json:"content"`
+			}
+			if err := json.Unmarshal(authRec.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("failed to decode response JSON: %v", err)
+			}
+
+			if resp.Filename != tc.expectedFile {
+				t.Errorf("expected filename %s, got %q", tc.expectedFile, resp.Filename)
+			}
+			if len(resp.Content) == 0 {
+				t.Errorf("expected non-empty documentation content for %s", tc.endpoint)
+			}
+
+			for _, kw := range tc.requiredKeywords {
+				if !strings.Contains(resp.Content, kw) {
+					t.Errorf("expected %s doc to mention %q", tc.name, kw)
+				}
+			}
+		})
+	}
+}
+
+func TestComponentDocsUI(t *testing.T) {
+	indexBytes, err := os.ReadFile("tmpl/index.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/index.html: %v", err)
+	}
+	tmplStr := string(indexBytes)
+
+	requiredSnippets := []string{
+		`id="component-docs-modal"`,
+		`id="component-docs-body"`,
+		`id="component-docs-filter"`,
+		`openDocModal`,
+		`closeDocModal`,
+		`jumpToDocSection`,
+		`filterComponentDocs`,
+		`copyComponentDocsRaw`,
+		`updateNodeModalGuideButton`,
+		`COMPONENT_DOCS_CONFIG`,
+		`/api/docs/assert`,
+		`/api/docs/file-read`,
+		`/api/docs/file-save`,
+		`/api/docs/excel-read`,
+		`/api/docs/excel-write`,
+		`/api/docs/json-path`,
+		`/api/docs/yaml-path`,
+		`/api/docs/xml-path`,
+		`/api/docs/kv`,
+		`/api/docs/script`,
+		`/api/docs/sql`,
+		`/api/docs/sql-bulk`,
+		`/api/docs/template`,
+		`/api/docs/template-html`,
+		`/api/docs/variable`,
+		`/api/docs/group`,
+		`📖 Assertion Guide`,
+		`📖 File Read Guide`,
+		`📖 File Save Guide`,
+		`📖 Excel Read Guide`,
+		`📖 Excel Write Guide`,
+		`📖 JSONPath Guide`,
+		`📖 YAMLPath Guide`,
+		`📖 XPath Guide`,
+		`📜 Script Guide`,
+		`🗄️ KV Guide`,
+		`⚡ SQL Guide`,
+		`🚀 SQL Bulk Guide`,
+		`📄 Template Guide`,
+		`🌐 HTML Template Guide`,
+		`📦 Variable Guide`,
+		`📦 Group Guide`,
+		`/api/docs/preflight`,
+		`/api/docs/foreach`,
+		`🛫 Preflight Guide`,
+		`🔁 Foreach Loop Guide`,
+		`🔁 Foreach Guide`,
+		`/api/docs/while`,
+		`/api/docs/parallel`,
+		`🔄 While Loop Guide`,
+		`🔄 While Guide`,
+		`⚡ Parallel Execution Guide`,
+		`⚡ Parallel Guide`,
+	}
+
+	for _, snippet := range requiredSnippets {
+		if !strings.Contains(tmplStr, snippet) {
+			t.Errorf("expected tmpl/index.html to contain %q", snippet)
+		}
+		if !strings.Contains(IndexHTML, snippet) {
+			t.Errorf("expected IndexHTML in html_content.go to contain %q", snippet)
+		}
+	}
+
+	// Verify node_card.html has openDocModal
+	cardBytes, err := os.ReadFile("tmpl/partials/node_card.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/partials/node_card.html: %v", err)
+	}
+	if !strings.Contains(string(cardBytes), "openDocModal") {
+		t.Errorf("expected node_card.html to contain openDocModal")
+	}
+	if !strings.Contains(string(cardBytes), "openDocModal('foreach')") {
+		t.Errorf("expected node_card.html to contain openDocModal('foreach')")
+	}
+	if !strings.Contains(string(cardBytes), "openDocModal('while')") {
+		t.Errorf("expected node_card.html to contain openDocModal('while')")
+	}
+	if !strings.Contains(string(cardBytes), "openDocModal('parallel')") {
+		t.Errorf("expected node_card.html to contain openDocModal('parallel')")
+	}
+	if !strings.Contains(string(cardBytes), "openDocModal('if')") {
+		t.Errorf("expected node_card.html to contain openDocModal('if')")
+	}
+	if !strings.Contains(string(indexBytes), "If / Then / Else Guide") {
+		t.Errorf("expected index.html to contain 'If / Then / Else Guide'")
+	}
+	if !strings.Contains(string(indexBytes), "🔀 If Guide") {
+		t.Errorf("expected index.html to contain '🔀 If Guide'")
+	}
+
+	// Verify canvas_nodes.html has openDocModal('assert'), openDocModal('variable'), and openDocModal('preflight')
+	canvasBytes, err := os.ReadFile("tmpl/partials/canvas_nodes.html")
+	if err != nil {
+		t.Fatalf("failed to read tmpl/partials/canvas_nodes.html: %v", err)
+	}
+	if !strings.Contains(string(canvasBytes), "openDocModal('assert')") {
+		t.Errorf("expected canvas_nodes.html to contain openDocModal('assert')")
+	}
+	if !strings.Contains(string(canvasBytes), "openDocModal('variable')") {
+		t.Errorf("expected canvas_nodes.html to contain openDocModal('variable')")
+	}
+	if !strings.Contains(string(canvasBytes), "openDocModal('preflight')") {
+		t.Errorf("expected canvas_nodes.html to contain openDocModal('preflight')")
+	}
+}
+
+
+
 
 
 

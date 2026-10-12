@@ -31,6 +31,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/microsoft/go-mssqldb"
+	_ "github.com/microsoft/go-mssqldb/azuread"
 	_ "github.com/sijms/go-ora/v2"
 )
 
@@ -829,12 +830,18 @@ func testDatabaseConnection(driver, connStr string) error {
 		driver = "postgres"
 	case "mysql":
 		driver = "mysql"
+	case "azuresql", "azuread":
+		driver = "azuresql"
 	case "sqlserver", "mssql":
-		driver = "sqlserver"
+		if strings.Contains(strings.ToLower(connStr), "fedauth=") || strings.Contains(strings.ToLower(connStr), "activedirectory") {
+			driver = "azuresql"
+		} else {
+			driver = "sqlserver"
+		}
 	case "oracle", "godror":
 		driver = "oracle"
 	default:
-		return fmt.Errorf("unsupported driver %q: supported drivers are postgres, sqlserver, mysql, sqlite, oracle", driver)
+		return fmt.Errorf("unsupported driver %q: supported drivers are postgres, sqlserver, azuresql, mysql, sqlite, oracle", driver)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -1441,6 +1448,119 @@ func (s *Server) handleQuickFiles(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(files)
 }
 
+func (s *Server) serveDocFile(w http.ResponseWriter, r *http.Request, docFilename, tmplFilename string) {
+	// 1. Try reading live from disk first so edits in docs/ are immediately visible
+	candidates := []string{
+		filepath.Join("docs", docFilename),
+		filepath.Join("..", "docs", docFilename),
+		filepath.Join("..", "..", "docs", docFilename),
+		filepath.Join("builder", "tmpl", tmplFilename),
+	}
+	if exePath, err := os.Executable(); err == nil {
+		dir := filepath.Dir(exePath)
+		candidates = append(candidates,
+			filepath.Join(dir, "docs", docFilename),
+			filepath.Join(dir, "..", "docs", docFilename),
+			filepath.Join(dir, "builder", "tmpl", tmplFilename),
+		)
+	}
+
+	var content []byte
+	var foundPath string
+	for _, p := range candidates {
+		if b, err := os.ReadFile(p); err == nil && len(b) > 0 {
+			content = b
+			foundPath = filepath.ToSlash(p)
+			break
+		}
+	}
+
+	// 2. If not found on disk, read from embedded templateFS
+	if len(content) == 0 {
+		embedPath := "tmpl/" + tmplFilename
+		if b, err := templateFS.ReadFile(embedPath); err == nil && len(b) > 0 {
+			content = b
+			foundPath = "embedded:" + embedPath
+		}
+	}
+
+	if len(content) == 0 {
+		http.Error(w, fmt.Sprintf("docs/%s not found", docFilename), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"filename": docFilename,
+		"path":     foundPath,
+		"content":  string(content),
+	})
+}
+
+func (s *Server) handleConnectionStringsDoc(w http.ResponseWriter, r *http.Request) {
+	s.serveDocFile(w, r, "database_connection_strings.md", "docs_connection_strings.md")
+}
+
+func (s *Server) handleHttpClientDoc(w http.ResponseWriter, r *http.Request) {
+	s.serveDocFile(w, r, "http_client.md", "docs_http_client.md")
+}
+
+func (s *Server) handleComponentDoc(w http.ResponseWriter, r *http.Request) {
+	topic := strings.TrimSpace(r.URL.Query().Get("topic"))
+	if topic == "" {
+		topic = strings.TrimSpace(r.URL.Query().Get("type"))
+	}
+	if topic == "" {
+		topic = strings.TrimSpace(r.URL.Query().Get("name"))
+	}
+	if topic == "" {
+		topic = strings.TrimPrefix(r.URL.Path, "/api/docs/")
+	}
+	topic = strings.ToLower(strings.ReplaceAll(topic, "-", "_"))
+
+	docMap := map[string][2]string{
+		"connection_strings": {"database_connection_strings.md", "docs_connection_strings.md"},
+		"database":           {"database_connection_strings.md", "docs_connection_strings.md"},
+		"http_client":        {"http_client.md", "docs_http_client.md"},
+		"http":               {"http_client.md", "docs_http_client.md"},
+		"assert":             {"assert.md", "docs_assert.md"},
+		"file_read":          {"file_read.md", "docs_file_read.md"},
+		"file_save":          {"file_save.md", "docs_file_save.md"},
+		"excel_read":         {"excel_read.md", "docs_excel_read.md"},
+		"excel_write":        {"excel_write.md", "docs_excel_write.md"},
+		"json_path":          {"json_path.md", "docs_json_path.md"},
+		"yaml_path":          {"yaml_path.md", "docs_yaml_path.md"},
+		"xml_path":           {"xml_path.md", "docs_xml_path.md"},
+		"xml_xpath":          {"xml_path.md", "docs_xml_path.md"},
+		"kv":                 {"kv.md", "docs_kv.md"},
+		"kv_bulk":            {"kv.md", "docs_kv.md"},
+		"script":             {"script.md", "docs_script.md"},
+		"sql":                {"sql.md", "docs_sql.md"},
+		"sql_bulk":           {"sql_bulk.md", "docs_sql_bulk.md"},
+		"template":           {"template.md", "docs_template.md"},
+		"template_html":      {"template_html.md", "docs_template_html.md"},
+		"html_template":      {"template_html.md", "docs_template_html.md"},
+		"variable":           {"variable.md", "docs_variable.md"},
+		"variables":          {"variable.md", "docs_variable.md"},
+		"group":              {"group.md", "docs_group.md"},
+		"preflight":          {"preflight.md", "docs_preflight.md"},
+		"foreach":            {"foreach.md", "docs_foreach.md"},
+		"loop":               {"foreach.md", "docs_foreach.md"},
+		"parallel":           {"parallel.md", "docs_parallel.md"},
+		"while":              {"while.md", "docs_while.md"},
+		"if":                 {"if_then_else.md", "docs_if_then_else.md"},
+		"if_then_else":       {"if_then_else.md", "docs_if_then_else.md"},
+		"if-then-else":       {"if_then_else.md", "docs_if_then_else.md"},
+	}
+
+	files, ok := docMap[topic]
+	if !ok {
+		http.Error(w, fmt.Sprintf("documentation for %q not found", topic), http.StatusNotFound)
+		return
+	}
+	s.serveDocFile(w, r, files[0], files[1])
+}
+
 func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 	if !s.validateCSRF(r) {
 		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
@@ -1698,6 +1818,49 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/execute/stream", s.requireAuth(s.handleExecuteStream))
 	mux.HandleFunc("/api/files/browse", s.requireAuth(s.handleBrowseFiles))
 	mux.HandleFunc("/api/files/quick", s.requireAuth(s.handleQuickFiles))
+	mux.HandleFunc("/api/docs/connection-strings", s.requireAuth(s.handleConnectionStringsDoc))
+	mux.HandleFunc("/api/docs/http-client", s.requireAuth(s.handleHttpClientDoc))
+	mux.HandleFunc("/api/docs/component", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/assert", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/file-read", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/file_read", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/file-save", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/file_save", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/excel-read", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/excel_read", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/excel-write", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/excel_write", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/json-path", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/json_path", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/yaml-path", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/yaml_path", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/xml-path", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/xml_path", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/xml-xpath", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/xml_xpath", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/kv", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/kv-bulk", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/kv_bulk", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/script", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/sql", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/sql-bulk", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/sql_bulk", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/template", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/template-html", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/template_html", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/html-template", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/html_template", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/variable", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/variables", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/group", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/preflight", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/foreach", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/loop", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/parallel", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/while", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/if", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/if-then-else", s.requireAuth(s.handleComponentDoc))
+	mux.HandleFunc("/api/docs/if_then_else", s.requireAuth(s.handleComponentDoc))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")

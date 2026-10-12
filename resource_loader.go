@@ -16,6 +16,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/microsoft/go-mssqldb"
+	_ "github.com/microsoft/go-mssqldb/azuread"
 	_ "github.com/sijms/go-ora/v2"
 	_ "modernc.org/sqlite"
 
@@ -230,6 +231,13 @@ func loadFromDatabase(ctx context.Context, uri string) ([]byte, error) {
 		driver = "postgres"
 	case "sqlite3":
 		driver = "sqlite"
+	case "azuread":
+		driver = "azuresql"
+	}
+
+	lowerDSN := strings.ToLower(dsn)
+	if (driver == "sqlserver" || driver == "mssql") && (strings.Contains(lowerDSN, "fedauth=") || strings.Contains(lowerDSN, "activedirectory")) {
+		driver = "azuresql"
 	}
 
 	db, err := sql.Open(driver, dsn)

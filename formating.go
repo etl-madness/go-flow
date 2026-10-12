@@ -711,6 +711,8 @@ func LogRunSummaryToDB(ctx context.Context, db *sql.DB, driverType string, rec R
 func detectDriverFromDSN(dsn string) string {
 	lowerDSN := strings.ToLower(dsn)
 	switch {
+	case strings.Contains(lowerDSN, "fedauth=") || strings.Contains(lowerDSN, "activedirectory"):
+		return "azuresql"
 	case strings.HasPrefix(lowerDSN, "postgres://"), strings.Contains(lowerDSN, "dbname="):
 		return "postgres"
 	case strings.HasPrefix(lowerDSN, "sqlserver://"), strings.Contains(lowerDSN, "server="):
@@ -739,7 +741,7 @@ func detectDriverType(db *sql.DB) string {
 		return "mysql"
 	case strings.Contains(driverPkg, "sqlite"):
 		return "sqlite"
-	case strings.Contains(driverPkg, "mssql"):
+	case strings.Contains(driverPkg, "mssql"), strings.Contains(driverPkg, "azuread"):
 		return "sqlserver"
 	case strings.Contains(driverPkg, "godror"), strings.Contains(driverPkg, "oracle"):
 		return "oracle"

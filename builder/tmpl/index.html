@@ -528,6 +528,9 @@
                             </label>
                             <span class="text-[11px] text-slate-400">Execute preflight validation checks only without executing the main flow</span>
                         </div>
+                        <button type="button" onclick="openDocModal('preflight')" class="text-[11px] text-amber-400 hover:text-amber-300 underline underline-offset-2 font-medium cursor-pointer flex items-center space-x-1" title="View preflight setup, validation gates, and execution options from docs/preflight.md">
+                            <span>🛫 Preflight Guide</span>
+                        </button>
                     </div>
                 </div>
                 <datalist id="quick-xml-files"></datalist>
@@ -730,9 +733,14 @@
                         </h3>
                         <p class="text-xs text-slate-400 mt-0.5">Database connections saved in SQLite for pipeline telemetry (<code class="text-cyan-400 font-mono">pipeline_runs</code>, <code class="text-cyan-400 font-mono">pipeline_events</code>) and pipeline execution.</p>
                     </div>
-                    <button type="button" onclick="openAddDatabaseModal()" class="px-3.5 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-md transition shadow flex items-center space-x-1.5 cursor-pointer">
-                        <span>➕ Add Connection</span>
-                    </button>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" onclick="openDbDocsModal()" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-cyan-300 border border-slate-700 rounded-md transition shadow flex items-center space-x-1.5 cursor-pointer" title="View documentation and connection string examples for all supported databases">
+                            <span>📖 Connection Guide</span>
+                        </button>
+                        <button type="button" onclick="openAddDatabaseModal()" class="px-3.5 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-md transition shadow flex items-center space-x-1.5 cursor-pointer">
+                            <span>➕ Add Connection</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Database Connections Table / Empty State -->
@@ -789,7 +797,12 @@
                     <h3 id="modal-title" class="text-sm font-bold text-white">Configure Component</h3>
                     <p id="modal-subtitle" class="text-xs text-slate-400"></p>
                 </div>
-                <button onclick="closeNodeModal()" class="text-slate-400 hover:text-white">&times;</button>
+                <div class="flex items-center space-x-2">
+                    <button type="button" id="node-modal-guide-btn" onclick="" class="hidden px-2.5 py-1 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-cyan-300 border border-slate-700 rounded transition flex items-center space-x-1 cursor-pointer">
+                        <span>📖 Guide</span>
+                    </button>
+                    <button type="button" onclick="closeNodeModal()" class="text-slate-400 hover:text-white text-lg leading-none px-1 cursor-pointer">&times;</button>
+                </div>
             </div>
             <form id="node-form" onsubmit="submitNodeModal(event)" class="flex-1 overflow-y-auto custom-scrollbar space-y-3.5 pr-1">
                 <input type="hidden" id="modal-node-id" name="node_id">
@@ -960,7 +973,12 @@
                     <h3 id="database-modal-title" class="text-sm font-bold text-white">Add Database Connection</h3>
                     <p class="text-xs text-slate-400">Save connection profile in SQLite for audit logging and execution</p>
                 </div>
-                <button onclick="closeDatabaseModal()" class="text-slate-400 hover:text-white">&times;</button>
+                <div class="flex items-center space-x-2">
+                    <button type="button" onclick="openDbDocsModal(document.getElementById('db-conn-driver').value)" class="px-2.5 py-1 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-cyan-300 border border-slate-700 rounded transition flex items-center space-x-1 cursor-pointer" title="View database connection string examples and documentation">
+                        <span>📖 Connection Guide</span>
+                    </button>
+                    <button onclick="closeDatabaseModal()" class="text-slate-400 hover:text-white text-lg cursor-pointer">&times;</button>
+                </div>
             </div>
             <form id="database-form" onsubmit="submitDatabaseForm(event)" class="flex-1 overflow-y-auto custom-scrollbar space-y-3.5 pr-1">
                 <input type="hidden" id="db-conn-id" name="id">
@@ -973,6 +991,7 @@
                     <select id="db-conn-driver" name="driver" onchange="updateDriverPlaceholder(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
                         <option value="postgres">PostgreSQL (postgres / postgresql)</option>
                         <option value="sqlserver">Microsoft SQL Server (sqlserver / mssql)</option>
+                        <option value="azuresql">Azure SQL / Microsoft Entra (azuresql)</option>
                         <option value="mysql">MySQL / MariaDB (mysql)</option>
                         <option value="sqlite">SQLite (sqlite / sqlite3)</option>
                         <option value="oracle">Oracle Database (oracle / godror)</option>
@@ -981,10 +1000,18 @@
                 <div class="space-y-1">
                     <div class="flex items-center justify-between">
                         <label class="text-xs font-medium text-slate-300">Connection String / DSN (<span class="text-amber-400">*</span>)</label>
-                        <button type="button" onclick="testModalDatabaseConnection()" id="btn-modal-test-db" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium">⚡ Test Ping</button>
+                        <div class="flex items-center space-x-3">
+                            <button type="button" onclick="openDbDocsModal(document.getElementById('db-conn-driver').value)" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 flex items-center space-x-1 cursor-pointer" title="View documentation, connection string parameters, and real-world examples from database_connection_strings.md">
+                                <span>📖 Connection String Guide</span>
+                            </button>
+                            <button type="button" onclick="testModalDatabaseConnection()" id="btn-modal-test-db" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium cursor-pointer">⚡ Test Ping</button>
+                        </div>
                     </div>
                     <textarea id="db-conn-str" name="connection_string" rows="3" required placeholder="postgresql://user:pass@localhost:5432/dbname?sslmode=disable" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500 custom-scrollbar"></textarea>
-                    <p id="db-conn-hint" class="text-[10px] text-slate-400">Example: postgresql://user:pass@localhost:5432/dbname?sslmode=disable</p>
+                    <div class="flex items-center justify-between text-[10px] text-slate-400">
+                        <span id="db-conn-hint">Example: postgresql://user:pass@localhost:5432/dbname?sslmode=disable</span>
+                        <a href="javascript:void(0)" onclick="openDbDocsModal(document.getElementById('db-conn-driver').value)" class="text-cyan-400/80 hover:text-cyan-300 hover:underline cursor-pointer" title="Open driver documentation and example connection strings">Driver Reference &amp; Syntax ↗</a>
+                    </div>
                 </div>
                 <div id="db-test-result" class="hidden text-xs p-2.5 rounded border"></div>
                 <div class="space-y-1">
@@ -1006,6 +1033,162 @@
                     <button type="submit" class="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-md transition shadow">Save Connection</button>
                 </div>
             </form>
+        </div>
+    </div>
+    <!-- DATABASE CONNECTION STRINGS DOCS MODAL -->
+    <div id="db-docs-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[75]" onclick="if(event.target===this)closeDbDocsModal()">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-5xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[92vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-3">
+                    <span class="text-2xl">📖</span>
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                            <span>Database Connection Strings Guide</span>
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">docs/database_connection_strings.md</span>
+                        </h3>
+                        <p class="text-xs text-slate-400">Supported drivers, URI/ADO.NET formats, SSL/TLS security modes, and real-world examples</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button type="button" onclick="copyDbDocsRaw()" id="btn-copy-raw-docs" class="text-xs px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition cursor-pointer" title="Copy raw markdown to clipboard">📋 Copy Markdown</button>
+                    <button onclick="closeDbDocsModal()" class="text-slate-400 hover:text-white text-xl leading-none px-2 py-1 cursor-pointer">&times;</button>
+                </div>
+            </div>
+
+            <!-- Filter / Quick Navigation Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
+                <div class="flex items-center space-x-2 flex-1 min-w-[200px]">
+                    <span class="text-xs text-slate-500">🔍</span>
+                    <input type="text" id="db-docs-filter" oninput="filterDbDocs(this.value)" placeholder="Search drivers, parameters, examples (e.g. sqlserver, entra, sslmode, mars)..." class="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none">
+                    <button type="button" onclick="clearDbDocsFilter()" id="db-docs-clear-filter" class="hidden text-xs text-slate-500 hover:text-white px-1 cursor-pointer">&times;</button>
+                </div>
+                <div class="flex items-center space-x-1 text-[11px] overflow-x-auto custom-scrollbar">
+                    <span class="text-slate-500 mr-1">Jump:</span>
+                    <button type="button" onclick="jumpToDbSection('postgresql')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition cursor-pointer">Postgres</button>
+                    <button type="button" onclick="jumpToDbSection('mysql')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-amber-600 text-slate-300 hover:text-white transition cursor-pointer">MySQL</button>
+                    <button type="button" onclick="jumpToDbSection('sqlserver')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white transition cursor-pointer">SQL Server</button>
+                    <button type="button" onclick="jumpToDbSection('azuresql')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-cyan-600 text-slate-300 hover:text-white transition cursor-pointer">Azure / Entra</button>
+                    <button type="button" onclick="jumpToDbSection('sqlite')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition cursor-pointer">SQLite</button>
+                    <button type="button" onclick="jumpToDbSection('oracle')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-orange-600 text-slate-300 hover:text-white transition cursor-pointer">Oracle</button>
+                    <button type="button" onclick="jumpToDbSection('kv')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600 text-slate-300 hover:text-white transition cursor-pointer">KV Stores</button>
+                </div>
+            </div>
+
+            <!-- Rendered Docs Container -->
+            <div id="db-docs-content" class="flex-1 overflow-y-auto custom-scrollbar bg-slate-950 p-4 rounded-lg border border-slate-800 text-xs text-slate-300 leading-relaxed space-y-4">
+                <div id="db-docs-loading" class="flex items-center justify-center p-12 text-slate-400 space-x-2">
+                    <span class="animate-spin text-base">⏳</span>
+                    <span>Loading documentation...</span>
+                </div>
+                <div id="db-docs-body" class="hidden space-y-4"></div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+                <span class="text-[11px] text-slate-500">Click any code block or copy button to copy connection string to clipboard</span>
+                <button type="button" onclick="closeDbDocsModal()" class="px-4 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition cursor-pointer">Close</button>
+            </div>
+        </div>
+    </div>
+    <!-- HTTP CLIENT DOCS MODAL -->
+    <div id="http-docs-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[75]" onclick="if(event.target===this)closeHttpDocsModal()">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-5xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[92vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-3">
+                    <span class="text-2xl">🌐</span>
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                            <span>HTTP Client &amp; REST API Guide</span>
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">docs/http_client.md</span>
+                        </h3>
+                        <p class="text-xs text-slate-400">Request methods, headers, authentication, TLS/proxy tuning, and pipeline loop integration</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button type="button" onclick="copyHttpDocsRaw()" id="btn-copy-raw-http-docs" class="text-xs px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition cursor-pointer" title="Copy raw markdown to clipboard">📋 Copy Markdown</button>
+                    <button onclick="closeHttpDocsModal()" class="text-slate-400 hover:text-white text-xl leading-none px-2 py-1 cursor-pointer">&times;</button>
+                </div>
+            </div>
+
+            <!-- Filter / Quick Navigation Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
+                <div class="flex items-center space-x-2 flex-1 min-w-[200px]">
+                    <span class="text-xs text-slate-500">🔍</span>
+                    <input type="text" id="http-docs-filter" oninput="filterHttpDocs(this.value)" placeholder="Search methods, headers, TLS, proxy, variables, examples..." class="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none">
+                    <button type="button" onclick="clearHttpDocsFilter()" id="http-docs-clear-filter" class="hidden text-xs text-slate-500 hover:text-white px-1 cursor-pointer">&times;</button>
+                </div>
+                <div class="flex items-center space-x-1 text-[11px] overflow-x-auto custom-scrollbar">
+                    <span class="text-slate-500 mr-1">Jump:</span>
+                    <button type="button" onclick="jumpToHttpSection('attributes')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition cursor-pointer">Attributes</button>
+                    <button type="button" onclick="jumpToHttpSection('client')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-cyan-600 text-slate-300 hover:text-white transition cursor-pointer">Client Settings</button>
+                    <button type="button" onclick="jumpToHttpSection('tls')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition cursor-pointer">TLS &amp; Proxy</button>
+                    <button type="button" onclick="jumpToHttpSection('payload')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-amber-600 text-slate-300 hover:text-white transition cursor-pointer">Payloads &amp; Vars</button>
+                    <button type="button" onclick="jumpToHttpSection('loops')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-purple-600 text-slate-300 hover:text-white transition cursor-pointer">Loops &amp; Parallel</button>
+                    <button type="button" onclick="jumpToHttpSection('examples')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition cursor-pointer">Examples</button>
+                </div>
+            </div>
+
+            <!-- Rendered Docs Container -->
+            <div id="http-docs-content" class="flex-1 overflow-y-auto custom-scrollbar bg-slate-950 p-4 rounded-lg border border-slate-800 text-xs text-slate-300 leading-relaxed space-y-4">
+                <div id="http-docs-loading" class="flex items-center justify-center p-12 text-slate-400 space-x-2">
+                    <span class="animate-spin text-base">⏳</span>
+                    <span>Loading documentation...</span>
+                </div>
+                <div id="http-docs-body" class="hidden space-y-4"></div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+                <span class="text-[11px] text-slate-500">Click any code block or copy button to copy snippet to clipboard, or &quot;⚡ Use Example&quot; to auto-fill</span>
+                <button type="button" onclick="closeHttpDocsModal()" class="px-4 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition cursor-pointer">Close</button>
+            </div>
+        </div>
+    </div>
+    <!-- COMPONENT DOCS MODAL (assert, file_read, file_save, excel_read, excel_write, json_path, yaml_path, xml_xpath) -->
+    <div id="component-docs-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[75]" onclick="if(event.target===this)closeDocModal()">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-5xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[92vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-3">
+                    <span id="component-docs-icon" class="text-2xl">📖</span>
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                            <span id="component-docs-title">Component Guide</span>
+                            <span id="component-docs-file-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">docs/assert.md</span>
+                        </h3>
+                        <p id="component-docs-desc" class="text-xs text-slate-400">Node specification, supported attributes, syntax rules, and complete pipeline examples</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button type="button" onclick="copyComponentDocsRaw()" id="btn-copy-raw-component-docs" class="text-xs px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition cursor-pointer" title="Copy raw markdown to clipboard">📋 Copy Markdown</button>
+                    <button onclick="closeDocModal()" class="text-slate-400 hover:text-white text-xl leading-none px-2 py-1 cursor-pointer">&times;</button>
+                </div>
+            </div>
+
+            <!-- Filter / Quick Navigation Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
+                <div class="flex items-center space-x-2 flex-1 min-w-[200px]">
+                    <span class="text-xs text-slate-500">🔍</span>
+                    <input type="text" id="component-docs-filter" oninput="filterComponentDocs(this.value)" placeholder="Search attributes, syntax, variables, examples..." class="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none">
+                    <button type="button" onclick="clearComponentDocsFilter()" id="component-docs-clear-filter" class="hidden text-xs text-slate-500 hover:text-white px-1 cursor-pointer">&times;</button>
+                </div>
+                <div id="component-docs-nav-bar" class="flex items-center space-x-1 text-[11px] overflow-x-auto custom-scrollbar">
+                    <span class="text-slate-500 mr-1">Jump:</span>
+                    <button type="button" onclick="jumpToDocSection('attributes')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition cursor-pointer">Attributes</button>
+                    <button type="button" onclick="jumpToDocSection('examples')" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition cursor-pointer">Examples</button>
+                </div>
+            </div>
+
+            <!-- Rendered Docs Container -->
+            <div id="component-docs-content" class="flex-1 overflow-y-auto custom-scrollbar bg-slate-950 p-4 rounded-lg border border-slate-800 text-xs text-slate-300 leading-relaxed space-y-4">
+                <div id="component-docs-loading" class="flex items-center justify-center p-12 text-slate-400 space-x-2">
+                    <span class="animate-spin text-base">⏳</span>
+                    <span>Loading documentation...</span>
+                </div>
+                <div id="component-docs-body" class="hidden space-y-4"></div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+                <span class="text-[11px] text-slate-500">Click any code block or copy button to copy snippet to clipboard, or &quot;⚡ Use Example&quot; to auto-fill</span>
+                <button type="button" onclick="closeDocModal()" class="px-4 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition cursor-pointer">Close</button>
+            </div>
         </div>
     </div>
     <!-- EVENT DETAIL MODAL -->
@@ -1384,6 +1567,129 @@
             });
         }
 
+        function updateNodeModalGuideButton(nodeType) {
+            const btn = document.getElementById('node-modal-guide-btn');
+            if (!btn) return;
+            if (nodeType === 'http_client') {
+                btn.innerHTML = '<span>📖 HTTP Guide</span>';
+                btn.title = 'Open HTTP / REST Client reference documentation and examples';
+                btn.onclick = () => openHttpDocsModal();
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'database' || nodeType === 'sql' || nodeType === 'sql_bulk') {
+                btn.innerHTML = '<span>📖 DB Guide</span>';
+                btn.title = 'Open database connection strings and driver guide';
+                btn.onclick = () => openDbDocsModal(getModalCurrentDriver());
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'assert') {
+                btn.innerHTML = '<span>📖 Assert Guide</span>';
+                btn.title = 'Open assertion syntax and data quality rules guide';
+                btn.onclick = () => openDocModal('assert');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'file_read') {
+                btn.innerHTML = '<span>📖 File Read Guide</span>';
+                btn.title = 'Open file read documentation and examples';
+                btn.onclick = () => openDocModal('file_read');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'file_save') {
+                btn.innerHTML = '<span>📖 File Save Guide</span>';
+                btn.title = 'Open file save documentation and examples';
+                btn.onclick = () => openDocModal('file_save');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'excel_read') {
+                btn.innerHTML = '<span>📖 Excel Read Guide</span>';
+                btn.title = 'Open Excel read (.xlsx) documentation and examples';
+                btn.onclick = () => openDocModal('excel_read');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'excel_write') {
+                btn.innerHTML = '<span>📖 Excel Write Guide</span>';
+                btn.title = 'Open Excel write (.xlsx) documentation and examples';
+                btn.onclick = () => openDocModal('excel_write');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'json_path') {
+                btn.innerHTML = '<span>📖 JSONPath Guide</span>';
+                btn.title = 'Open JSONPath syntax and query guide';
+                btn.onclick = () => openDocModal('json_path');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'yaml_path') {
+                btn.innerHTML = '<span>📖 YAMLPath Guide</span>';
+                btn.title = 'Open YAMLPath syntax and query guide';
+                btn.onclick = () => openDocModal('yaml_path');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'xml_xpath' || nodeType === 'xml_path') {
+                btn.innerHTML = '<span>📖 XPath Guide</span>';
+                btn.title = 'Open XML XPath query guide and examples';
+                btn.onclick = () => openDocModal('xml_xpath');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'script') {
+                btn.innerHTML = '<span>📜 Script Guide</span>';
+                btn.title = 'Open script runtimes, Go interpreter, and cross-platform guide';
+                btn.onclick = () => openDocModal('script');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'kv' || nodeType === 'kv_bulk') {
+                btn.innerHTML = '<span>🗄️ KV Guide</span>';
+                btn.title = 'Open Key-Value store operations and connection guide';
+                btn.onclick = () => openDocModal('kv');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'sql') {
+                btn.innerHTML = '<span>⚡ SQL Guide</span>';
+                btn.title = 'Open SQL statements, transactions, and intelligent query detection guide';
+                btn.onclick = () => openDocModal('sql');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'sql_bulk') {
+                btn.innerHTML = '<span>🚀 SQL Bulk Guide</span>';
+                btn.title = 'Open high-performance bulk replication guide and tuning matrix';
+                btn.onclick = () => openDocModal('sql_bulk');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'template') {
+                btn.innerHTML = '<span>📄 Template Guide</span>';
+                btn.title = 'Open Go text/template guide and syntax examples';
+                btn.onclick = () => openDocModal('template');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'template_html' || nodeType === 'html_template') {
+                btn.innerHTML = '<span>🌐 HTML Template Guide</span>';
+                btn.title = 'Open context-aware HTML template guide and XSS protection reference';
+                btn.onclick = () => openDocModal('template_html');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'variable' || nodeType === 'variables') {
+                btn.innerHTML = '<span>📦 Variable Guide</span>';
+                btn.title = 'Open variable declaration, type conversion, and interpolation guide';
+                btn.onclick = () => openDocModal('variable');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'group') {
+                btn.innerHTML = '<span>📦 Group Guide</span>';
+                btn.title = 'Open execution group, transaction boundaries, and savepoint reference';
+                btn.onclick = () => openDocModal('group');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'preflight') {
+                btn.innerHTML = '<span>🛫 Preflight Guide</span>';
+                btn.title = 'Open preflight validation gates, readiness checks, and split execution guide';
+                btn.onclick = () => openDocModal('preflight');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'foreach' || nodeType === 'loop') {
+                btn.innerHTML = '<span>🔁 Foreach Loop Guide</span>';
+                btn.title = 'Open foreach loop cursor streaming, variable mapping, and batch guide';
+                btn.onclick = () => openDocModal('foreach');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'while') {
+                btn.innerHTML = '<span>🔄 While Loop Guide</span>';
+                btn.title = 'Open while loop polling, iteration limits, and WHILE_INDEX guide';
+                btn.onclick = () => openDocModal('while');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'parallel') {
+                btn.innerHTML = '<span>⚡ Parallel Execution Guide</span>';
+                btn.title = 'Open concurrent execution, worker thread pool, and synchronization guide';
+                btn.onclick = () => openDocModal('parallel');
+                btn.classList.remove('hidden');
+            } else if (nodeType === 'if') {
+                btn.innerHTML = '<span>🔀 If / Then / Else Guide</span>';
+                btn.title = 'Open conditional branching, expression evaluation, and then/else guide';
+                btn.onclick = () => openDocModal('if');
+                btn.classList.remove('hidden');
+            } else {
+                btn.classList.add('hidden');
+            }
+        }
+
         function openAddNodeModal(nodeType, name, defaultSection, parentNodeId) {
             const meta = catalogData.find(c => c.type === nodeType);
             if (!meta) return;
@@ -1396,6 +1702,7 @@
             document.getElementById('modal-title').textContent = (parentNodeId ? 'Add Nested <' : 'Add <') + meta.tag + '> ' + meta.name;
             document.getElementById('modal-subtitle').textContent = meta.description;
             document.getElementById('modal-content-text').value = '';
+            updateNodeModalGuideButton(nodeType);
             renderModalFields(meta, {});
             document.getElementById('node-modal').classList.remove('hidden');
         }
@@ -1421,6 +1728,7 @@
                     document.getElementById('modal-node-section').value = node.section;
                     document.getElementById('modal-title').textContent = 'Edit <' + meta.tag + '> ' + (meta.name || node.node_type);
                     document.getElementById('modal-subtitle').textContent = meta.description || '';
+                    updateNodeModalGuideButton(node.node_type);
                     renderModalFields(meta, node.attributes || {});
                     const contentBox = document.getElementById('modal-content-container');
                     if (meta.has_content || (node.content_text && node.content_text.trim() !== '')) {
@@ -1446,37 +1754,41 @@
         ];
 
         const FLOW_NODE_ATTRIBUTES = {
-            'script': ['id', 'language', 'lang', 'output_var', 'output_variable', 'out_var', 'var', 'variable', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count', 'retry_interval'],
+            'script': ['id', 'language', 'lang', 'output_var', 'output_variable', 'out_var', 'var', 'variable', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count', 'retry_interval', 'db'],
             'sql': ['id', 'db', 'database', 'output_var', 'into', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count', 'retry_interval'],
             'sql_bulk': ['id', 'db', 'database', 'target_table', 'table', 'target_db', 'target_database', 'batch_size', 'tablock', 'check_constraints', 'fire_triggers', 'keep_nulls', 'timeout', 'output_var', 'description', 'condition', 'cond', 'on_error', 'retry_count'],
-            'group': ['id', 'transaction', 'tx', 'db', 'database', 'timeout', 'on_error', 'retry_count', 'retry_interval', 'condition', 'cond', 'description'],
+            'group': ['id', 'transaction', 'tx', 'db', 'database', 'timeout', 'on_error', 'retry_count', 'retry_interval', 'condition', 'cond', 'if_var', 'if_equals', 'var', 'equals', 'description'],
             'foreach': ['id', 'db', 'database', 'var', 'variable', 'stream', 'buffer', 'mode', 'language', 'lang', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count'],
             'loop': ['id', 'db', 'database', 'var', 'variable', 'stream', 'buffer', 'mode', 'language', 'lang', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count'],
-            'while': ['id', 'condition', 'cond', 'var', 'equals', 'val', 'value', 'max_iterations', 'max_loops', 'timeout', 'description', 'on_error', 'retry_count'],
-            'parallel': ['id', 'max_concurrency', 'timeout', 'description', 'on_error'],
+            'while': ['id', 'condition', 'cond', 'var', 'if_var', 'equals', 'val', 'value', 'if_val', 'if_equals', 'max_iterations', 'max_loops', 'timeout', 'description', 'on_error', 'retry_count'],
+            'parallel': ['id', 'max_threads', 'threads', 'concurrency', 'max_concurrency', 'timeout', 'description', 'on_error'],
             'if': ['id', 'condition', 'cond', 'var', 'if_var', 'equals', 'val', 'value', 'if_val', 'if_equals', 'description'],
-            'http_client': ['id', 'url', 'method', 'headers', 'into', 'status_into', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count', 'retry_interval'],
-            'kv': ['id', 'db', 'op', 'bucket', 'key', 'value', 'into', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count'],
+            'http_client': ['id', 'url', 'method', 'headers', 'content_type', 'into', 'status_into', 'timeout', 'follow_redirects', 'tls_insecure_skip_verify', 'proxy', 'description', 'condition', 'cond', 'on_error', 'retry_count', 'retry_interval'],
+            'kv': ['id', 'db', 'op', 'bucket', 'key', 'value', 'into', 'output_var', 'var', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count'],
             'kv_bulk': ['id', 'db', 'bucket', 'source', 'timeout', 'description', 'condition', 'cond', 'on_error', 'retry_count'],
             'excel_read': ['id', 'file', 'path', 'sheet', 'header', 'output_var', 'into', 'timeout', 'description', 'condition', 'cond', 'on_error'],
             'excel_write': ['id', 'file', 'path', 'sheet', 'db', 'database', 'var', 'timeout', 'description', 'condition', 'cond', 'on_error'],
             'template': ['id', 'file', 'engine', 'var', 'into', 'output_var', 'mode', 'name', 'timeout', 'description', 'condition', 'cond'],
             'template_html': ['id', 'file', 'engine', 'var', 'into', 'output_var', 'mode', 'name', 'timeout', 'description', 'condition', 'cond'],
             'html_template': ['id', 'file', 'engine', 'var', 'into', 'output_var', 'mode', 'name', 'timeout', 'description', 'condition', 'cond'],
-            'file_read': ['id', 'path', 'into', 'timeout', 'description', 'condition', 'cond', 'on_error'],
-            'file_save': ['id', 'path', 'source', 'mode', 'timeout', 'description', 'condition', 'cond', 'on_error'],
-            'json_path': ['id', 'source', 'query', 'into', 'timeout', 'description', 'condition', 'cond'],
-            'yaml_path': ['id', 'source', 'query', 'into', 'timeout', 'description', 'condition', 'cond'],
-            'xml_xpath': ['id', 'source', 'query', 'into', 'timeout', 'description', 'condition', 'cond'],
-            'assert': ['id', 'condition', 'cond', 'message', 'description'],
+            'file_read': ['id', 'path', 'file', 'filename', 'into', 'output_var', 'timeout', 'description', 'condition', 'cond', 'on_error'],
+            'file_save': ['id', 'path', 'file', 'source', 'var', 'mode', 'append', 'timeout', 'description', 'condition', 'cond', 'on_error'],
+            'json_path': ['id', 'source', 'var', 'query', 'jsonpath', 'path', 'into', 'output_var', 'mode', 'file', 'timeout', 'description', 'condition', 'cond'],
+            'yaml_path': ['id', 'source', 'var', 'query', 'path', 'yamlpath', 'into', 'output_var', 'mode', 'file', 'timeout', 'description', 'condition', 'cond'],
+            'xml_xpath': ['id', 'source', 'var', 'query', 'xpath', 'into', 'output_var', 'mode', 'file', 'timeout', 'description', 'condition', 'cond'],
+            'xml_path': ['id', 'source', 'var', 'query', 'xpath', 'into', 'output_var', 'mode', 'file', 'timeout', 'description', 'condition', 'cond'],
+            'assert': ['id', 'var', 'equals', 'value', 'condition', 'cond', 'message', 'on_failure', 'fail_var', 'fail_val', 'timeout', 'description'],
             'database': ['name', 'driver', 'connection_string', 'workload', 'max_open_conns', 'max_idle_conns', 'conn_max_lifetime_seconds', 'description'],
-            'variable': ['name', 'value', 'type', 'description']
+            'variable': ['id', 'name', 'value', 'type', 'description'],
+            'preflight': ['id', 'description']
         };
 
         const FLOW_ATTR_VALUE_PRESETS = {
             'language': ['powershell', 'pwsh', 'shell', 'bash', 'cmd', 'go', 'git-bash', 'zsh', 'dotnet-script', 'csx'],
             'lang': ['powershell', 'pwsh', 'shell', 'bash', 'cmd', 'go', 'git-bash', 'zsh', 'dotnet-script', 'csx'],
+            'op': ['get', 'put', 'delete', 'scan'],
             'on_error': ['stop', 'continue', 'retry'],
+            'on_failure': ['halt', 'warn', 'continue'],
             'stream': ['true', 'false'],
             'buffer': ['true', 'false'],
             'tablock': ['true', 'false'],
@@ -1492,7 +1804,8 @@
             'method': ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD'],
             'timeout': ['10s', '30s', '1m', '5m', '10m', '1h'],
             'retry_interval': ['1s', '2s', '5s', '10s', '30s'],
-            'op': ['get', 'put', 'delete', 'scan']
+            'engine': ['text', 'html'],
+            'type': ['string', 'int', 'bool', 'float', 'datetime', 'date']
         };
 
         function getCurrentNodeMeta() {
@@ -1654,10 +1967,148 @@
                 } else if (f.type === 'select') {
                     const opts = (f.options || []).map(o => '<option value="' + o + '" ' + (o === val ? 'selected' : '') + '>' + o + '</option>').join('');
                     inputHtml = '<select name="attr_' + f.name + '" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">' + opts + '</select>';
+                } else if (f.name === 'connection_string') {
+                    inputHtml = '<div class="space-y-1">' +
+                        '<input type="text" id="attr_' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder="e.g. sqlserver://... or postgresql://... or ./data.db" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
+                        '<div class="flex justify-between items-center text-[10px] text-slate-500">' +
+                            '<span>Supports &#123;&#123;Variables&#125;&#125; &amp; encrypted secrets</span>' +
+                            '<a href="javascript:void(0)" onclick="openDbDocsModal(getModalCurrentDriver())" class="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer" title="Open driver documentation and example connection strings">Driver Reference &amp; Syntax ↗</a>' +
+                        '</div>' +
+                    '</div>';
+                } else if (f.name === 'url' && (meta.type === 'http_client' || meta.tag === 'http_client')) {
+                    inputHtml = '<div class="space-y-1">' +
+                        '<input type="text" id="attr_' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder="e.g. https://api.example.com/v1/data or &#123;&#123;BaseUrl&#125;&#125;/endpoint" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
+                        '<div class="flex justify-between items-center text-[10px] text-slate-500">' +
+                            '<span>Supports &#123;&#123;Variables&#125;&#125; &amp; query parameters</span>' +
+                            '<a href="javascript:void(0)" onclick="openHttpDocsModal(\'attributes\')" class="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer" title="Open HTTP Client documentation">HTTP Reference &amp; Examples ↗</a>' +
+                        '</div>' +
+                    '</div>';
+                } else if (f.name === 'headers' && (meta.type === 'http_client' || meta.tag === 'http_client')) {
+                    inputHtml = '<div class="space-y-1">' +
+                        '<input type="text" id="attr_' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder="e.g. {&quot;Authorization&quot;:&quot;Bearer &#123;&#123;Token&#125;&#125;&quot;} or Content-Type:application/json" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
+                        '<div class="flex justify-between items-center text-[10px] text-slate-500">' +
+                            '<span>Supports JSON or K1:V1,K2:V2 formats</span>' +
+                            '<a href="javascript:void(0)" onclick="openHttpDocsModal(\'headers\')" class="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer" title="Open Headers &amp; Auth reference">Header Syntax &amp; Auth ↗</a>' +
+                        '</div>' +
+                    '</div>';
+                } else if (f.name === 'condition' && meta.type === 'assert') {
+                    inputHtml = '<div class="space-y-1">' +
+                        '<input type="text" id="attr_' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder="e.g. gt .RecordCount 0 or eq .Status &quot;ready&quot;" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
+                        '<div class="flex justify-between items-center text-[10px] text-slate-500">' +
+                            '<span>Boolean test or Go template condition</span>' +
+                            '<a href="javascript:void(0)" onclick="openDocModal(\'assert\')" class="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer" title="Open assertion condition reference">Assertion Rules &amp; Syntax ↗</a>' +
+                        '</div>' +
+                    '</div>';
+                } else if (f.name === 'query' && meta.type === 'json_path') {
+                    inputHtml = '<div class="space-y-1">' +
+                        '<input type="text" id="attr_' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder="e.g. $.items[*].id or $..book[0]" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
+                        '<div class="flex justify-between items-center text-[10px] text-slate-500">' +
+                            '<span>JSONPath expression query</span>' +
+                            '<a href="javascript:void(0)" onclick="openDocModal(\'json_path\')" class="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer" title="Open JSONPath syntax reference">JSONPath Syntax ↗</a>' +
+                        '</div>' +
+                    '</div>';
+                } else if (f.name === 'query' && meta.type === 'yaml_path') {
+                    inputHtml = '<div class="space-y-1">' +
+                        '<input type="text" id="attr_' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder="e.g. spec.replicas or $.database.host" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
+                        '<div class="flex justify-between items-center text-[10px] text-slate-500">' +
+                            '<span>YAML path expression</span>' +
+                            '<a href="javascript:void(0)" onclick="openDocModal(\'yaml_path\')" class="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer" title="Open YAMLPath syntax reference">YAMLPath Syntax ↗</a>' +
+                        '</div>' +
+                    '</div>';
+                } else if (f.name === 'query' && (meta.type === 'xml_xpath' || meta.type === 'xml_path')) {
+                    inputHtml = '<div class="space-y-1">' +
+                        '<input type="text" id="attr_' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder="e.g. //book/title/text() or //item[@id=\'101\']" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
+                        '<div class="flex justify-between items-center text-[10px] text-slate-500">' +
+                            '<span>XPath query expression</span>' +
+                            '<a href="javascript:void(0)" onclick="openDocModal(\'xml_xpath\')" class="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer" title="Open XPath syntax reference">XPath Syntax ↗</a>' +
+                        '</div>' +
+                    '</div>';
+                } else if (f.name === 'path' && meta.type === 'file_read') {
+                    inputHtml = '<div class="space-y-1">' +
+                        '<input type="text" id="attr_' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder="./data/input.json or &#123;&#123;FilePath&#125;&#125;" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
+                        '<div class="flex justify-between items-center text-[10px] text-slate-500">' +
+                            '<span>Supports &#123;&#123;Variables&#125;&#125;</span>' +
+                            '<a href="javascript:void(0)" onclick="openDocModal(\'file_read\')" class="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer" title="Open File Read reference">File Read Guide ↗</a>' +
+                        '</div>' +
+                    '</div>';
+                } else if (f.name === 'path' && meta.type === 'file_save') {
+                    inputHtml = '<div class="space-y-1">' +
+                        '<input type="text" id="attr_' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder="./output/result.csv or &#123;&#123;OutFile&#125;&#125;" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
+                        '<div class="flex justify-between items-center text-[10px] text-slate-500">' +
+                            '<span>Supports &#123;&#123;Variables&#125;&#125;</span>' +
+                            '<a href="javascript:void(0)" onclick="openDocModal(\'file_save\')" class="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer" title="Open File Save reference">File Save Guide ↗</a>' +
+                        '</div>' +
+                    '</div>';
+                } else if (f.name === 'file' && meta.type === 'excel_read') {
+                    inputHtml = '<div class="space-y-1">' +
+                        '<input type="text" id="attr_' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder="./spreadsheets/Accounts.xlsx or &#123;&#123;ExcelFile&#125;&#125;" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
+                        '<div class="flex justify-between items-center text-[10px] text-slate-500">' +
+                            '<span>Path to .xlsx file</span>' +
+                            '<a href="javascript:void(0)" onclick="openDocModal(\'excel_read\')" class="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer" title="Open Excel Read reference">Excel Read Guide ↗</a>' +
+                        '</div>' +
+                    '</div>';
+                } else if (f.name === 'file' && meta.type === 'excel_write') {
+                    inputHtml = '<div class="space-y-1">' +
+                        '<input type="text" id="attr_' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder="./reports/Sales.xlsx or &#123;&#123;OutFile&#125;&#125;" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
+                        '<div class="flex justify-between items-center text-[10px] text-slate-500">' +
+                            '<span>Path to destination .xlsx file</span>' +
+                            '<a href="javascript:void(0)" onclick="openDocModal(\'excel_write\')" class="text-cyan-400 hover:text-cyan-300 hover:underline cursor-pointer" title="Open Excel Write reference">Excel Write Guide ↗</a>' +
+                        '</div>' +
+                    '</div>';
                 } else {
                     inputHtml = '<input type="text" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">';
                 }
-                div.innerHTML = '<div class="flex justify-between items-center"><label class="text-xs font-medium text-slate-300">' + f.label + (f.mandatory ? ' <span class="text-red-400">*</span>' : '') + '</label><span class="text-[10px] text-slate-500">' + (f.description || '') + '</span></div>' + inputHtml;
+                let labelExtra = '';
+                if (f.name === 'connection_string') {
+                    labelExtra = '<button type="button" onclick="openDbDocsModal(getModalCurrentDriver())" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View documentation, connection string parameters, and real-world examples from database_connection_strings.md"><span>📖 Connection String Guide</span></button>';
+                } else if (f.name === 'url' && (meta.type === 'http_client' || meta.tag === 'http_client')) {
+                    labelExtra = '<button type="button" onclick="openHttpDocsModal()" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View HTTP Client documentation, headers, and request examples from docs/http_client.md"><span>📖 HTTP Client Guide</span></button>';
+                } else if (f.name === 'headers' && (meta.type === 'http_client' || meta.tag === 'http_client')) {
+                    labelExtra = '<button type="button" onclick="openHttpDocsModal(\'headers\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View HTTP request headers and authentication reference"><span>Header Reference ↗</span></button>';
+                } else if ((f.name === 'condition' || f.name === 'var') && meta.type === 'assert') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'assert\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View assertion syntax and condition rules from docs/assert.md"><span>📖 Assertion Guide</span></button>';
+                } else if ((f.name === 'path' || f.name === 'file') && meta.type === 'file_read') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'file_read\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View file read documentation from docs/file_read.md"><span>📖 File Read Guide</span></button>';
+                } else if ((f.name === 'path' || f.name === 'file') && meta.type === 'file_save') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'file_save\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View file save documentation from docs/file_save.md"><span>📖 File Save Guide</span></button>';
+                } else if ((f.name === 'file' || f.name === 'sheet') && meta.type === 'excel_read') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'excel_read\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View Excel read documentation from docs/excel_read.md"><span>📖 Excel Read Guide</span></button>';
+                } else if ((f.name === 'file' || f.name === 'sheet') && meta.type === 'excel_write') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'excel_write\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View Excel write documentation from docs/excel_write.md"><span>📖 Excel Write Guide</span></button>';
+                } else if ((f.name === 'query' || f.name === 'source') && meta.type === 'json_path') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'json_path\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View JSONPath documentation from docs/json_path.md"><span>📖 JSONPath Guide</span></button>';
+                } else if ((f.name === 'query' || f.name === 'source') && meta.type === 'yaml_path') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'yaml_path\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View YAMLPath documentation from docs/yaml_path.md"><span>📖 YAMLPath Guide</span></button>';
+                } else if ((f.name === 'query' || f.name === 'source') && (meta.type === 'xml_xpath' || meta.type === 'xml_path')) {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'xml_xpath\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View XML XPath documentation from docs/xml_path.md"><span>📖 XPath Guide</span></button>';
+                } else if ((f.name === 'language' || f.name === 'output_var' || f.name === 'var') && meta.type === 'script') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'script\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View script engines, Go interpreter, and runtime examples from docs/script.md"><span>📜 Script Guide</span></button>';
+                } else if ((f.name === 'op' || f.name === 'bucket' || f.name === 'key' || f.name === 'db' || f.name === 'value') && (meta.type === 'kv' || meta.type === 'kv_bulk')) {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'kv\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View Key-Value store operations, drivers, and examples from docs/kv.md"><span>🗄️ KV Guide</span></button>';
+                } else if ((f.name === 'db' || f.name === 'output_var' || f.name === 'into') && meta.type === 'sql') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'sql\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View SQL query syntax, transactions, and intelligent detection from docs/sql.md"><span>⚡ SQL Guide</span></button>';
+                } else if ((f.name === 'target_table' || f.name === 'batch_size' || f.name === 'tablock' || f.name === 'db') && meta.type === 'sql_bulk') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'sql_bulk\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View bulk streaming replication and high-performance tuning from docs/sql_bulk.md"><span>🚀 SQL Bulk Guide</span></button>';
+                } else if ((f.name === 'into' || f.name === 'file' || f.name === 'output_var') && meta.type === 'template') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'template\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View Go text/template syntax, variables, and examples from docs/template.md"><span>📄 Template Guide</span></button>';
+                } else if ((f.name === 'into' || f.name === 'file' || f.name === 'output_var') && (meta.type === 'template_html' || meta.type === 'html_template')) {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'template_html\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View context-aware HTML template guide and XSS protection from docs/template_html.md"><span>🌐 HTML Template Guide</span></button>';
+                } else if ((f.name === 'name' || f.name === 'type' || f.name === 'value') && (meta.type === 'variable' || meta.type === 'variables')) {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'variable\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View variable declaration, type conversion, and interpolation guide from docs/variable.md"><span>📦 Variable Guide</span></button>';
+                } else if ((f.name === 'transaction' || f.name === 'tx' || f.name === 'db' || f.name === 'on_error' || f.name === 'condition' || f.name === 'if_var') && meta.type === 'group') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'group\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View execution group, transaction boundaries, and savepoint reference from docs/group.md"><span>📦 Group Guide</span></button>';
+                } else if ((f.name === 'id' || f.name === 'description') && meta.type === 'preflight') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'preflight\')" class="text-[11px] text-amber-400 hover:text-amber-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View preflight setup, validation gates, and execution options from docs/preflight.md"><span>🛫 Preflight Guide</span></button>';
+                } else if ((f.name === 'db' || f.name === 'stream' || f.name === 'buffer' || f.name === 'mode' || f.name === 'var' || f.name === 'language' || f.name === 'on_error' || f.name === 'condition') && (meta.type === 'foreach' || meta.type === 'loop')) {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'foreach\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View foreach cursor streaming, buffering, and variable mapping from docs/foreach.md"><span>🔁 Foreach Guide</span></button>';
+                } else if ((f.name === 'condition' || f.name === 'var' || f.name === 'equals' || f.name === 'max_iterations' || f.name === 'timeout' || f.name === 'on_error') && meta.type === 'while') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'while\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View while loop polling, iteration limits, and WHILE_INDEX from docs/while.md"><span>🔄 While Guide</span></button>';
+                } else if ((f.name === 'max_threads' || f.name === 'threads' || f.name === 'concurrency' || f.name === 'timeout' || f.name === 'on_error') && meta.type === 'parallel') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'parallel\')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View parallel execution, worker thread pool, and join barrier from docs/parallel.md"><span>⚡ Parallel Guide</span></button>';
+                } else if ((f.name === 'condition' || f.name === 'var' || f.name === 'equals' || f.name === 'id') && meta.type === 'if') {
+                    labelExtra = '<button type="button" onclick="openDocModal(\'if\')" class="text-[11px] text-amber-400 hover:text-amber-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View conditional branching, then/else execution, and predicates from docs/if_then_else.md"><span>🔀 If Guide</span></button>';
+                }
+                div.innerHTML = '<div class="flex justify-between items-center"><label class="text-xs font-medium text-slate-300">' + f.label + (f.mandatory ? ' <span class="text-red-400">*</span>' : '') + '</label><div class="flex items-center space-x-2">' + labelExtra + '<span class="text-[10px] text-slate-500">' + (f.description || '') + '</span></div></div>' + inputHtml;
                 container.appendChild(div);
             });
 
@@ -2814,9 +3265,25 @@
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                const compModal = document.getElementById('component-docs-modal');
+                if (compModal && !compModal.classList.contains('hidden')) {
+                    closeDocModal();
+                    return;
+                }
+                const httpModal = document.getElementById('http-docs-modal');
+                if (httpModal && !httpModal.classList.contains('hidden')) {
+                    closeHttpDocsModal();
+                    return;
+                }
+                const docsModal = document.getElementById('db-docs-modal');
+                if (docsModal && !docsModal.classList.contains('hidden')) {
+                    closeDbDocsModal();
+                    return;
+                }
                 closeFileBrowser();
                 closeNodeModal();
                 closeComponentPicker();
+                closeDatabaseModal();
             }
         });
 
@@ -2897,6 +3364,7 @@
         const DRIVER_PLACEHOLDERS = {
             postgres: 'postgresql://user:pass@localhost:5432/dbname?sslmode=disable',
             sqlserver: 'sqlserver://user:pass@localhost:1433?database=dbname',
+            azuresql: 'sqlserver://server.database.windows.net?database=dbname&fedauth=ActiveDirectoryIntegrated&encrypt=true',
             mysql: 'user:pass@tcp(localhost:3306)/dbname?parseTime=true',
             sqlite: './flow_builder.db',
             oracle: 'oracle://user:pass@localhost:1521/service_name'
@@ -2947,6 +3415,7 @@
                 var driverBadgeColors = {
                     postgres: 'bg-indigo-950/80 text-indigo-300 border-indigo-700/60',
                     sqlserver: 'bg-red-950/80 text-red-300 border-red-700/60',
+                    azuresql: 'bg-cyan-950/80 text-cyan-300 border-cyan-700/60',
                     mysql: 'bg-amber-950/80 text-amber-300 border-amber-700/60',
                     sqlite: 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60',
                     oracle: 'bg-rose-950/80 text-rose-300 border-rose-700/60'
@@ -3063,6 +3532,1866 @@
 
         function closeDatabaseModal() {
             document.getElementById('database-modal').classList.add('hidden');
+        }
+
+        // ==========================================
+        // DATABASE CONNECTION STRINGS DOCS MODAL
+        // ==========================================
+        let dbDocsRawContent = '';
+        let dbDocsLoaded = false;
+
+        function getModalCurrentDriver() {
+            const driverSelect = document.querySelector('#modal-fields-container select[name="attr_driver"]');
+            if (driverSelect && driverSelect.value) return driverSelect.value;
+            const dbSelect = document.getElementById('db-conn-driver');
+            if (dbSelect && dbSelect.value) return dbSelect.value;
+            return '';
+        }
+
+        function openDbDocsModal(preferredDriver) {
+            const modal = document.getElementById('db-docs-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+
+            if (!dbDocsLoaded) {
+                document.getElementById('db-docs-loading').classList.remove('hidden');
+                document.getElementById('db-docs-body').classList.add('hidden');
+                fetch('/api/docs/connection-strings')
+                    .then(res => {
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        return res.json();
+                    })
+                    .then(data => {
+                        dbDocsRawContent = data.content || '';
+                        const html = renderMarkdownToHtml(dbDocsRawContent);
+                        const body = document.getElementById('db-docs-body');
+                        body.innerHTML = html;
+                        document.getElementById('db-docs-loading').classList.add('hidden');
+                        body.classList.remove('hidden');
+                        dbDocsLoaded = true;
+                        if (preferredDriver) {
+                            setTimeout(() => jumpToDbSection(preferredDriver), 150);
+                        }
+                    })
+                    .catch(err => {
+                        document.getElementById('db-docs-loading').innerHTML =
+                            '<div class="text-rose-400 p-4 border border-rose-900/50 rounded bg-rose-950/20">Failed to load documentation: ' + escapeHtml(err.message) + '</div>';
+                    });
+            } else {
+                if (preferredDriver) {
+                    setTimeout(() => jumpToDbSection(preferredDriver), 50);
+                }
+            }
+        }
+
+        function closeDbDocsModal() {
+            const modal = document.getElementById('db-docs-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function jumpToDbSection(driver) {
+            if (!driver) return;
+            driver = driver.toLowerCase();
+            const map = {
+                'postgres': 'sec-3-postgresql',
+                'postgresql': 'sec-3-postgresql',
+                'mysql': 'sec-4-mysql-mariadb',
+                'mariadb': 'sec-4-mysql-mariadb',
+                'sqlserver': 'sec-5-microsoft-sql-server-mssql',
+                'mssql': 'sec-5-microsoft-sql-server-mssql',
+                'azuresql': 'sec-5-microsoft-sql-server-mssql',
+                'azure': 'sec-5-microsoft-sql-server-mssql',
+                'entra': 'sec-microsoft-entra-id-azure-ad-connection-examples',
+                'sqlite': 'sec-6-sqlite',
+                'sqlite3': 'sec-6-sqlite',
+                'oracle': 'sec-7-oracle-database',
+                'godror': 'sec-7-oracle-database',
+                'kv': 'sec-8-key-value-stores-bbolt-badger-redis-etcd',
+                'redis': 'sec-8-key-value-stores-bbolt-badger-redis-etcd',
+                'badger': 'sec-8-key-value-stores-bbolt-badger-redis-etcd',
+                'bbolt': 'sec-8-key-value-stores-bbolt-badger-redis-etcd',
+                'etcd': 'sec-8-key-value-stores-bbolt-badger-redis-etcd'
+            };
+            const targetId = map[driver] || ('sec-' + driver);
+            const targetEl = document.getElementById(targetId);
+            if (targetEl) {
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                targetEl.classList.add('bg-blue-900/40', 'p-1', 'rounded', 'transition-colors');
+                setTimeout(() => {
+                    targetEl.classList.remove('bg-blue-900/40', 'p-1', 'rounded', 'transition-colors');
+                }, 2000);
+            }
+        }
+
+        function filterDbDocs(query) {
+            const clearBtn = document.getElementById('db-docs-clear-filter');
+            if (clearBtn) clearBtn.classList.toggle('hidden', !query);
+            const container = document.getElementById('db-docs-body');
+            if (!container) return;
+
+            query = (query || '').trim().toLowerCase();
+            const sections = container.querySelectorAll('h2');
+            if (!query) {
+                container.querySelectorAll('*').forEach(el => el.classList.remove('hidden'));
+                return;
+            }
+
+            sections.forEach(sec => {
+                let next = sec.nextElementSibling;
+                let hasMatch = sec.textContent.toLowerCase().includes(query);
+                const secElements = [sec];
+                while (next && next.tagName !== 'H2') {
+                    if (next.textContent.toLowerCase().includes(query)) {
+                        hasMatch = true;
+                    }
+                    secElements.push(next);
+                    next = next.nextElementSibling;
+                }
+                secElements.forEach(el => {
+                    el.classList.toggle('hidden', !hasMatch);
+                });
+            });
+        }
+
+        function clearDbDocsFilter() {
+            const input = document.getElementById('db-docs-filter');
+            if (input) {
+                input.value = '';
+                filterDbDocs('');
+            }
+        }
+
+        function copySnippetText(btn, codeId) {
+            const el = document.getElementById(codeId);
+            if (!el) return;
+            const text = (el.innerText || el.textContent || '').trim();
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = btn.innerHTML;
+                btn.innerHTML = '<span class="text-emerald-400">✓ Copied!</span>';
+                setTimeout(() => { btn.innerHTML = orig; }, 1800);
+            }).catch(err => console.error('Copy failed:', err));
+        }
+
+        function useSnippetInInput(codeId) {
+            const el = document.getElementById(codeId);
+            if (!el) return;
+            const text = (el.innerText || el.textContent || '').trim();
+            const dbModal = document.getElementById('database-modal');
+            if (dbModal && !dbModal.classList.contains('hidden')) {
+                const connInput = document.getElementById('db-conn-str');
+                if (connInput) {
+                    connInput.value = text;
+                    closeDbDocsModal();
+                    return;
+                }
+            }
+            const nodeModal = document.getElementById('node-modal');
+            if (nodeModal && !nodeModal.classList.contains('hidden')) {
+                // If it's a URL and we're editing http_client, set attr_url
+                if (text.startsWith('http://') || text.startsWith('https://')) {
+                    const urlInput = document.querySelector('#modal-fields-container input[name="attr_url"]');
+                    if (urlInput) {
+                        urlInput.value = text;
+                        closeHttpDocsModal();
+                        return;
+                    }
+                }
+                // If it's an XML snippet for http_client
+                if (text.startsWith('<http_client') || text.includes('<http_client')) {
+                    const urlMatch = text.match(/url="([^"]+)"/);
+                    const methodMatch = text.match(/method="([^"]+)"/);
+                    const headersMatch = text.match(/headers="([^"]+)"/);
+                    const intoMatch = text.match(/(?:into|output_var)="([^"]+)"/);
+                    const statusMatch = text.match(/(?:status_into|status_code_var)="([^"]+)"/);
+                    const timeoutMatch = text.match(/timeout="([^"]+)"/);
+
+                    if (urlMatch) {
+                        const urlInput = document.querySelector('#modal-fields-container input[name="attr_url"]');
+                        if (urlInput) urlInput.value = urlMatch[1];
+                    }
+                    if (methodMatch) {
+                        const methodSelect = document.querySelector('#modal-fields-container select[name="attr_method"]');
+                        if (methodSelect) methodSelect.value = methodMatch[1];
+                    }
+                    if (headersMatch) {
+                        const headersInput = document.querySelector('#modal-fields-container input[name="attr_headers"]');
+                        if (headersInput) headersInput.value = headersMatch[1];
+                    }
+                    if (intoMatch) {
+                        const intoInput = document.querySelector('#modal-fields-container input[name="attr_into"]');
+                        if (intoInput) intoInput.value = intoMatch[1];
+                    }
+                    if (statusMatch) {
+                        const statusInput = document.querySelector('#modal-fields-container input[name="attr_status_into"]');
+                        if (statusInput) statusInput.value = statusMatch[1];
+                    }
+                    if (timeoutMatch) {
+                        const timeoutInput = document.querySelector('#modal-fields-container input[name="attr_timeout"]');
+                        if (timeoutInput) timeoutInput.value = timeoutMatch[1];
+                    }
+                    const cdataMatch = text.match(/<!\[CDATA\[([\s\S]*?)\]\]>/) || text.match(/>([^<]+)<\/http_client>/);
+                    if (cdataMatch) {
+                        const contentBox = document.getElementById('modal-content-container');
+                        const contentText = document.getElementById('modal-content-text');
+                        if (contentBox && contentText) {
+                            contentBox.classList.remove('hidden');
+                            contentText.value = cdataMatch[1].trim();
+                        }
+                    }
+                    closeHttpDocsModal();
+                    return;
+                }
+                // If it's an XML snippet for assert
+                if (text.startsWith('<assert') || text.includes('<assert')) {
+                    const varMatch = text.match(/\bvar="([^"]+)"/);
+                    const equalsMatch = text.match(/\b(?:equals|value)="([^"]+)"/);
+                    const condMatch = text.match(/\b(?:condition|cond)="([^"]+)"/);
+                    const msgMatch = text.match(/\bmessage="([^"]+)"/);
+                    const failMatch = text.match(/\bon_failure="([^"]+)"/);
+                    const failVarMatch = text.match(/\bfail_var="([^"]+)"/);
+                    const failValMatch = text.match(/\bfail_val="([^"]+)"/);
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (varMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_var"]');
+                        if (el) el.value = varMatch[1];
+                    }
+                    if (equalsMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_equals"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_value"]');
+                        if (el) el.value = equalsMatch[1];
+                    }
+                    if (condMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_condition"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_cond"]');
+                        if (el) el.value = condMatch[1];
+                    }
+                    if (msgMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_message"]');
+                        if (el) el.value = msgMatch[1];
+                    }
+                    if (failMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_on_failure"]');
+                        if (el) el.value = failMatch[1];
+                    }
+                    if (failVarMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_fail_var"]');
+                        if (el) el.value = failVarMatch[1];
+                    }
+                    if (failValMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_fail_val"]');
+                        if (el) el.value = failValMatch[1];
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for file_read
+                if (text.startsWith('<file_read') || text.includes('<file_read')) {
+                    const pathMatch = text.match(/\b(?:path|file|filename)="([^"]+)"/);
+                    const intoMatch = text.match(/\b(?:into|output_var|var)="([^"]+)"/);
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (pathMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_path"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_file"]');
+                        if (el) el.value = pathMatch[1];
+                    }
+                    if (intoMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_into"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_output_var"]');
+                        if (el) el.value = intoMatch[1];
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for file_save
+                if (text.startsWith('<file_save') || text.includes('<file_save')) {
+                    const pathMatch = text.match(/\b(?:path|file)="([^"]+)"/);
+                    const srcMatch = text.match(/\b(?:source|var)="([^"]+)"/);
+                    const modeMatch = text.match(/\b(?:mode|append)="([^"]+)"/);
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (pathMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_path"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_file"]');
+                        if (el) el.value = pathMatch[1];
+                    }
+                    if (srcMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_source"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_var"]');
+                        if (el) el.value = srcMatch[1];
+                    }
+                    if (modeMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_mode"]');
+                        if (el) el.value = modeMatch[1];
+                    }
+                    const bodyMatch = text.match(/>([^<]+)<\/file_save>/);
+                    if (bodyMatch) {
+                        const contentBox = document.getElementById('modal-content-container');
+                        const contentText = document.getElementById('modal-content-text');
+                        if (contentBox && contentText) {
+                            contentBox.classList.remove('hidden');
+                            contentText.value = bodyMatch[1].trim();
+                        }
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for excel_read
+                if (text.startsWith('<excel_read') || text.includes('<excel_read')) {
+                    const fileMatch = text.match(/\b(?:file|path)="([^"]+)"/);
+                    const sheetMatch = text.match(/\bsheet="([^"]+)"/);
+                    const headerMatch = text.match(/\bheader="([^"]+)"/);
+                    const outMatch = text.match(/\b(?:output_var|into)="([^"]+)"/);
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (fileMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_file"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_path"]');
+                        if (el) el.value = fileMatch[1];
+                    }
+                    if (sheetMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_sheet"]');
+                        if (el) el.value = sheetMatch[1];
+                    }
+                    if (headerMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_header"]');
+                        if (el) el.value = headerMatch[1];
+                    }
+                    if (outMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_output_var"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_into"]');
+                        if (el) el.value = outMatch[1];
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for excel_write
+                if (text.startsWith('<excel_write') || text.includes('<excel_write')) {
+                    const fileMatch = text.match(/\b(?:file|path)="([^"]+)"/);
+                    const sheetMatch = text.match(/\bsheet="([^"]+)"/);
+                    const dbMatch = text.match(/\bdb="([^"]+)"/);
+                    const varMatch = text.match(/\bvar="([^"]+)"/);
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (fileMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_file"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_path"]');
+                        if (el) el.value = fileMatch[1];
+                    }
+                    if (sheetMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_sheet"]');
+                        if (el) el.value = sheetMatch[1];
+                    }
+                    if (dbMatch) {
+                        const dbInput = document.getElementById('db-input-db') || document.querySelector('#modal-fields-container input[name="attr_db"]');
+                        if (dbInput) dbInput.value = dbMatch[1];
+                        const dbSelect = document.getElementById('db-select-db');
+                        if (dbSelect) dbSelect.value = dbMatch[1];
+                    }
+                    if (varMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_var"]');
+                        if (el) el.value = varMatch[1];
+                    }
+                    const bodyMatch = text.match(/>([^<]+)<\/excel_write>/);
+                    if (bodyMatch) {
+                        const contentBox = document.getElementById('modal-content-container');
+                        const contentText = document.getElementById('modal-content-text');
+                        if (contentBox && contentText) {
+                            contentBox.classList.remove('hidden');
+                            contentText.value = bodyMatch[1].trim();
+                        }
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for json_path
+                if (text.startsWith('<json_path') || text.includes('<json_path')) {
+                    const srcMatch = text.match(/\b(?:source|var)="([^"]+)"/);
+                    const qMatch = text.match(/\b(?:query|jsonpath|path)="([^"]+)"/);
+                    const intoMatch = text.match(/\b(?:into|output_var)="([^"]+)"/);
+                    const modeMatch = text.match(/\bmode="([^"]+)"/);
+                    const fileMatch = text.match(/\bfile="([^"]+)"/);
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (srcMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_source"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_var"]');
+                        if (el) el.value = srcMatch[1];
+                    }
+                    if (qMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_query"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_jsonpath"]');
+                        if (el) el.value = qMatch[1];
+                    }
+                    if (intoMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_into"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_output_var"]');
+                        if (el) el.value = intoMatch[1];
+                    }
+                    if (modeMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_mode"]');
+                        if (el) el.value = modeMatch[1];
+                    }
+                    if (fileMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_file"]');
+                        if (el) el.value = fileMatch[1];
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for yaml_path
+                if (text.startsWith('<yaml_path') || text.includes('<yaml_path')) {
+                    const srcMatch = text.match(/\b(?:source|var)="([^"]+)"/);
+                    const qMatch = text.match(/\b(?:query|path|yamlpath)="([^"]+)"/);
+                    const intoMatch = text.match(/\b(?:into|output_var)="([^"]+)"/);
+                    const modeMatch = text.match(/\bmode="([^"]+)"/);
+                    const fileMatch = text.match(/\bfile="([^"]+)"/);
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (srcMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_source"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_var"]');
+                        if (el) el.value = srcMatch[1];
+                    }
+                    if (qMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_query"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_path"]');
+                        if (el) el.value = qMatch[1];
+                    }
+                    if (intoMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_into"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_output_var"]');
+                        if (el) el.value = intoMatch[1];
+                    }
+                    if (modeMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_mode"]');
+                        if (el) el.value = modeMatch[1];
+                    }
+                    if (fileMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_file"]');
+                        if (el) el.value = fileMatch[1];
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for xml_xpath / xml_path
+                if (text.startsWith('<xml_xpath') || text.includes('<xml_xpath') || text.startsWith('<xml_path') || text.includes('<xml_path')) {
+                    const srcMatch = text.match(/\b(?:source|var)="([^"]+)"/);
+                    const qMatch = text.match(/\b(?:query|xpath)="([^"]+)"/);
+                    const intoMatch = text.match(/\b(?:into|output_var)="([^"]+)"/);
+                    const modeMatch = text.match(/\bmode="([^"]+)"/);
+                    const fileMatch = text.match(/\bfile="([^"]+)"/);
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (srcMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_source"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_var"]');
+                        if (el) el.value = srcMatch[1];
+                    }
+                    if (qMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_query"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_xpath"]');
+                        if (el) el.value = qMatch[1];
+                    }
+                    if (intoMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_into"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_output_var"]');
+                        if (el) el.value = intoMatch[1];
+                    }
+                    if (modeMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_mode"]');
+                        if (el) el.value = modeMatch[1];
+                    }
+                    if (fileMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_file"]');
+                        if (el) el.value = fileMatch[1];
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for script
+                if (text.startsWith('<script') || text.includes('<script')) {
+                    const langMatch = text.match(/\b(?:language|lang)="([^"]+)"/);
+                    const outMatch = text.match(/\b(?:output_var|output_variable|out_var)="([^"]+)"/);
+                    const varMatch = text.match(/\b(?:var|variable)="([^"]+)"/);
+                    const timeoutMatch = text.match(/\btimeout="([^"]+)"/);
+                    const descMatch = text.match(/\bdescription="([^"]+)"/);
+                    const errMatch = text.match(/\bon_error="([^"]+)"/);
+                    const dbMatch = text.match(/\bdb="([^"]+)"/);
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    const bodyMatch = text.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i);
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (langMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_language"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_language"]');
+                        if (el) el.value = langMatch[1];
+                    }
+                    if (outMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_output_var"]');
+                        if (el) el.value = outMatch[1];
+                    }
+                    if (varMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_var"]');
+                        if (el) el.value = varMatch[1];
+                    }
+                    if (timeoutMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_timeout"]');
+                        if (el) el.value = timeoutMatch[1];
+                    }
+                    if (descMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_description"]');
+                        if (el) el.value = descMatch[1];
+                    }
+                    if (errMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_on_error"]');
+                        if (el) el.value = errMatch[1];
+                    }
+                    if (dbMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_db"]');
+                        if (el) el.value = dbMatch[1];
+                    }
+                    if (bodyMatch && bodyMatch[1].trim()) {
+                        const contentBox = document.getElementById('modal-content-container');
+                        const contentText = document.getElementById('modal-content-text');
+                        if (contentBox && contentText) {
+                            contentBox.classList.remove('hidden');
+                            contentText.value = bodyMatch[1].trim();
+                        }
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for kv
+                if (text.startsWith('<kv') || text.includes('<kv')) {
+                    const dbMatch = text.match(/\bdb="([^"]+)"/);
+                    const opMatch = text.match(/\bop="([^"]+)"/);
+                    const bktMatch = text.match(/\bbucket="([^"]+)"/);
+                    const keyMatch = text.match(/\bkey="([^"]+)"/);
+                    const valMatch = text.match(/\bvalue="([^"]+)"/);
+                    const intoMatch = text.match(/\b(?:into|output_var)="([^"]+)"/);
+                    const varMatch = text.match(/\b(?:var|variable)="([^"]+)"/);
+                    const timeoutMatch = text.match(/\btimeout="([^"]+)"/);
+                    const descMatch = text.match(/\bdescription="([^"]+)"/);
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    const bodyMatch = text.match(/<kv\b[^>]*>([\s\S]*?)<\/kv>/i);
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (dbMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_db"]');
+                        if (el) el.value = dbMatch[1];
+                    }
+                    if (opMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_op"]');
+                        if (el) el.value = opMatch[1];
+                    }
+                    if (bktMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_bucket"]');
+                        if (el) el.value = bktMatch[1];
+                    }
+                    if (keyMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_key"]');
+                        if (el) el.value = keyMatch[1];
+                    }
+                    if (valMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_value"]');
+                        if (el) el.value = valMatch[1];
+                    }
+                    if (intoMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_into"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_output_var"]');
+                        if (el) el.value = intoMatch[1];
+                    }
+                    if (varMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_var"]');
+                        if (el) el.value = varMatch[1];
+                    }
+                    if (timeoutMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_timeout"]');
+                        if (el) el.value = timeoutMatch[1];
+                    }
+                    if (descMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_description"]');
+                        if (el) el.value = descMatch[1];
+                    }
+                    if (bodyMatch && bodyMatch[1].trim()) {
+                        const contentBox = document.getElementById('modal-content-container');
+                        const contentText = document.getElementById('modal-content-text');
+                        if (contentBox && contentText) {
+                            contentBox.classList.remove('hidden');
+                            contentText.value = bodyMatch[1].trim();
+                        }
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for sql_bulk
+                if (text.startsWith('<sql_bulk') || text.includes('<sql_bulk')) {
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    const dbMatch = text.match(/\b(?:db|database)="([^"]+)"/);
+                    const tgtDbMatch = text.match(/\b(?:target_db|target_database)="([^"]+)"/);
+                    const tgtTblMatch = text.match(/\b(?:target_table|table)="([^"]+)"/);
+                    const batchMatch = text.match(/\bbatch_size="([^"]+)"/);
+                    const tablockMatch = text.match(/\btablock="([^"]+)"/);
+                    const chkMatch = text.match(/\bcheck_constraints="([^"]+)"/);
+                    const trigMatch = text.match(/\bfire_triggers="([^"]+)"/);
+                    const nullsMatch = text.match(/\bkeep_nulls="([^"]+)"/);
+                    const timeoutMatch = text.match(/\btimeout="([^"]+)"/);
+                    const outMatch = text.match(/\b(?:output_var|var)="([^"]+)"/);
+                    const descMatch = text.match(/\bdescription="([^"]+)"/);
+                    const errMatch = text.match(/\bon_error="([^"]+)"/);
+                    const retryMatch = text.match(/\bretry_count="([^"]+)"/);
+                    const bodyMatch = text.match(/<sql_bulk\b[^>]*>([\s\S]*?)<\/sql_bulk>/i);
+
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (dbMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_db"]');
+                        if (el) el.value = dbMatch[1];
+                    }
+                    if (tgtDbMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_target_db"]');
+                        if (el) el.value = tgtDbMatch[1];
+                    }
+                    if (tgtTblMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_target_table"]');
+                        if (el) el.value = tgtTblMatch[1];
+                    }
+                    if (batchMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_batch_size"]');
+                        if (el) el.value = batchMatch[1];
+                    }
+                    if (tablockMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_tablock"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_tablock"]');
+                        if (el) el.value = tablockMatch[1];
+                    }
+                    if (chkMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_check_constraints"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_check_constraints"]');
+                        if (el) el.value = chkMatch[1];
+                    }
+                    if (trigMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_fire_triggers"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_fire_triggers"]');
+                        if (el) el.value = trigMatch[1];
+                    }
+                    if (nullsMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_keep_nulls"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_keep_nulls"]');
+                        if (el) el.value = nullsMatch[1];
+                    }
+                    if (timeoutMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_timeout"]');
+                        if (el) el.value = timeoutMatch[1];
+                    }
+                    if (outMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_output_var"]');
+                        if (el) el.value = outMatch[1];
+                    }
+                    if (descMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_description"]');
+                        if (el) el.value = descMatch[1];
+                    }
+                    if (errMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_on_error"]');
+                        if (el) el.value = errMatch[1];
+                    }
+                    if (retryMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_retry_count"]');
+                        if (el) el.value = retryMatch[1];
+                    }
+                    if (bodyMatch && bodyMatch[1].trim()) {
+                        let body = bodyMatch[1].trim();
+                        if (body.startsWith('<![CDATA[') && body.endsWith(']]>')) {
+                            body = body.substring(9, body.length - 3).trim();
+                        }
+                        const contentBox = document.getElementById('modal-content-container');
+                        const contentText = document.getElementById('modal-content-text');
+                        if (contentBox && contentText) {
+                            contentBox.classList.remove('hidden');
+                            contentText.value = body;
+                        }
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for sql
+                if (text.startsWith('<sql') || text.includes('<sql')) {
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    const dbMatch = text.match(/\b(?:db|database)="([^"]+)"/);
+                    const outMatch = text.match(/\b(?:output_var|var|into)="([^"]+)"/);
+                    const timeoutMatch = text.match(/\btimeout="([^"]+)"/);
+                    const descMatch = text.match(/\bdescription="([^"]+)"/);
+                    const errMatch = text.match(/\bon_error="([^"]+)"/);
+                    const retryMatch = text.match(/\bretry_count="([^"]+)"/);
+                    const intervalMatch = text.match(/\bretry_interval="([^"]+)"/);
+                    const bodyMatch = text.match(/<sql\b[^>]*>([\s\S]*?)<\/sql>/i);
+
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (dbMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_db"]');
+                        if (el) el.value = dbMatch[1];
+                    }
+                    if (outMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_output_var"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_into"]');
+                        if (el) el.value = outMatch[1];
+                    }
+                    if (timeoutMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_timeout"]');
+                        if (el) el.value = timeoutMatch[1];
+                    }
+                    if (descMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_description"]');
+                        if (el) el.value = descMatch[1];
+                    }
+                    if (errMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_on_error"]');
+                        if (el) el.value = errMatch[1];
+                    }
+                    if (retryMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_retry_count"]');
+                        if (el) el.value = retryMatch[1];
+                    }
+                    if (intervalMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_retry_interval"]');
+                        if (el) el.value = intervalMatch[1];
+                    }
+                    if (bodyMatch && bodyMatch[1].trim()) {
+                        let body = bodyMatch[1].trim();
+                        if (body.startsWith('<![CDATA[') && body.endsWith(']]>')) {
+                            body = body.substring(9, body.length - 3).trim();
+                        }
+                        const contentBox = document.getElementById('modal-content-container');
+                        const contentText = document.getElementById('modal-content-text');
+                        if (contentBox && contentText) {
+                            contentBox.classList.remove('hidden');
+                            contentText.value = body;
+                        }
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for template_html or html_template
+                if (text.startsWith('<template_html') || text.includes('<template_html') || text.startsWith('<html_template') || text.includes('<html_template')) {
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    const intoMatch = text.match(/\b(?:into|output_var|var)="([^"]+)"/);
+                    const fileMatch = text.match(/\b(?:file|path)="([^"]+)"/);
+                    const nameMatch = text.match(/\bname="([^"]+)"/);
+                    const timeoutMatch = text.match(/\btimeout="([^"]+)"/);
+                    const descMatch = text.match(/\bdescription="([^"]+)"/);
+                    const bodyMatch = text.match(/<(?:template_html|html_template)\b[^>]*>([\s\S]*?)<\/(?:template_html|html_template)>/i);
+
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (intoMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_into"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_output_var"]');
+                        if (el) el.value = intoMatch[1];
+                    }
+                    if (fileMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_file"]');
+                        if (el) el.value = fileMatch[1];
+                    }
+                    if (nameMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_name"]');
+                        if (el) el.value = nameMatch[1];
+                    }
+                    if (timeoutMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_timeout"]');
+                        if (el) el.value = timeoutMatch[1];
+                    }
+                    if (descMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_description"]');
+                        if (el) el.value = descMatch[1];
+                    }
+                    if (bodyMatch && bodyMatch[1].trim()) {
+                        let body = bodyMatch[1].trim();
+                        if (body.startsWith('<![CDATA[') && body.endsWith(']]>')) {
+                            body = body.substring(9, body.length - 3).trim();
+                        }
+                        const contentBox = document.getElementById('modal-content-container');
+                        const contentText = document.getElementById('modal-content-text');
+                        if (contentBox && contentText) {
+                            contentBox.classList.remove('hidden');
+                            contentText.value = body;
+                        }
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for template
+                if (text.startsWith('<template') || text.includes('<template')) {
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    const intoMatch = text.match(/\b(?:into|output_var|var)="([^"]+)"/);
+                    const fileMatch = text.match(/\b(?:file|path)="([^"]+)"/);
+                    const nameMatch = text.match(/\bname="([^"]+)"/);
+                    const timeoutMatch = text.match(/\btimeout="([^"]+)"/);
+                    const descMatch = text.match(/\bdescription="([^"]+)"/);
+                    const bodyMatch = text.match(/<template\b[^>]*>([\s\S]*?)<\/template>/i);
+
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (intoMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_into"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_output_var"]');
+                        if (el) el.value = intoMatch[1];
+                    }
+                    if (fileMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_file"]');
+                        if (el) el.value = fileMatch[1];
+                    }
+                    if (nameMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_name"]');
+                        if (el) el.value = nameMatch[1];
+                    }
+                    if (timeoutMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_timeout"]');
+                        if (el) el.value = timeoutMatch[1];
+                    }
+                    if (descMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_description"]');
+                        if (el) el.value = descMatch[1];
+                    }
+                    if (bodyMatch && bodyMatch[1].trim()) {
+                        let body = bodyMatch[1].trim();
+                        if (body.startsWith('<![CDATA[') && body.endsWith(']]>')) {
+                            body = body.substring(9, body.length - 3).trim();
+                        }
+                        const contentBox = document.getElementById('modal-content-container');
+                        const contentText = document.getElementById('modal-content-text');
+                        if (contentBox && contentText) {
+                            contentBox.classList.remove('hidden');
+                            contentText.value = body;
+                        }
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for variable
+                if (text.startsWith('<variable') || text.includes('<variable')) {
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    const nameMatch = text.match(/\bname="([^"]+)"/);
+                    const valMatch = text.match(/\bvalue="([^"]+)"/);
+                    const typeMatch = text.match(/\btype="([^"]+)"/);
+                    const descMatch = text.match(/\bdescription="([^"]+)"/);
+
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (nameMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_name"]');
+                        if (el) el.value = nameMatch[1];
+                    }
+                    if (valMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_value"]');
+                        if (el) el.value = valMatch[1];
+                    }
+                    if (typeMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_type"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_type"]');
+                        if (el) el.value = typeMatch[1];
+                    }
+                    if (descMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_description"]');
+                        if (el) el.value = descMatch[1];
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for group
+                if (text.startsWith('<group') || text.includes('<group')) {
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    const txMatch = text.match(/\b(?:transaction|tx)="([^"]+)"/);
+                    const dbMatch = text.match(/\b(?:db|database)="([^"]+)"/);
+                    const timeoutMatch = text.match(/\btimeout="([^"]+)"/);
+                    const onErrorMatch = text.match(/\bon_error="([^"]+)"/);
+                    const retryCountMatch = text.match(/\bretry_count="([^"]+)"/);
+                    const retryIntMatch = text.match(/\bretry_interval="([^"]+)"/);
+                    const condMatch = text.match(/\b(?:condition|cond)="([^"]+)"/);
+                    const ifVarMatch = text.match(/\b(?:if_var|var)="([^"]+)"/);
+                    const ifEqMatch = text.match(/\b(?:if_equals|equals|if_val|val|value)="([^"]+)"/);
+                    const descMatch = text.match(/\bdescription="([^"]+)"/);
+
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (txMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_transaction"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_transaction"]');
+                        if (el) el.value = txMatch[1];
+                    }
+                    if (dbMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_db"]');
+                        if (el) el.value = dbMatch[1];
+                    }
+                    if (timeoutMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_timeout"]');
+                        if (el) el.value = timeoutMatch[1];
+                    }
+                    if (onErrorMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_on_error"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_on_error"]');
+                        if (el) el.value = onErrorMatch[1];
+                    }
+                    if (retryCountMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_retry_count"]');
+                        if (el) el.value = retryCountMatch[1];
+                    }
+                    if (retryIntMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_retry_interval"]');
+                        if (el) el.value = retryIntMatch[1];
+                    }
+                    if (condMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_condition"]');
+                        if (el) el.value = condMatch[1];
+                    }
+                    if (ifVarMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_if_var"]');
+                        if (el) el.value = ifVarMatch[1];
+                    }
+                    if (ifEqMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_if_equals"]');
+                        if (el) el.value = ifEqMatch[1];
+                    }
+                    if (descMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_description"]');
+                        if (el) el.value = descMatch[1];
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for preflight
+                if (text.startsWith('<preflight') || text.includes('<preflight')) {
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    const descMatch = text.match(/\bdescription="([^"]+)"/);
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (descMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_description"]');
+                        if (el) el.value = descMatch[1];
+                    }
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for foreach or loop
+                if (text.startsWith('<foreach') || text.includes('<foreach') || text.startsWith('<loop') || text.includes('<loop')) {
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    const dbMatch = text.match(/\b(?:db|database)="([^"]+)"/);
+                    const streamMatch = text.match(/\bstream="([^"]+)"/);
+                    const bufferMatch = text.match(/\bbuffer="([^"]+)"/);
+                    const modeMatch = text.match(/\bmode="([^"]+)"/);
+                    const varMatch = text.match(/\b(?:var|variable)="([^"]+)"/);
+                    const langMatch = text.match(/\b(?:language|lang)="([^"]+)"/);
+                    const condMatch = text.match(/\b(?:condition|cond)="([^"]+)"/);
+                    const onErrorMatch = text.match(/\bon_error="([^"]+)"/);
+                    const retryCountMatch = text.match(/\bretry_count="([^"]+)"/);
+                    const timeoutMatch = text.match(/\btimeout="([^"]+)"/);
+                    const descMatch = text.match(/\bdescription="([^"]+)"/);
+
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (dbMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_db"]');
+                        if (el) el.value = dbMatch[1];
+                    }
+                    if (streamMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_stream"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_stream"]');
+                        if (el) el.value = streamMatch[1];
+                    }
+                    if (bufferMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_buffer"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_buffer"]');
+                        if (el) el.value = bufferMatch[1];
+                    }
+                    if (modeMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_mode"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_mode"]');
+                        if (el) el.value = modeMatch[1];
+                    }
+                    if (varMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_var"]');
+                        if (el) el.value = varMatch[1];
+                    }
+                    if (langMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_language"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_language"]');
+                        if (el) el.value = langMatch[1];
+                    }
+                    if (condMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_condition"]');
+                        if (el) el.value = condMatch[1];
+                    }
+                    if (onErrorMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_on_error"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_on_error"]');
+                        if (el) el.value = onErrorMatch[1];
+                    }
+                    if (retryCountMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_retry_count"]');
+                        if (el) el.value = retryCountMatch[1];
+                    }
+                    if (timeoutMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_timeout"]');
+                        if (el) el.value = timeoutMatch[1];
+                    }
+                    if (descMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_description"]');
+                        if (el) el.value = descMatch[1];
+                    }
+
+                    // Extract inline SQL driver query if present before nested tags
+                    const bodyMatch = text.match(/<(?:\w+:)?(?:foreach|loop)[^>]*>([\s\S]*?)<\/(?:\w+:)?(?:foreach|loop)>/i);
+                    if (bodyMatch && bodyMatch[1]) {
+                        let queryContent = bodyMatch[1].trim();
+                        // Strip out CDATA wrapper if present
+                        const cdataMatch = queryContent.match(/<!\[CDATA\[([\s\S]*?)\]\]>/i);
+                        if (cdataMatch) queryContent = cdataMatch[1].trim();
+                        // Cut off at first child tag if any
+                        const childTagIdx = queryContent.search(/<[a-zA-Z]/);
+                        if (childTagIdx !== -1) {
+                            queryContent = queryContent.substring(0, childTagIdx).trim();
+                        }
+                        if (queryContent) {
+                            const contentEl = document.getElementById('modal-content');
+                            if (contentEl) contentEl.value = queryContent;
+                        }
+                    }
+
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for while
+                if (text.startsWith('<while') || text.includes('<while')) {
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    const condMatch = text.match(/\b(?:condition|cond)="([^"]+)"/);
+                    const varMatch = text.match(/\b(?:var|if_var)="([^"]+)"/);
+                    const eqMatch = text.match(/\b(?:equals|val|value|if_val|if_equals)="([^"]+)"/);
+                    const maxIterMatch = text.match(/\b(?:max_iterations|max_loops)="([^"]+)"/);
+                    const timeoutMatch = text.match(/\btimeout="([^"]+)"/);
+                    const onErrorMatch = text.match(/\bon_error="([^"]+)"/);
+                    const retryCountMatch = text.match(/\bretry_count="([^"]+)"/);
+                    const descMatch = text.match(/\bdescription="([^"]+)"/);
+
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (condMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_condition"]');
+                        if (el) el.value = condMatch[1];
+                    }
+                    if (varMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_var"]');
+                        if (el) el.value = varMatch[1];
+                    }
+                    if (eqMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_equals"]');
+                        if (el) el.value = eqMatch[1];
+                    }
+                    if (maxIterMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_max_iterations"]');
+                        if (el) el.value = maxIterMatch[1];
+                    }
+                    if (timeoutMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_timeout"]');
+                        if (el) el.value = timeoutMatch[1];
+                    }
+                    if (onErrorMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_on_error"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_on_error"]');
+                        if (el) el.value = onErrorMatch[1];
+                    }
+                    if (retryCountMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_retry_count"]');
+                        if (el) el.value = retryCountMatch[1];
+                    }
+                    if (descMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_description"]');
+                        if (el) el.value = descMatch[1];
+                    }
+
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for parallel
+                if (text.startsWith('<parallel') || text.includes('<parallel')) {
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    const maxThreadsMatch = text.match(/\b(?:max_threads|threads|concurrency|max_concurrency)="([^"]+)"/);
+                    const timeoutMatch = text.match(/\btimeout="([^"]+)"/);
+                    const onErrorMatch = text.match(/\bon_error="([^"]+)"/);
+                    const descMatch = text.match(/\bdescription="([^"]+)"/);
+
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (maxThreadsMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_max_threads"]');
+                        if (el) el.value = maxThreadsMatch[1];
+                    }
+                    if (timeoutMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_timeout"]');
+                        if (el) el.value = timeoutMatch[1];
+                    }
+                    if (onErrorMatch) {
+                        const el = document.querySelector('#modal-fields-container select[name="attr_on_error"]') ||
+                                   document.querySelector('#modal-fields-container input[name="attr_on_error"]');
+                        if (el) el.value = onErrorMatch[1];
+                    }
+                    if (descMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_description"]');
+                        if (el) el.value = descMatch[1];
+                    }
+
+                    closeDocModal();
+                    return;
+                }
+                // If it's an XML snippet for if
+                if (text.startsWith('<if') || text.includes('<if')) {
+                    const idMatch = text.match(/\bid="([^"]+)"/);
+                    const condMatch = text.match(/\b(?:condition|cond)="([^"]+)"/);
+                    const varMatch = text.match(/\b(?:var|if_var)="([^"]+)"/);
+                    const eqMatch = text.match(/\b(?:equals|val|value|if_val|if_equals)="([^"]+)"/);
+                    const descMatch = text.match(/\bdescription="([^"]+)"/);
+
+                    if (idMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_id"]');
+                        if (el && !el.value) el.value = idMatch[1];
+                    }
+                    if (condMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_condition"]');
+                        if (el) el.value = condMatch[1];
+                    }
+                    if (varMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_var"]');
+                        if (el) el.value = varMatch[1];
+                    }
+                    if (eqMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_equals"]');
+                        if (el) el.value = eqMatch[1];
+                    }
+                    if (descMatch) {
+                        const el = document.querySelector('#modal-fields-container input[name="attr_description"]');
+                        if (el) el.value = descMatch[1];
+                    }
+
+                    closeDocModal();
+                    return;
+                }
+                const nodeConnInput = document.querySelector('#modal-fields-container input[name="attr_connection_string"]') ||
+                                      document.getElementById('attr_connection_string');
+                if (nodeConnInput) {
+                    nodeConnInput.value = text;
+                    closeDbDocsModal();
+                    return;
+                }
+            }
+            navigator.clipboard.writeText(text);
+        }
+
+        function copyDbDocsRaw() {
+            if (!dbDocsRawContent) return;
+            navigator.clipboard.writeText(dbDocsRawContent).then(() => {
+                const btn = document.getElementById('btn-copy-raw-docs');
+                if (btn) {
+                    const orig = btn.textContent;
+                    btn.textContent = '✓ Copied Markdown!';
+                    setTimeout(() => { btn.textContent = orig; }, 1800);
+                }
+            });
+        }
+
+        // ==========================================
+        // HTTP CLIENT DOCS MODAL
+        // ==========================================
+        let httpDocsRawContent = '';
+        let httpDocsLoaded = false;
+
+        function openHttpDocsModal(preferredSection) {
+            const modal = document.getElementById('http-docs-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+
+            if (!httpDocsLoaded) {
+                document.getElementById('http-docs-loading').classList.remove('hidden');
+                document.getElementById('http-docs-body').classList.add('hidden');
+                fetch('/api/docs/http-client')
+                    .then(res => {
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        return res.json();
+                    })
+                    .then(data => {
+                        httpDocsRawContent = data.content || '';
+                        const html = renderMarkdownToHtml(httpDocsRawContent);
+                        const body = document.getElementById('http-docs-body');
+                        body.innerHTML = html;
+                        document.getElementById('http-docs-loading').classList.add('hidden');
+                        body.classList.remove('hidden');
+                        httpDocsLoaded = true;
+                        if (preferredSection) {
+                            setTimeout(() => jumpToHttpSection(preferredSection), 150);
+                        }
+                    })
+                    .catch(err => {
+                        document.getElementById('http-docs-loading').innerHTML =
+                            '<div class="text-rose-400 p-4 border border-rose-900/50 rounded bg-rose-950/20">Failed to load documentation: ' + escapeHtml(err.message) + '</div>';
+                    });
+            } else {
+                if (preferredSection) {
+                    setTimeout(() => jumpToHttpSection(preferredSection), 50);
+                }
+            }
+        }
+
+        function closeHttpDocsModal() {
+            const modal = document.getElementById('http-docs-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function jumpToHttpSection(sec) {
+            if (!sec) return;
+            sec = sec.toLowerCase();
+            const map = {
+                'attributes': 'sec-2-complete-attribute-specification',
+                'core': 'sec-2-1-core-request-variable-attributes',
+                'headers': 'sec-2-1-core-request-variable-attributes',
+                'client': 'sec-2-2-go-http-client-settings',
+                'timeout': 'sec-2-2-go-http-client-settings',
+                'tls': 'sec-2-3-go-http-transport-tls-tuning',
+                'proxy': 'sec-2-3-go-http-transport-tls-tuning',
+                'payload': 'sec-3-payload-resolution-variable-interpolation',
+                'payloads': 'sec-3-payload-resolution-variable-interpolation',
+                'vars': 'sec-3-payload-resolution-variable-interpolation',
+                'loops': 'sec-4-control-flow-loop-integration',
+                'parallel': 'sec-4-3-concurrent-requests-parallel',
+                'examples': 'sec-5-comprehensive-pipeline-examples'
+            };
+            const targetId = map[sec] || ('sec-' + sec);
+            const targetEl = document.getElementById(targetId);
+            if (targetEl) {
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                targetEl.classList.add('bg-blue-900/40', 'p-1', 'rounded', 'transition-colors');
+                setTimeout(() => {
+                    targetEl.classList.remove('bg-blue-900/40', 'p-1', 'rounded', 'transition-colors');
+                }, 2000);
+            }
+        }
+
+        function filterHttpDocs(query) {
+            const clearBtn = document.getElementById('http-docs-clear-filter');
+            if (clearBtn) clearBtn.classList.toggle('hidden', !query);
+            const container = document.getElementById('http-docs-body');
+            if (!container) return;
+
+            query = (query || '').trim().toLowerCase();
+            const sections = container.querySelectorAll('h2');
+            if (!query) {
+                container.querySelectorAll('*').forEach(el => el.classList.remove('hidden'));
+                return;
+            }
+
+            sections.forEach(sec => {
+                let next = sec.nextElementSibling;
+                let hasMatch = sec.textContent.toLowerCase().includes(query);
+                const secElements = [sec];
+                while (next && next.tagName !== 'H2') {
+                    if (next.textContent.toLowerCase().includes(query)) {
+                        hasMatch = true;
+                    }
+                    secElements.push(next);
+                    next = next.nextElementSibling;
+                }
+                secElements.forEach(el => {
+                    el.classList.toggle('hidden', !hasMatch);
+                });
+            });
+        }
+
+        function clearHttpDocsFilter() {
+            const input = document.getElementById('http-docs-filter');
+            if (input) {
+                input.value = '';
+                filterHttpDocs('');
+            }
+        }
+
+        function copyHttpDocsRaw() {
+            if (!httpDocsRawContent) return;
+            navigator.clipboard.writeText(httpDocsRawContent).then(() => {
+                const btn = document.getElementById('btn-copy-raw-http-docs');
+                if (btn) {
+                    const orig = btn.textContent;
+                    btn.textContent = '✓ Copied Markdown!';
+                    setTimeout(() => { btn.textContent = orig; }, 1800);
+                }
+            });
+        }
+
+        // ==========================================
+        // COMPONENT DOCS MODAL (assert, file_read, file_save, excel_read, excel_write, json_path, yaml_path, xml_xpath)
+        // ==========================================
+        let currentComponentDocTopic = '';
+        const componentDocsRawContent = {};
+        const COMPONENT_DOCS_CONFIG = {
+            'assert': {
+                title: 'Assertion & Quality Gates Guide',
+                filename: 'docs/assert.md',
+                icon: '⚖️',
+                desc: 'Quality gates, expressions (gt, eq, lt), conditions, failure actions (halt/warn), and failure variables',
+                endpoint: '/api/docs/assert'
+            },
+            'file_read': {
+                title: 'File Read Node Guide',
+                filename: 'docs/file_read.md',
+                icon: '📂',
+                desc: 'Reading disk files into pipeline variables with path interpolation and payload handling',
+                endpoint: '/api/docs/file-read'
+            },
+            'file_save': {
+                title: 'File Save Node Guide',
+                filename: 'docs/file_save.md',
+                icon: '💾',
+                desc: 'Writing variables, templates, or inline text to local filesystem (overwrite/append modes)',
+                endpoint: '/api/docs/file-save'
+            },
+            'excel_read': {
+                title: 'Excel Read (.xlsx) Guide',
+                filename: 'docs/excel_read.md',
+                icon: '📊',
+                desc: 'Extracting spreadsheet rows into JSON arrays with worksheet selection and header parsing',
+                endpoint: '/api/docs/excel-read'
+            },
+            'excel_write': {
+                title: 'Excel Write (.xlsx) Guide',
+                filename: 'docs/excel_write.md',
+                icon: '📈',
+                desc: 'Exporting SQL database query results directly into styled native Excel workbooks',
+                endpoint: '/api/docs/excel-write'
+            },
+            'json_path': {
+                title: 'JSONPath Extraction Guide',
+                filename: 'docs/json_path.md',
+                icon: '🔍',
+                desc: 'Querying and extracting JSON elements using JSONPath expressions and formatting modes',
+                endpoint: '/api/docs/json-path'
+            },
+            'yaml_path': {
+                title: 'YAMLPath Extraction Guide',
+                filename: 'docs/yaml_path.md',
+                icon: '📝',
+                desc: 'Evaluating path queries against YAML files and manifests with JSON/YAML output conversion',
+                endpoint: '/api/docs/yaml-path'
+            },
+            'xml_xpath': {
+                title: 'XML XPath Extraction Guide',
+                filename: 'docs/xml_path.md',
+                icon: '🏷️',
+                desc: 'Evaluating XPath expressions on XML strings or disk files into text, tags, or arrays',
+                endpoint: '/api/docs/xml-path'
+            },
+            'xml_path': {
+                title: 'XML XPath Extraction Guide',
+                filename: 'docs/xml_path.md',
+                icon: '🏷️',
+                desc: 'Evaluating XPath expressions on XML strings or disk files into text, tags, or arrays',
+                endpoint: '/api/docs/xml-path'
+            },
+            'script': {
+                title: 'Script Node & Runtimes Guide',
+                filename: 'docs/script.md',
+                icon: '📜',
+                desc: 'Cross-platform dynamic script execution with embedded Go interpreter, PowerShell, Bash, POSIX sh, and CSX',
+                endpoint: '/api/docs/script'
+            },
+            'kv': {
+                title: 'Key-Value (KV) Operations Guide',
+                filename: 'docs/kv.md',
+                icon: '🗄️',
+                desc: 'Atomic operations (get, put, delete, scan) on embedded (bbolt, BadgerDB) and distributed stores (Redis, etcd)',
+                endpoint: '/api/docs/kv'
+            },
+            'kv_bulk': {
+                title: 'Key-Value Bulk Streaming Guide',
+                filename: 'docs/kv.md',
+                icon: '🗄️',
+                desc: 'High-throughput data streaming between relational SQL databases and Key-Value stores',
+                endpoint: '/api/docs/kv'
+            },
+            'sql': {
+                title: 'SQL Query & Command Guide',
+                filename: 'docs/sql.md',
+                icon: '⚡',
+                desc: 'Native SQL execution, intelligent query vs DML detection, scalar summaries, and atomic transaction groups',
+                endpoint: '/api/docs/sql'
+            },
+            'sql_bulk': {
+                title: 'SQL Bulk Streaming Replication Guide',
+                filename: 'docs/sql_bulk.md',
+                icon: '🚀',
+                desc: 'High-performance bulk stream copies with constant memory, batch sizing, and SQL Server minimal logging',
+                endpoint: '/api/docs/sql-bulk'
+            },
+            'template': {
+                title: 'Text Template Generator Guide',
+                filename: 'docs/template.md',
+                icon: '📄',
+                desc: 'Go text/template rendering for configurations, dynamic SQL queries, and webhook payloads',
+                endpoint: '/api/docs/template'
+            },
+            'template_html': {
+                title: 'HTML Template Generator Guide',
+                filename: 'docs/template_html.md',
+                icon: '🌐',
+                desc: 'Context-aware HTML templating with automatic escaping to prevent XSS in reports and emails',
+                endpoint: '/api/docs/template-html'
+            },
+            'html_template': {
+                title: 'HTML Template Generator Guide',
+                filename: 'docs/template_html.md',
+                icon: '🌐',
+                desc: 'Context-aware HTML templating with automatic escaping to prevent XSS in reports and emails',
+                endpoint: '/api/docs/template-html'
+            },
+            'variable': {
+                title: 'Pipeline Variables Guide',
+                filename: 'docs/variable.md',
+                icon: '📦',
+                desc: 'Dynamic environment variables, type conversion, thread isolation, and interpolation across pipeline steps',
+                endpoint: '/api/docs/variable'
+            },
+            'variables': {
+                title: 'Pipeline Variables Guide',
+                filename: 'docs/variable.md',
+                icon: '📦',
+                desc: 'Dynamic environment variables, type conversion, thread isolation, and interpolation across pipeline steps',
+                endpoint: '/api/docs/variable'
+            },
+            'group': {
+                title: 'Execution Group & Transactions Guide',
+                filename: 'docs/group.md',
+                icon: '📦',
+                desc: 'Sequential step grouping, atomic database transactions, dialect-aware savepoints, timeouts, and error retry policies',
+                endpoint: '/api/docs/group'
+            },
+            'preflight': {
+                title: 'Preflight Setup & Validation Guide',
+                filename: 'docs/preflight.md',
+                icon: '🛫',
+                desc: 'Pre-execution quality gates, environment readiness checks, assertions, and split file orchestration',
+                endpoint: '/api/docs/preflight'
+            },
+            'foreach': {
+                title: 'Foreach Loop & Driver Query Guide',
+                filename: 'docs/foreach.md',
+                icon: '🔁',
+                desc: 'Relational query cursor streaming, in-memory buffering, automatic column variable mapping, and per-iteration transactions',
+                endpoint: '/api/docs/foreach'
+            },
+            'loop': {
+                title: 'Foreach Loop & Driver Query Guide',
+                filename: 'docs/foreach.md',
+                icon: '🔁',
+                desc: 'Relational query cursor streaming, in-memory buffering, automatic column variable mapping, and per-iteration transactions',
+                endpoint: '/api/docs/foreach'
+            },
+            'while': {
+                title: 'While Loop & Polling Guide',
+                filename: 'docs/while.md',
+                icon: '🔄',
+                desc: 'Conditional repetition, external status polling, WHILE_INDEX iteration tracking, and max_iterations safety guards',
+                endpoint: '/api/docs/while'
+            },
+            'parallel': {
+                title: 'Parallel Execution & Concurrency Guide',
+                filename: 'docs/parallel.md',
+                icon: '⚡',
+                desc: 'Concurrent branch execution across worker goroutines, thread pool limits, synchronized join barrier, and connection pool sizing',
+                endpoint: '/api/docs/parallel'
+            },
+            'if': {
+                title: 'Conditional Branching Guide (If / Then / Else)',
+                filename: 'docs/if_then_else.md',
+                icon: '🔀',
+                desc: 'Conditional routing, dynamic predicates, then/else branch execution, and inline step condition gates',
+                endpoint: '/api/docs/if'
+            },
+            'if_then_else': {
+                title: 'Conditional Branching Guide (If / Then / Else)',
+                filename: 'docs/if_then_else.md',
+                icon: '🔀',
+                desc: 'Conditional routing, dynamic predicates, then/else branch execution, and inline step condition gates',
+                endpoint: '/api/docs/if'
+            },
+            'if-then-else': {
+                title: 'Conditional Branching Guide (If / Then / Else)',
+                filename: 'docs/if_then_else.md',
+                icon: '🔀',
+                desc: 'Conditional routing, dynamic predicates, then/else branch execution, and inline step condition gates',
+                endpoint: '/api/docs/if'
+            }
+        };
+
+        function openDocModal(topic, preferredSection) {
+            const modal = document.getElementById('component-docs-modal');
+            if (!modal) return;
+            const normTopic = (topic || 'assert').toLowerCase();
+            const config = COMPONENT_DOCS_CONFIG[normTopic] || COMPONENT_DOCS_CONFIG['assert'];
+            currentComponentDocTopic = normTopic;
+
+            const iconEl = document.getElementById('component-docs-icon');
+            const titleEl = document.getElementById('component-docs-title');
+            const badgeEl = document.getElementById('component-docs-file-badge');
+            const descEl = document.getElementById('component-docs-desc');
+            if (iconEl) iconEl.textContent = config.icon;
+            if (titleEl) titleEl.textContent = config.title;
+            if (badgeEl) badgeEl.textContent = config.filename;
+            if (descEl) descEl.textContent = config.desc;
+
+            modal.classList.remove('hidden');
+
+            const loadingEl = document.getElementById('component-docs-loading');
+            const bodyEl = document.getElementById('component-docs-body');
+
+            if (componentDocsRawContent[normTopic]) {
+                bodyEl.innerHTML = renderMarkdownToHtml(componentDocsRawContent[normTopic]);
+                loadingEl.classList.add('hidden');
+                bodyEl.classList.remove('hidden');
+                updateDocModalNav(normTopic);
+                if (preferredSection) {
+                    setTimeout(() => jumpToDocSection(preferredSection), 50);
+                }
+            } else {
+                loadingEl.classList.remove('hidden');
+                bodyEl.classList.add('hidden');
+                fetch(config.endpoint)
+                    .then(res => {
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        return res.json();
+                    })
+                    .then(data => {
+                        const content = data.content || '';
+                        componentDocsRawContent[normTopic] = content;
+                        bodyEl.innerHTML = renderMarkdownToHtml(content);
+                        loadingEl.classList.add('hidden');
+                        bodyEl.classList.remove('hidden');
+                        updateDocModalNav(normTopic);
+                        if (preferredSection) {
+                            setTimeout(() => jumpToDocSection(preferredSection), 150);
+                        }
+                    })
+                    .catch(err => {
+                        loadingEl.innerHTML =
+                            '<div class="text-rose-400 p-4 border border-rose-900/50 rounded bg-rose-950/20">Failed to load documentation: ' + escapeHtml(err.message) + '</div>';
+                    });
+            }
+        }
+
+        function closeDocModal() {
+            const modal = document.getElementById('component-docs-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function updateDocModalNav(topic) {
+            const nav = document.getElementById('component-docs-nav-bar');
+            if (!nav) return;
+            const bodyEl = document.getElementById('component-docs-body');
+            if (!bodyEl) return;
+            const h2s = bodyEl.querySelectorAll('h2');
+            let btnsHtml = '<span class="text-slate-500 mr-1">Jump:</span>';
+            const colors = ['hover:bg-blue-600', 'hover:bg-cyan-600', 'hover:bg-emerald-600', 'hover:bg-amber-600', 'hover:bg-purple-600', 'hover:bg-rose-600'];
+            let count = 0;
+            h2s.forEach(h => {
+                if (count >= 6) return;
+                const id = h.id;
+                const title = (h.textContent || '').replace(/^\d+(\.\d+)*\s*/, '').trim();
+                const shortTitle = title.length > 20 ? title.substring(0, 18) + '...' : title;
+                const colorClass = colors[count % colors.length];
+                btnsHtml += '<button type="button" onclick="document.getElementById(\'' + id + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})" class="px-2 py-0.5 rounded bg-slate-800 ' + colorClass + ' text-slate-300 hover:text-white transition cursor-pointer" title="' + escapeHtml(title) + '">' + escapeHtml(shortTitle) + '</button>';
+                count++;
+            });
+            nav.innerHTML = btnsHtml;
+        }
+
+        function jumpToDocSection(sec) {
+            if (!sec) return;
+            const container = document.getElementById('component-docs-body');
+            if (!container) return;
+            sec = sec.toLowerCase();
+            const headings = container.querySelectorAll('h1, h2, h3');
+            for (let i = 0; i < headings.length; i++) {
+                const text = headings[i].textContent.toLowerCase();
+                if (text.includes(sec)) {
+                    headings[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    headings[i].classList.add('bg-blue-900/40', 'p-1', 'rounded', 'transition-colors');
+                    setTimeout(() => {
+                        headings[i].classList.remove('bg-blue-900/40', 'p-1', 'rounded', 'transition-colors');
+                    }, 2000);
+                    return;
+                }
+            }
+        }
+
+        function filterComponentDocs(query) {
+            const clearBtn = document.getElementById('component-docs-clear-filter');
+            if (clearBtn) clearBtn.classList.toggle('hidden', !query);
+            const container = document.getElementById('component-docs-body');
+            if (!container) return;
+
+            query = (query || '').trim().toLowerCase();
+            const sections = container.querySelectorAll('h2');
+            if (!query) {
+                container.querySelectorAll('*').forEach(el => el.classList.remove('hidden'));
+                return;
+            }
+
+            sections.forEach(sec => {
+                let next = sec.nextElementSibling;
+                let hasMatch = sec.textContent.toLowerCase().includes(query);
+                const secElements = [sec];
+                while (next && next.tagName !== 'H2') {
+                    if (next.textContent.toLowerCase().includes(query)) {
+                        hasMatch = true;
+                    }
+                    secElements.push(next);
+                    next = next.nextElementSibling;
+                }
+                secElements.forEach(el => {
+                    el.classList.toggle('hidden', !hasMatch);
+                });
+            });
+        }
+
+        function clearComponentDocsFilter() {
+            const input = document.getElementById('component-docs-filter');
+            if (input) {
+                input.value = '';
+                filterComponentDocs('');
+            }
+        }
+
+        function copyComponentDocsRaw() {
+            const raw = componentDocsRawContent[currentComponentDocTopic];
+            if (!raw) return;
+            navigator.clipboard.writeText(raw).then(() => {
+                const btn = document.getElementById('btn-copy-raw-component-docs');
+                if (btn) {
+                    const orig = btn.textContent;
+                    btn.textContent = '✓ Copied Markdown!';
+                    setTimeout(() => { btn.textContent = orig; }, 1800);
+                }
+            });
+        }
+
+        function renderMarkdownToHtml(md) {
+            if (!md) return '';
+            const lines = md.split(/\r?\n/);
+            let html = '';
+            let inCode = false;
+            let codeLang = '';
+            let codeBuffer = [];
+            let inTable = false;
+            let tableHeader = true;
+            let inList = false;
+
+            const fence = String.fromCharCode(96, 96, 96);
+            const inlineCodeRegex = new RegExp('\\x60([^\\x60]+)\\x60', 'g');
+
+            function formatInline(text) {
+                text = text.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
+                text = text.replace(inlineCodeRegex, '<code class="bg-slate-800 text-cyan-300 px-1.5 py-0.5 rounded text-[11px] font-mono border border-slate-700/60">$1</code>');
+                text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">$1</a>');
+                text = text.replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+                return text;
+            }
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+
+                if (line.trim().startsWith(fence)) {
+                    if (inCode) {
+                        const rawCode = codeBuffer.join('\n');
+                        const escapedCode = escapeHtml(rawCode);
+                        const codeId = 'code-snippet-' + Math.random().toString(36).substring(2, 9);
+                        const isSingleLine = !rawCode.includes('\n') && (rawCode.includes('://') || rawCode.includes('server=') || rawCode.includes('host=') || rawCode.includes('user='));
+                        const isHttpClientExample = rawCode.trim().startsWith('<http_client') || rawCode.trim().includes('<http_client');
+                        const isXmlExample = /<(?:assert|file_read|file_save|excel_read|excel_write|json_path|yaml_path|xml_xpath|xml_path|script|kv|kv_bulk|sql|sql_bulk|template|template_html|html_template|variable|variables|group|preflight|foreach|loop|while|parallel|if)\b/i.test(rawCode);
+                        let insertBtn = '';
+                        if (isSingleLine || isHttpClientExample || isXmlExample) {
+                            insertBtn = '<button type="button" onclick="useSnippetInInput(\'' + codeId + '\')" class="hover:text-amber-300 text-[11px] flex items-center space-x-1 px-1.5 py-0.5 rounded bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 transition cursor-pointer" title="Insert snippet into form"><span>⚡ Use Example</span></button>';
+                        }
+                        html += '<div class="relative group my-2.5 rounded-lg overflow-hidden border border-slate-800 bg-slate-950">';
+                        html += '  <div class="flex items-center justify-between px-3 py-1.5 bg-slate-900/90 border-b border-slate-800 text-[11px] font-mono text-slate-400 select-none">';
+                        html += '    <span class="text-cyan-400 font-semibold">' + (codeLang || 'text') + '</span>';
+                        html += '    <div class="flex items-center space-x-2">';
+                        html += insertBtn;
+                        html += '      <button type="button" onclick="copySnippetText(this, \'' + codeId + '\')" class="hover:text-cyan-300 text-[11px] flex items-center space-x-1 px-1.5 py-0.5 rounded bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 transition cursor-pointer"><span>📋 Copy</span></button>';
+                        html += '    </div>';
+                        html += '  </div>';
+                        html += '  <pre class="p-3 text-cyan-300 font-mono text-[11px] overflow-x-auto whitespace-pre leading-relaxed custom-scrollbar"><code id="' + codeId + '">' + escapedCode + '</code></pre>';
+                        html += '</div>';
+                        inCode = false;
+                        codeBuffer = [];
+                        codeLang = '';
+                    } else {
+                        if (inTable) { html += '</tbody></table></div>'; inTable = false; }
+                        if (inList) { html += '</ul>'; inList = false; }
+                        inCode = true;
+                        codeLang = line.trim().substring(3).trim();
+                        codeBuffer = [];
+                    }
+                    continue;
+                }
+
+                if (inCode) {
+                    codeBuffer.push(line);
+                    continue;
+                }
+
+                if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+                    if (inList) { html += '</ul>'; inList = false; }
+                    const isSep = /^\|[\s-:]+(\|[\s-:]+)+\|$/.test(line.trim());
+                    if (isSep) {
+                        tableHeader = false;
+                        continue;
+                    }
+                    const cells = line.trim().split('|').slice(1, -1);
+                    if (!inTable) {
+                        html += '<div class="overflow-x-auto my-3 rounded-lg border border-slate-800 custom-scrollbar">';
+                        html += '<table class="w-full text-left text-xs divide-y divide-slate-800">';
+                        html += '<thead class="bg-slate-900/90 text-[11px] font-semibold text-slate-300 uppercase tracking-wider"><tr>';
+                        cells.forEach(c => {
+                            html += '<th class="p-2.5 font-bold">' + formatInline(escapeHtml(c.trim())) + '</th>';
+                        });
+                        html += '</tr></thead><tbody class="divide-y divide-slate-800/60 bg-slate-950/40">';
+                        inTable = true;
+                        tableHeader = false;
+                        continue;
+                    } else {
+                        html += '<tr class="hover:bg-slate-900/40 transition-colors">';
+                        cells.forEach(c => {
+                            html += '<td class="p-2.5 text-slate-300 align-top">' + formatInline(escapeHtml(c.trim())) + '</td>';
+                        });
+                        html += '</tr>';
+                        continue;
+                    }
+                } else if (inTable) {
+                    html += '</tbody></table></div>';
+                    inTable = false;
+                }
+
+                if (/^[\*\-]\s+(.*)$/.test(line.trim())) {
+                    const itemText = line.trim().replace(/^[\*\-]\s+/, '');
+                    if (!inList) {
+                        html += '<ul class="space-y-1 my-2">';
+                        inList = true;
+                    }
+                    html += '<li class="ml-4 list-disc text-slate-300">' + formatInline(escapeHtml(itemText)) + '</li>';
+                    continue;
+                } else if (inList && line.trim() === '') {
+                    html += '</ul>';
+                    inList = false;
+                }
+
+                if (line.trim().startsWith('>')) {
+                    const content = line.trim().substring(1).trim();
+                    if (content.startsWith('[!NOTE]')) {
+                        html += '<div class="p-3 my-2.5 bg-blue-950/40 border border-blue-800/60 rounded-lg text-blue-200 text-xs flex items-start space-x-2"><span class="text-base leading-none">ℹ️</span><div><strong class="font-semibold block text-blue-300 mb-1">NOTE</strong>';
+                    } else if (content.startsWith('[!TIP]')) {
+                        html += '<div class="p-3 my-2.5 bg-emerald-950/40 border border-emerald-800/60 rounded-lg text-emerald-200 text-xs flex items-start space-x-2"><span class="text-base leading-none">💡</span><div><strong class="font-semibold block text-emerald-300 mb-1">TIP</strong>';
+                    } else if (content.startsWith('[!WARNING]')) {
+                        html += '<div class="p-3 my-2.5 bg-amber-950/40 border border-amber-800/60 rounded-lg text-amber-200 text-xs flex items-start space-x-2"><span class="text-base leading-none">⚠️</span><div><strong class="font-semibold block text-amber-300 mb-1">WARNING</strong>';
+                    } else {
+                        html += '<p class="text-xs text-slate-300">' + formatInline(escapeHtml(content)) + '</p>';
+                    }
+                    if (i === lines.length - 1 || !lines[i+1].trim().startsWith('>')) {
+                        html += '</div></div>';
+                    }
+                    continue;
+                }
+
+                if (line.startsWith('# ')) {
+                    html += '<h1 class="text-xl font-bold text-white mt-4 mb-2 pb-2 border-b border-slate-800">' + formatInline(escapeHtml(line.substring(2))) + '</h1>';
+                    continue;
+                }
+                if (line.startsWith('## ')) {
+                    const h2Text = line.substring(3).trim();
+                    const slug = 'sec-' + h2Text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                    html += '<h2 id="' + slug + '" class="text-base font-bold text-white mt-6 mb-2 pb-1.5 border-b border-slate-800 flex items-center space-x-2"><span class="text-cyan-400">#</span><span>' + formatInline(escapeHtml(h2Text)) + '</span></h2>';
+                    continue;
+                }
+                if (line.startsWith('### ')) {
+                    const h3Text = line.substring(4).trim();
+                    const slug = 'sec-' + h3Text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                    html += '<h3 id="' + slug + '" class="text-sm font-semibold text-cyan-300 mt-4 mb-1.5">' + formatInline(escapeHtml(h3Text)) + '</h3>';
+                    continue;
+                }
+                if (line.startsWith('#### ')) {
+                    html += '<h4 class="text-xs font-semibold text-amber-300 mt-3 mb-1 flex items-center space-x-1.5"><span>🔹</span><span>' + formatInline(escapeHtml(line.substring(5))) + '</span></h4>';
+                    continue;
+                }
+
+                if (/^---$/.test(line.trim())) {
+                    html += '<hr class="border-slate-800 my-4">';
+                    continue;
+                }
+
+                if (line.trim() === '') continue;
+
+                html += '<p class="my-1.5 text-slate-300 leading-relaxed">' + formatInline(escapeHtml(line)) + '</p>';
+            }
+
+            if (inTable) html += '</tbody></table></div>';
+            if (inList) html += '</ul>';
+
+            return html;
         }
 
         function submitDatabaseForm(e) {

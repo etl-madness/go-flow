@@ -7,7 +7,7 @@ import (
 	"io/fs"
 )
 
-//go:embed tmpl/*.html tmpl/partials/*.html
+//go:embed tmpl/*.html tmpl/partials/*.html tmpl/docs_*.md
 var templateFS embed.FS
 
 func BuildTemplate() (*template.Template, error) {

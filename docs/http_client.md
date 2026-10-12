@@ -20,8 +20,8 @@
 | `data` | `xs:string` | Optional | Direct payload data. Takes precedence over element body content. |
 | `headers` | `xs:string` | Optional | Custom request headers (`K1:V1,K2:V2` or newline-separated). |
 | `content_type` | `xs:string` | Optional | Shortcut header setter for `Content-Type`. |
-| `var` / `variable` / `output_var` / `output_variable` / `out_var` | `xs:string` | Optional | Registry variable key to store the response body. |
-| `status_code_var` / `status_code_variable` / `status_var` / `status_variable` | `xs:string` | Optional | Registry variable key to store the integer HTTP status code. |
+| `var` / `variable` / `output_var` / `output_variable` / `out_var` / `into` | `xs:string` | Optional | Registry variable key to store the response body. |
+| `status_code_var` / `status_code_variable` / `status_var` / `status_variable` / `status_into` | `xs:string` | Optional | Registry variable key to store the integer HTTP status code. |
 
 ### 2.2 Go `http.Client` Settings
 

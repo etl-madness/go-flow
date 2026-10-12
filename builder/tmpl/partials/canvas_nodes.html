@@ -7,10 +7,17 @@
                 <span class="text-sm font-bold text-slate-200">1. Variables</span>
                 <span class="text-xs text-slate-400">(&lt;variables&gt;)</span>
             </div>
-            <button onclick="openAddNodeModal('variable', 'Variable', 'variables')"
-                    class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-xs transition">
-                ＋ Add Variable
-            </button>
+            <div class="flex items-center space-x-2">
+                <button type="button" onclick="openDocModal('variable')"
+                        class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-cyan-300 border border-slate-700 rounded text-xs transition flex items-center space-x-1 cursor-pointer"
+                        title="View variable declaration, type conversion, and interpolation guide from docs/variable.md">
+                    <span>📖 Variables Guide</span>
+                </button>
+                <button onclick="openAddNodeModal('variable', 'Variable', 'variables')"
+                        class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-xs transition cursor-pointer">
+                    ＋ Add Variable
+                </button>
+            </div>
         </div>
         <div id="nodes-variables" class="space-y-2 min-h-[50px]">
             {{range .VariableNodes}}
@@ -30,10 +37,17 @@
                 <span class="text-sm font-bold text-slate-200">2. Databases</span>
                 <span class="text-xs text-slate-400">(&lt;databases&gt;)</span>
             </div>
-            <button onclick="openAddNodeModal('database', 'Database Connection', 'databases')"
-                    class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-xs transition">
-                ＋ Add Database
-            </button>
+            <div class="flex items-center space-x-2">
+                <button type="button" onclick="openDbDocsModal()"
+                        class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-cyan-300 border border-slate-700 rounded text-xs transition flex items-center space-x-1 cursor-pointer"
+                        title="View database connection string examples and driver options from database_connection_strings.md">
+                    <span>📖 Connection Guide</span>
+                </button>
+                <button onclick="openAddNodeModal('database', 'Database Connection', 'databases')"
+                        class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-xs transition cursor-pointer">
+                    ＋ Add Database
+                </button>
+            </div>
         </div>
         <div id="nodes-databases" class="space-y-2 min-h-[50px]">
             {{range .DatabaseNodes}}
@@ -53,10 +67,22 @@
                 <span class="text-sm font-bold text-slate-200">3. Preflight Checks</span>
                 <span class="text-xs text-slate-400">(&lt;preflight&gt;)</span>
             </div>
-            <button onclick="openComponentPicker('preflight')"
-                    class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-xs transition">
-                ＋ Add Preflight Step
-            </button>
+            <div class="flex items-center space-x-2">
+                <button type="button" onclick="openDocModal('preflight')"
+                        class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 border border-slate-700 rounded text-xs transition flex items-center space-x-1 cursor-pointer"
+                        title="View preflight setup, validation gates, and execution options from docs/preflight.md">
+                    <span>🛫 Preflight Guide</span>
+                </button>
+                <button type="button" onclick="openDocModal('assert')"
+                        class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-cyan-300 border border-slate-700 rounded text-xs transition flex items-center space-x-1 cursor-pointer"
+                        title="View assertion syntax and data quality rules from assert.md">
+                    <span>📖 Assertions Guide</span>
+                </button>
+                <button onclick="openComponentPicker('preflight')"
+                        class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-xs transition cursor-pointer">
+                    ＋ Add Preflight Step
+                </button>
+            </div>
         </div>
         <div id="nodes-preflight" class="space-y-2 min-h-[50px]">
             {{range .PreflightNodes}}

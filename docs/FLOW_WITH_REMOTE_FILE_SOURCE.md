@@ -1,4 +1,4 @@
-# Flow CLI source examples for file, HTTP, and SQL DSN inputs
+# Flow CLI remote source guide using examples for file, HTTP, and SQL DSN inputs
 
 The `flow.exe` command supports loading pipeline source content from multiple source types:
 
