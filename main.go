@@ -740,6 +740,11 @@ func main() {
 
 			dbSink = NewDatabaseSink(logDB, driverType)
 			dbSink.debug = *debug
+			dbSink.SetRegistry(registry)
+			dbSink.RegisterNodes(flowNodes)
+			if len(preflightNodes) > 0 {
+				dbSink.RegisterNodes(preflightNodes)
+			}
 			if *debug {
 				spid, user, appName := dbSink.SessionIdentity()
 				if spid != 0 || user != "" || appName != "" {

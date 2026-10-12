@@ -1,5 +1,70 @@
 # Release Notes
 
+## Release Notes (v1.1.25) - Dynamic Connection SPID, DB User & Application Name Logging Across [pipeline_events] and [pipeline_runs]
+
+### Overview
+
+Version 1.1.25 introduces fine-grained, connection-level database telemetry segregation between `[pipeline_runs]` and `[pipeline_events]`:
+1. **Segregated Connection Auditing**: When database logging is configured, the overall execution summary in `[pipeline_runs]` records the SPID, database username, and application name of the `log_db` connection, while each individual step event in `[pipeline_events]` captures the SPID, database username, and application name of the *actual* database connection executing that specific step.
+2. **Cross-Database `<sql_bulk>` Concatenation**: When `<sql_bulk>` steps transfer data across differing source and target database connections, `[pipeline_events]` records concatenated identities in `source->target` format (e.g. `source_spid->target_spid`, `source_app->target_app`, and `source_user->target_user`). Same-database bulk transfers record the direct connection identity without concatenation.
+3. **AST Node Target Mapping & Dynamic Variable Resolution**: `DatabaseSink` now recursively traverses the pipeline AST (including nested blocks within `<group>`, `<loop>`, `<while>`, `<parallel>`, etc.) to associate node paths (`sql[0]`, `sql_bulk[1]`) and node IDs with their target database connections, dynamically resolving parameterized database names (e.g. `{{TARGET_DB}}`) via the pipeline registry.
+4. **Resilient Lifecycle & Non-Database Fallback**: Non-database steps (such as `<script>`, `<file>`, `<template>`) and pipeline lifecycle events (`run.started`, `run.finished`) gracefully fall back to the `log_db` session identity (`SPID`, `db_user_name`, and `application_name`).
+5. **Schema Modernization & Transparent Backward Compatibility**:
+   - Updated DDL across PostgreSQL, MySQL, SQLite, Microsoft SQL Server, and Oracle in `docs/DATABASE_LOGGING_CONFIGURATION.md` to define `pipeline_events.spid` as `VARCHAR(256)` / `TEXT` to accommodate concatenated transfer identifiers.
+   - Built automatic column type detection (`isNumericSPID`) into `DatabaseSink` so existing tables with legacy `BIGINT` columns automatically fall back to numeric `source_spid`, preventing insert errors.
+   - Updated `PipelineEventRecord.SPID` in `builder/telemetry.go` to support both numeric and concatenated string SPIDs with flexible scanner parsing (`parseSPIDValue`).
+6. **Comprehensive Automated Test Suite**: Added end-to-end tests in `formating_test.go` and `builder/builder_test.go` covering individual connection logging, cross-database bulk transfer concatenation, same-database operations, legacy numeric column fallback, and `pipeline_runs` summary isolation.
+
+---
+
+### Included Changes
+
+#### 1. Connection-Level Telemetry Segregation (`[pipeline_runs]` vs `[pipeline_events]`)
+- **`[pipeline_runs]` Summary Auditing**:
+  - `LogRunSummaryToDB` records the session identity (`SPID`, `db_user_name`, and `application_name`) of the logging database (`log_db`).
+  - Ensures pipeline run summaries clearly indicate the process identity that stored the audit record.
+- **`[pipeline_events]` Step Auditing**:
+  - `DatabaseSink.Emit` dynamically resolves the specific connection identity for the individual node executing that event.
+  - Distinct database targets (e.g. `source_db` vs `target_db`) log their own respective SPID, database user, and application name per event.
+
+#### 2. Cross-Database `<sql_bulk>` Concatenation
+- **Format Delimiter**:
+  - Uses the `'->'` delimiter without whitespace: `'source_spid->target_spid'`, `'source_app->target_app'`, and `'source_user->target_user'`.
+- **Single-Database Bulk Transfers**:
+  - When `<sql_bulk>` operates within the same database (`source_db == target_db`), identities are logged cleanly without concatenation.
+
+#### 3. AST Node Target Registration & Registry Resolution
+- **AST Traverser (`RegisterNodes`)**:
+  - Recursively maps all pipeline elements (`<sql>`, `<sql_bulk>`, `<group>`, `<loop>`, `<while>`, `<parallel>`, etc.) by deterministic execution path (`sql[0]`, `sql_bulk[1]`, `group[0]/sql[0]`) and node ID.
+  - Integrated into `main.go` for runtime pipeline nodes and preflight validation checks.
+- **Dynamic Variable Interpolation (`resolveDBName`)**:
+  - Inspects connection names using the pipeline variable registry (`{{VAR}}`) to accurately identify database targets configured at runtime.
+
+#### 4. Schema Modernization & Backward Compatibility
+- **DDL Updates (`docs/DATABASE_LOGGING_CONFIGURATION.md`)**:
+  - Updated `pipeline_events.spid` column definitions across all supported database engines:
+    - PostgreSQL: `spid VARCHAR(256)`
+    - MySQL: `spid VARCHAR(256)`
+    - SQLite: `spid TEXT`
+    - Microsoft SQL Server: `spid VARCHAR(256)`
+    - Oracle: `spid VARCHAR2(256)`
+- **Runtime Dialect & Column Affinity Inspection**:
+  - `DatabaseSink.detectColumns` probes the `pipeline_events` schema via `ColumnTypes()`. If `spid` is detected as a numeric type (`BIGINT`, `INT`, `NUMBER`), cross-database transfers automatically bind the numeric `source_spid` integer to prevent database conversion errors.
+- **Telemetry Record Flexibility (`builder/telemetry.go`)**:
+  - Updated `PipelineEventRecord.SPID` and `SSPID` to `any`.
+  - Added `parseSPIDValue` to cleanly parse integer SPIDs as `int64` and concatenated transfer identifiers as strings.
+
+#### 5. Verification & Testing
+- **New Unit Tests**:
+  - `TestDatabaseSink_IndividualConnectionLogging`: Verifies distinct SPIDs, usernames, and application names for `source_db`, `target_db`, and `log_db` fallback in `pipeline_events`, as well as `log_db` session preservation in `pipeline_runs`.
+  - `TestDatabaseSink_SQLBulkCrossDatabaseConcatenation`: Verifies `'111->222'` SPID, `'src_app->tgt_app'`, and `'src_user->tgt_user'` concatenation for cross-database bulk operations, and non-concatenated values for same-database transfers.
+  - `TestDatabaseSink_NumericSPIDFallback`: Verifies safe numeric fallback on legacy `BIGINT` columns.
+  - `TestPipelineEventRecord_ConcatenatedSPID`: Verifies telemetry queries and JSON serialization for concatenated SPID values.
+- **Full Test Suite Passing**:
+  - All tests passing across root, `builder`, `crypto_tool`, `db_importer`, and `pkg/flowcrypto`.
+
+---
+
 ## Release Notes (v1.1.24) - Interactive Builder Node Tooltips, In-App Documentation Modals, Dynamic Mermaid Diagrams & Azure SQL Authentication
 
 ### Overview

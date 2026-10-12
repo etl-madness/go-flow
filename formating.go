@@ -33,21 +33,39 @@ type TextSink struct {
 	Writer io.Writer
 }
 
+// NodeDBTarget describes the database connection targets for a pipeline node
+type NodeDBTarget struct {
+	NodeKind string
+	DBName   string
+	TargetDB string
+}
+
+// DatabaseSessionIdentity captures the session ID, db user, and application name for a connection
+type DatabaseSessionIdentity struct {
+	SPID            int64
+	DBUser          string
+	ApplicationName string
+}
+
 type DatabaseSink struct {
-	DB             *sql.DB
-	Driver         string
-	insertQuery    string
-	configuredCols []string
-	colsDetected   bool
-	spid           int64
-	dbUser         string
-	appName        string
-	mu             sync.RWMutex
-	runID          string
-	status         string
-	errorClass     string
-	errorMsg       string
-	debug          bool
+	DB               *sql.DB
+	Driver           string
+	insertQuery      string
+	configuredCols   []string
+	colsDetected     bool
+	isNumericSPID    bool
+	spid             int64
+	dbUser           string
+	appName          string
+	mu               sync.RWMutex
+	runID            string
+	status           string
+	errorClass       string
+	errorMsg         string
+	debug            bool
+	registry         *flow.Registry
+	nodeTargets      map[string]NodeDBTarget
+	cachedIdentities map[string]DatabaseSessionIdentity
 }
 
 // MultiSink fans out execution events to multiple sinks (e.g., Database + Stdout)
@@ -264,12 +282,25 @@ func (s *DatabaseSink) detectColumns(ctx context.Context) {
 
 	rows, err := s.DB.QueryContext(ctx, fmt.Sprintf("SELECT * FROM %s WHERE 1=0", table))
 	if err == nil {
+		colTypes, typeErr := rows.ColumnTypes()
 		colNames, colErr := rows.Columns()
 		rows.Close()
 		if colErr == nil && len(colNames) > 0 {
 			s.configuredCols = filterAvailableEventCols(colNames)
 			s.insertQuery = buildInsertQuery(s.Driver, pipeline_events, s.configuredCols)
 			s.colsDetected = true
+			if typeErr == nil && len(colTypes) > 0 {
+				for _, ct := range colTypes {
+					name := strings.ToLower(ct.Name())
+					if name == "spid" || name == "sspid" {
+						typeName := strings.ToUpper(ct.DatabaseTypeName())
+						if (strings.Contains(typeName, "INT") || strings.Contains(typeName, "NUM") || strings.Contains(typeName, "DEC")) &&
+							!strings.Contains(typeName, "CHAR") && !strings.Contains(typeName, "TEXT") {
+							s.isNumericSPID = true
+						}
+					}
+				}
+			}
 			return
 		}
 	}
@@ -326,6 +357,350 @@ func (s *DatabaseSink) SetSessionIdentity(spid int64, dbUser string, appName ...
 	}
 }
 
+// SetRegistry sets the flow.Registry used to look up active database connection pools
+func (s *DatabaseSink) SetRegistry(reg *flow.Registry) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.registry = reg
+}
+
+// SetDBSessionIdentity sets a known session identity for a specific database name
+func (s *DatabaseSink) SetDBSessionIdentity(dbName string, spid int64, dbUser string, appName string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.cachedIdentities == nil {
+		s.cachedIdentities = make(map[string]DatabaseSessionIdentity)
+	}
+	s.cachedIdentities[dbName] = DatabaseSessionIdentity{
+		SPID:            spid,
+		DBUser:          dbUser,
+		ApplicationName: appName,
+	}
+}
+
+// RegisterNodeTarget registers the DB targets for a given node ID or node path
+func (s *DatabaseSink) RegisterNodeTarget(nodeIDOrPath string, target NodeDBTarget) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.nodeTargets == nil {
+		s.nodeTargets = make(map[string]NodeDBTarget)
+	}
+	s.nodeTargets[nodeIDOrPath] = target
+}
+
+// RegisterNodes registers the AST nodes to map execution events to actual database connections
+func (s *DatabaseSink) RegisterNodes(nodes []flow.PipelineNode) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.nodeTargets == nil {
+		s.nodeTargets = make(map[string]NodeDBTarget)
+	}
+	s.registerNodesRecursive(nodes, "")
+}
+
+func (s *DatabaseSink) registerNodesRecursive(nodes []flow.PipelineNode, parentPath string) {
+	for index, node := range nodes {
+		kind, id := nodeIdentityFromAST(node)
+		path := fmt.Sprintf("%s[%d]", kind, index)
+		if parentPath != "" {
+			path = fmt.Sprintf("%s/%s", parentPath, path)
+		}
+
+		var target NodeDBTarget
+		hasTarget := false
+
+		switch node.Kind {
+		case flow.NodeSQL:
+			if node.SQL != nil {
+				target = NodeDBTarget{
+					NodeKind: "sql",
+					DBName:   node.SQL.DBName,
+				}
+				hasTarget = true
+			}
+		case flow.NodeSQLBulk:
+			if node.SQLBulk != nil {
+				targetDB := node.SQLBulk.TargetDB
+				if targetDB == "" {
+					targetDB = node.SQLBulk.DBName
+				}
+				target = NodeDBTarget{
+					NodeKind: "sql_bulk",
+					DBName:   node.SQLBulk.DBName,
+					TargetDB: targetDB,
+				}
+				hasTarget = true
+			}
+		case flow.NodeGroup:
+			if node.Transaction && node.DBName != "" {
+				target = NodeDBTarget{
+					NodeKind: "group",
+					DBName:   node.DBName,
+				}
+				hasTarget = true
+			}
+		case flow.NodeKV:
+			if node.KV != nil && node.KV.DBName != "" {
+				target = NodeDBTarget{
+					NodeKind: "kv",
+					DBName:   node.KV.DBName,
+				}
+				hasTarget = true
+			}
+		case flow.NodeKVBulk:
+			if node.KVBulk != nil && node.KVBulk.DBName != "" {
+				target = NodeDBTarget{
+					NodeKind: "kv_bulk",
+					DBName:   node.KVBulk.DBName,
+				}
+				hasTarget = true
+			}
+		}
+
+		if hasTarget {
+			s.nodeTargets[path] = target
+			if id != "" {
+				s.nodeTargets[id] = target
+			}
+		}
+
+		if len(node.Children) > 0 {
+			s.registerNodesRecursive(node.Children, path)
+		}
+		if len(node.ElseNodes) > 0 {
+			s.registerNodesRecursive(node.ElseNodes, path)
+		}
+	}
+}
+
+func nodeIdentityFromAST(node flow.PipelineNode) (string, string) {
+	switch node.Kind {
+	case flow.NodeKV:
+		if node.KV != nil {
+			return "kv", node.KV.ID
+		}
+		return "kv", ""
+	case flow.NodeKVBulk:
+		if node.KVBulk != nil {
+			return "kv_bulk", node.KVBulk.ID
+		}
+		return "kv_bulk", ""
+	case flow.NodeAssert:
+		if node.Assert != nil {
+			return "assert", node.Assert.ID
+		}
+		return "assert", ""
+	case flow.NodeSQL:
+		if node.SQL != nil {
+			return "sql", node.SQL.ID
+		}
+		return "sql", ""
+	case flow.NodeSQLBulk:
+		if node.SQLBulk != nil {
+			return "sql_bulk", node.SQLBulk.ID
+		}
+		return "sql_bulk", ""
+	case flow.NodeScript:
+		if node.Script != nil {
+			return "script", node.Script.ID
+		}
+		return "script", ""
+	case flow.NodeHTTPClient:
+		if node.HTTPClient != nil {
+			return "http_client", node.HTTPClient.ID
+		}
+		return "http_client", ""
+	case flow.NodeTemplate:
+		if node.Template != nil {
+			return "template", node.Template.ID
+		}
+		return "template", ""
+	case flow.NodeHtmlTemplate:
+		if node.HtmlTemplate != nil {
+			return "template_html", node.HtmlTemplate.ID
+		}
+		return "template_html", ""
+	case flow.NodeFileSave:
+		if node.FileSave != nil {
+			return "file_save", node.FileSave.ID
+		}
+		return "file_save", ""
+	case flow.NodeFileRead:
+		if node.FileRead != nil {
+			return "file_read", node.FileRead.ID
+		}
+		return "file_read", ""
+	case flow.NodeExcelRead:
+		if node.ExcelRead != nil {
+			return "excel_read", node.ExcelRead.ID
+		}
+		return "excel_read", ""
+	case flow.NodeExcelWrite:
+		if node.ExcelWrite != nil {
+			return "excel_write", node.ExcelWrite.ID
+		}
+		return "excel_write", ""
+	case flow.NodeXMLXPath:
+		if node.XmlXPath != nil {
+			return "xml_xpath", node.XmlXPath.ID
+		}
+		return "xml_xpath", ""
+	case flow.NodeJSONPath:
+		if node.JsonPath != nil {
+			return "json_path", node.JsonPath.ID
+		}
+		return "json_path", ""
+	case flow.NodeYAMLPath:
+		if node.YamlPath != nil {
+			return "yaml_path", node.YamlPath.ID
+		}
+		return "yaml_path", ""
+	case flow.NodeGroup:
+		return "group", node.GroupID
+	case flow.NodeParallel:
+		return "parallel", node.GroupID
+	case flow.NodeIf:
+		return "if", node.GroupID
+	case flow.NodeForEach:
+		return "foreach", node.GroupID
+	case flow.NodeWhile:
+		return "while", node.GroupID
+	default:
+		return "unknown", ""
+	}
+}
+
+func (s *DatabaseSink) resolveDBName(name string) string {
+	name = strings.TrimSpace(name)
+	if !strings.Contains(name, "{{") {
+		return name
+	}
+	s.mu.RLock()
+	reg := s.registry
+	s.mu.RUnlock()
+	if reg == nil {
+		return name
+	}
+	vars := reg.CopyVariables()
+	for k, v := range vars {
+		placeholder := fmt.Sprintf("{{%s}}", k)
+		name = strings.ReplaceAll(name, placeholder, fmt.Sprintf("%v", v))
+	}
+	return strings.TrimSpace(name)
+}
+
+func (s *DatabaseSink) getOrFetchSessionIdentity(ctx context.Context, dbName string) (DatabaseSessionIdentity, error) {
+	s.mu.RLock()
+	if s.cachedIdentities != nil {
+		if ident, ok := s.cachedIdentities[dbName]; ok {
+			s.mu.RUnlock()
+			return ident, nil
+		}
+	}
+	defaultSPID := s.spid
+	defaultDBUser := s.dbUser
+	defaultAppName := s.appName
+	reg := s.registry
+	s.mu.RUnlock()
+
+	if dbName == "" || dbName == "log_db" {
+		return DatabaseSessionIdentity{
+			SPID:            defaultSPID,
+			DBUser:          defaultDBUser,
+			ApplicationName: defaultAppName,
+		}, nil
+	}
+
+	if reg == nil {
+		return DatabaseSessionIdentity{}, fmt.Errorf("registry not set")
+	}
+
+	handle, err := reg.GetDBHandle(dbName)
+	if err != nil {
+		return DatabaseSessionIdentity{}, err
+	}
+
+	fetchCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	spid, dbUser, appName, err := FetchDatabaseSessionIdentity(fetchCtx, handle.Conn, handle.Driver)
+	if err != nil {
+		return DatabaseSessionIdentity{}, err
+	}
+
+	ident := DatabaseSessionIdentity{
+		SPID:            spid,
+		DBUser:          dbUser,
+		ApplicationName: appName,
+	}
+
+	s.mu.Lock()
+	if s.cachedIdentities == nil {
+		s.cachedIdentities = make(map[string]DatabaseSessionIdentity)
+	}
+	s.cachedIdentities[dbName] = ident
+	s.mu.Unlock()
+
+	return ident, nil
+}
+
+func (s *DatabaseSink) resolveEventIdentity(ctx context.Context, event flow.ExecutionEvent) (spid any, srcSPIDInt int64, appName string, dbUser string) {
+	s.mu.RLock()
+	defaultSPID := s.spid
+	defaultDBUser := s.dbUser
+	defaultAppName := s.appName
+	var target NodeDBTarget
+	var found bool
+	if s.nodeTargets != nil {
+		if event.NodePath != "" {
+			target, found = s.nodeTargets[event.NodePath]
+		}
+		if !found && event.NodeID != "" {
+			target, found = s.nodeTargets[event.NodeID]
+		}
+	}
+	s.mu.RUnlock()
+
+	if !found {
+		return defaultSPID, defaultSPID, defaultAppName, defaultDBUser
+	}
+
+	if target.NodeKind == "sql_bulk" {
+		srcDB := s.resolveDBName(target.DBName)
+		tgtDB := s.resolveDBName(target.TargetDB)
+		if tgtDB == "" {
+			tgtDB = srcDB
+		}
+
+		if srcDB != "" && tgtDB != "" && srcDB != tgtDB {
+			srcIdent, srcErr := s.getOrFetchSessionIdentity(ctx, srcDB)
+			tgtIdent, tgtErr := s.getOrFetchSessionIdentity(ctx, tgtDB)
+			if srcErr == nil && tgtErr == nil {
+				return fmt.Sprintf("%d->%d", srcIdent.SPID, tgtIdent.SPID),
+					srcIdent.SPID,
+					fmt.Sprintf("%s->%s", srcIdent.ApplicationName, tgtIdent.ApplicationName),
+					fmt.Sprintf("%s->%s", srcIdent.DBUser, tgtIdent.DBUser)
+			}
+		} else if srcDB != "" {
+			ident, err := s.getOrFetchSessionIdentity(ctx, srcDB)
+			if err == nil {
+				return ident.SPID, ident.SPID, ident.ApplicationName, ident.DBUser
+			}
+		}
+		return defaultSPID, defaultSPID, defaultAppName, defaultDBUser
+	}
+
+	dbName := s.resolveDBName(target.DBName)
+	if dbName != "" {
+		ident, err := s.getOrFetchSessionIdentity(ctx, dbName)
+		if err == nil {
+			return ident.SPID, ident.SPID, ident.ApplicationName, ident.DBUser
+		}
+	}
+
+	return defaultSPID, defaultSPID, defaultAppName, defaultDBUser
+}
+
 // Emit satisfies the flow.EventSink interface and persists execution events to the database
 func (s *DatabaseSink) Emit(ctx context.Context, event flow.ExecutionEvent) error {
 	event.OptionsPath = maskSensitiveSourceForDB(event.OptionsPath, s.debug)
@@ -344,10 +719,9 @@ func (s *DatabaseSink) Emit(ctx context.Context, event flow.ExecutionEvent) erro
 	}
 	cols := s.configuredCols
 	query := s.insertQuery
-	spid := s.spid
-	dbUser := s.dbUser
-	appName := s.appName
 	s.mu.Unlock()
+
+	spid, srcSPIDInt, appName, dbUser := s.resolveEventIdentity(ctx, event)
 
 	if query == "" || len(cols) == 0 {
 		cols = defaultEventCols
@@ -385,7 +759,11 @@ func (s *DatabaseSink) Emit(ctx context.Context, event flow.ExecutionEvent) erro
 		case "db_user_name", "database_user_name":
 			args = append(args, dbUser)
 		case "spid", "sspid":
-			args = append(args, spid)
+			if s.isNumericSPID && s.Driver != "sqlite" && s.Driver != "sqlite3" {
+				args = append(args, srcSPIDInt)
+			} else {
+				args = append(args, spid)
+			}
 		case "application_name", "app_name":
 			args = append(args, appName)
 		case "hostname":

@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS pipeline_events (
     user_name VARCHAR(256),
     os_user_name VARCHAR(256),
     db_user_name VARCHAR(256),
-    spid BIGINT,
+    spid VARCHAR(256),
     application_name VARCHAR(256),
     hostname VARCHAR(256),
     options_path VARCHAR(2048),
@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS pipeline_events (
     user_name VARCHAR(256),
     os_user_name VARCHAR(256),
     db_user_name VARCHAR(256),
-    spid BIGINT,
+    spid VARCHAR(256),
     application_name VARCHAR(256),
     hostname VARCHAR(256),
     options_path VARCHAR(2048),
@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS pipeline_events (
     user_name TEXT,
     os_user_name TEXT,
     db_user_name TEXT,
-    spid INTEGER,
+    spid TEXT,
     application_name TEXT,
     hostname TEXT,
     options_path TEXT,
@@ -210,7 +210,7 @@ BEGIN
         user_name VARCHAR(256),
         os_user_name VARCHAR(256),
         db_user_name VARCHAR(256),
-        spid BIGINT,
+        spid VARCHAR(256),
         application_name VARCHAR(256),
         hostname VARCHAR(256),
         options_path VARCHAR(2048),
@@ -260,7 +260,7 @@ CREATE TABLE pipeline_events (
     user_name VARCHAR2(256),
     os_user_name VARCHAR2(256),
     db_user_name VARCHAR2(256),
-    spid NUMBER(19),
+    spid VARCHAR2(256),
     application_name VARCHAR2(256),
     hostname VARCHAR2(256),
     options_path VARCHAR2(2048),
@@ -278,8 +278,8 @@ When logging pipeline events or runs to a database, the telemetry subsystem reco
 | Column | Description | Dialect Resolution |
 | :--- | :--- | :--- |
 | `os_user_name` / `user_name` | OS user executing the process (`go-flow`) | `user.Current()` / Windows environment |
-| `db_user_name` | Database user identity authenticated to the database | MSSQL: `SYSTEM_USER`<br>PostgreSQL: `CURRENT_USER`<br>MySQL: `CURRENT_USER()`<br>Oracle: `SYS_CONTEXT('USERENV', 'SESSION_USER')`<br>SQLite: `os.Getpid()` / `"sqlite"` |
-| `spid` / `sspid` | Server Process ID (SPID) or database session ID (both `spid` and alias `sspid` are recognized) | MSSQL: `@@SPID`<br>PostgreSQL: `pg_backend_pid()`<br>MySQL: `CONNECTION_ID()`<br>Oracle: `SYS_CONTEXT('USERENV', 'SID')`<br>SQLite: `os.Getpid()` |
-| `application_name` / `app_name` | Application name executing the pipeline or connected to the database session | MSSQL: `ISNULL(APP_NAME(), '')`<br>PostgreSQL: `COALESCE(current_setting('application_name', true), '')`<br>MySQL: `COALESCE(@@session.program_name, '')`<br>Oracle: `COALESCE(SYS_CONTEXT('USERENV', 'MODULE'), SYS_CONTEXT('USERENV', 'CLIENT_PROGRAM_NAME'), '')`<br>Fallback/SQLite: Binary executable name (`flow`) |
+| `db_user_name` | Database user identity authenticated to the database. In `pipeline_runs`, captures the logging database connection user. In `pipeline_events`, captures the individual step's database connection user (or `source_user->target_user` for cross-database `<sql_bulk>` transfers). | MSSQL: `SYSTEM_USER`<br>PostgreSQL: `CURRENT_USER`<br>MySQL: `CURRENT_USER()`<br>Oracle: `SYS_CONTEXT('USERENV', 'SESSION_USER')`<br>SQLite: `os.Getpid()` / `"sqlite"` |
+| `spid` / `sspid` | Server Process ID (SPID) or database session ID. In `pipeline_runs`, captures the logging database session SPID. In `pipeline_events`, captures the individual step's database session SPID (or `source_spid->target_spid` for cross-database `<sql_bulk>` transfers). | MSSQL: `@@SPID`<br>PostgreSQL: `pg_backend_pid()`<br>MySQL: `CONNECTION_ID()`<br>Oracle: `SYS_CONTEXT('USERENV', 'SID')`<br>SQLite: `os.Getpid()` |
+| `application_name` / `app_name` | Application name executing the pipeline or connected to the database session. In `pipeline_runs`, captures the logging database session application name. In `pipeline_events`, captures the individual step's database session application name (or `source_app->target_app` for cross-database `<sql_bulk>` transfers). | MSSQL: `ISNULL(APP_NAME(), '')`<br>PostgreSQL: `COALESCE(current_setting('application_name', true), '')`<br>MySQL: `COALESCE(@@session.program_name, '')`<br>Oracle: `COALESCE(SYS_CONTEXT('USERENV', 'MODULE'), SYS_CONTEXT('USERENV', 'CLIENT_PROGRAM_NAME'), '')`<br>Fallback/SQLite: Binary executable name (`flow`) |
 
-> **Backward Compatibility**: If an existing database table was created with earlier schemas that lack `os_user_name`, `db_user_name`, `spid`, `sspid`, or `application_name`, `go-flow` automatically detects available columns and performs inserts without error. When the columns exist, they are automatically populated.
+> **Backward Compatibility**: If an existing database table was created with earlier schemas that lack `os_user_name`, `db_user_name`, `spid`, `sspid`, or `application_name`, `go-flow` automatically detects available columns and performs inserts without error. If `pipeline_events.spid` retains a legacy numeric type (`BIGINT`), cross-database bulk transfers automatically fall back to the numeric `source_spid` so database inserts never fail. When the columns exist, they are automatically populated.

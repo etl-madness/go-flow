@@ -623,4 +623,418 @@ func TestDatabaseSink_BackwardCompatibilityWithoutSPID(t *testing.T) {
 	}
 }
 
+func TestDatabaseSink_IndividualConnectionLogging(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open sqlite in-memory db: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+
+	_, err = db.ExecContext(ctx, `
+		CREATE TABLE pipeline_events (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			run_id TEXT NOT NULL,
+			execution_id TEXT NOT NULL,
+			sequence_num INTEGER NOT NULL,
+			occurred_at TEXT NOT NULL,
+			event_type TEXT NOT NULL,
+			node_kind TEXT NOT NULL,
+			node_id TEXT NOT NULL,
+			status TEXT NOT NULL,
+			user_name TEXT,
+			os_user_name TEXT,
+			db_user_name TEXT,
+			spid TEXT,
+			application_name TEXT,
+			hostname TEXT,
+			options_path TEXT,
+			error_message TEXT,
+			rows_read INTEGER DEFAULT 0,
+			rows_written INTEGER DEFAULT 0,
+			rows_affected INTEGER DEFAULT 0
+		);
+		CREATE TABLE pipeline_runs (
+			run_id TEXT PRIMARY KEY,
+			file_path TEXT NOT NULL,
+			config_path TEXT,
+			status TEXT NOT NULL,
+			started_at TEXT NOT NULL,
+			finished_at TEXT NOT NULL,
+			duration_ms INTEGER NOT NULL,
+			task_count INTEGER NOT NULL,
+			user_name TEXT,
+			os_user_name TEXT,
+			db_user_name TEXT,
+			spid INTEGER,
+			sspid INTEGER,
+			application_name TEXT,
+			hostname TEXT,
+			options_path TEXT,
+			error_class TEXT,
+			error_message TEXT,
+			created_at TEXT DEFAULT CURRENT_TIMESTAMP
+		);
+	`)
+	if err != nil {
+		t.Fatalf("failed creating schema: %v", err)
+	}
+
+	sink := NewDatabaseSink(db, "sqlite")
+	// Set default log_db identity
+	sink.SetSessionIdentity(1000, "log_user", "log_app")
+
+	// Set known session identities for individual databases
+	sink.SetDBSessionIdentity("source_db", 2000, "src_user", "src_app")
+	sink.SetDBSessionIdentity("target_db", 3000, "tgt_user", "tgt_app")
+
+	// Register AST nodes
+	nodes := []flow.PipelineNode{
+		{
+			Kind: flow.NodeSQL,
+			SQL: &flow.SQLElement{
+				ID:     "fetch_step",
+				DBName: "source_db",
+			},
+		},
+		{
+			Kind: flow.NodeSQL,
+			SQL: &flow.SQLElement{
+				ID:     "insert_step",
+				DBName: "target_db",
+			},
+		},
+		{
+			Kind: flow.NodeScript,
+			Script: &flow.ScriptItem{
+				ID: "transform_script",
+			},
+		},
+	}
+	sink.RegisterNodes(nodes)
+
+	now := time.Now().UTC()
+
+	// 1. Emit run.started lifecycle event
+	err = sink.Emit(ctx, flow.ExecutionEvent{
+		RunID:      "run-indiv-1",
+		Sequence:   1,
+		OccurredAt: now,
+		Type:       flow.EventRunStarted,
+	})
+	if err != nil {
+		t.Fatalf("failed emitting run.started: %v", err)
+	}
+
+	// 2. Emit source_step event
+	err = sink.Emit(ctx, flow.ExecutionEvent{
+		RunID:      "run-indiv-1",
+		Sequence:   2,
+		OccurredAt: now,
+		Type:       flow.EventNodeFinished,
+		NodeKind:   "sql",
+		NodeID:     "fetch_step",
+		NodePath:   "sql[0]",
+		Status:     flow.RunStatusSucceeded,
+	})
+	if err != nil {
+		t.Fatalf("failed emitting fetch_step: %v", err)
+	}
+
+	// 3. Emit insert_step event
+	err = sink.Emit(ctx, flow.ExecutionEvent{
+		RunID:      "run-indiv-1",
+		Sequence:   3,
+		OccurredAt: now,
+		Type:       flow.EventNodeFinished,
+		NodeKind:   "sql",
+		NodeID:     "insert_step",
+		NodePath:   "sql[1]",
+		Status:     flow.RunStatusSucceeded,
+	})
+	if err != nil {
+		t.Fatalf("failed emitting insert_step: %v", err)
+	}
+
+	// 4. Emit non-db script step event
+	err = sink.Emit(ctx, flow.ExecutionEvent{
+		RunID:      "run-indiv-1",
+		Sequence:   4,
+		OccurredAt: now,
+		Type:       flow.EventNodeFinished,
+		NodeKind:   "script",
+		NodeID:     "transform_script",
+		NodePath:   "script[2]",
+		Status:     flow.RunStatusSucceeded,
+	})
+	if err != nil {
+		t.Fatalf("failed emitting transform_script: %v", err)
+	}
+
+	// 5. Emit run.finished lifecycle event
+	err = sink.Emit(ctx, flow.ExecutionEvent{
+		RunID:      "run-indiv-1",
+		Sequence:   5,
+		OccurredAt: now,
+		Type:       flow.EventRunFinished,
+		Status:     flow.RunStatusSucceeded,
+	})
+	if err != nil {
+		t.Fatalf("failed emitting run.finished: %v", err)
+	}
+
+	// Verify events
+	type evtRow struct {
+		seq     int
+		nodeID  string
+		dbUser  string
+		spid    string
+		appName string
+	}
+	rows, err := db.QueryContext(ctx, "SELECT sequence_num, node_id, db_user_name, spid, application_name FROM pipeline_events ORDER BY sequence_num ASC")
+	if err != nil {
+		t.Fatalf("failed querying events: %v", err)
+	}
+	defer rows.Close()
+
+	var recorded []evtRow
+	for rows.Next() {
+		var r evtRow
+		if err := rows.Scan(&r.seq, &r.nodeID, &r.dbUser, &r.spid, &r.appName); err != nil {
+			t.Fatalf("failed scanning row: %v", err)
+		}
+		recorded = append(recorded, r)
+	}
+
+	if len(recorded) != 5 {
+		t.Fatalf("expected 5 events, got %d", len(recorded))
+	}
+
+	// run.started -> uses log_db
+	if recorded[0].spid != "1000" || recorded[0].appName != "log_app" || recorded[0].dbUser != "log_user" {
+		t.Errorf("event 1 (run.started) expected log_db identity, got spid=%q app=%q user=%q", recorded[0].spid, recorded[0].appName, recorded[0].dbUser)
+	}
+
+	// fetch_step -> uses source_db
+	if recorded[1].spid != "2000" || recorded[1].appName != "src_app" || recorded[1].dbUser != "src_user" {
+		t.Errorf("event 2 (fetch_step) expected source_db identity, got spid=%q app=%q user=%q", recorded[1].spid, recorded[1].appName, recorded[1].dbUser)
+	}
+
+	// insert_step -> uses target_db
+	if recorded[2].spid != "3000" || recorded[2].appName != "tgt_app" || recorded[2].dbUser != "tgt_user" {
+		t.Errorf("event 3 (insert_step) expected target_db identity, got spid=%q app=%q user=%q", recorded[2].spid, recorded[2].appName, recorded[2].dbUser)
+	}
+
+	// transform_script -> non-db step, falls back to log_db
+	if recorded[3].spid != "1000" || recorded[3].appName != "log_app" || recorded[3].dbUser != "log_user" {
+		t.Errorf("event 4 (transform_script) expected log_db fallback, got spid=%q app=%q user=%q", recorded[3].spid, recorded[3].appName, recorded[3].dbUser)
+	}
+
+	// run.finished -> uses log_db
+	if recorded[4].spid != "1000" || recorded[4].appName != "log_app" || recorded[4].dbUser != "log_user" {
+		t.Errorf("event 5 (run.finished) expected log_db identity, got spid=%q app=%q user=%q", recorded[4].spid, recorded[4].appName, recorded[4].dbUser)
+	}
+
+	// Verify pipeline_runs: uses log_db session identity
+	logSPID, logUser, logApp := sink.SessionIdentity()
+	summaryRec := RunSummaryRecord{
+		RunID:            "run-indiv-1",
+		FilePath:         "pipeline.xml",
+		Status:           "succeeded",
+		StartedAt:        now,
+		FinishedAt:       now.Add(time.Second),
+		Duration:         time.Second,
+		TaskCount:        3,
+		UserName:         "runner",
+		OSUserName:       "runner",
+		DatabaseUserName: logUser,
+		DBUserName:       logUser,
+		SPID:             logSPID,
+		ApplicationName:  logApp,
+		Hostname:         "host1",
+	}
+	if err := LogRunSummaryToDB(ctx, db, "sqlite", summaryRec, false); err != nil {
+		t.Fatalf("failed LogRunSummaryToDB: %v", err)
+	}
+
+	var runSPID int64
+	var runUser, runApp string
+	err = db.QueryRowContext(ctx, "SELECT spid, db_user_name, application_name FROM pipeline_runs WHERE run_id = 'run-indiv-1'").Scan(&runSPID, &runUser, &runApp)
+	if err != nil {
+		t.Fatalf("failed querying pipeline_runs: %v", err)
+	}
+	if runSPID != 1000 || runUser != "log_user" || runApp != "log_app" {
+		t.Errorf("pipeline_runs expected log_db identity (1000, log_user, log_app), got (%d, %s, %s)", runSPID, runUser, runApp)
+	}
+}
+
+func TestDatabaseSink_SQLBulkCrossDatabaseConcatenation(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open in-memory db: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+
+	_, err = db.ExecContext(ctx, `
+		CREATE TABLE pipeline_events (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			run_id TEXT NOT NULL,
+			execution_id TEXT NOT NULL,
+			sequence_num INTEGER NOT NULL,
+			occurred_at TEXT NOT NULL,
+			event_type TEXT NOT NULL,
+			node_kind TEXT NOT NULL,
+			node_id TEXT NOT NULL,
+			status TEXT NOT NULL,
+			user_name TEXT,
+			os_user_name TEXT,
+			db_user_name TEXT,
+			spid TEXT,
+			application_name TEXT,
+			hostname TEXT,
+			options_path TEXT,
+			error_message TEXT,
+			rows_read INTEGER DEFAULT 0,
+			rows_written INTEGER DEFAULT 0,
+			rows_affected INTEGER DEFAULT 0
+		);
+	`)
+	if err != nil {
+		t.Fatalf("failed creating schema: %v", err)
+	}
+
+	sink := NewDatabaseSink(db, "sqlite")
+	sink.SetSessionIdentity(999, "log_user", "log_app")
+
+	sink.SetDBSessionIdentity("source_db", 111, "alice", "ETL_Source")
+	sink.SetDBSessionIdentity("target_db", 222, "bob", "ETL_Target")
+
+	nodes := []flow.PipelineNode{
+		{
+			Kind: flow.NodeSQLBulk,
+			SQLBulk: &flow.SQLBulkElement{
+				ID:       "cross_db_bulk",
+				DBName:   "source_db",
+				TargetDB: "target_db",
+			},
+		},
+		{
+			Kind: flow.NodeSQLBulk,
+			SQLBulk: &flow.SQLBulkElement{
+				ID:       "same_db_bulk",
+				DBName:   "source_db",
+				TargetDB: "source_db",
+			},
+		},
+	}
+	sink.RegisterNodes(nodes)
+
+	now := time.Now().UTC()
+
+	// 1. Cross-database transfer
+	err = sink.Emit(ctx, flow.ExecutionEvent{
+		RunID:      "run-bulk-1",
+		Sequence:   1,
+		OccurredAt: now,
+		Type:       flow.EventNodeFinished,
+		NodeKind:   "sql_bulk",
+		NodeID:     "cross_db_bulk",
+		NodePath:   "sql_bulk[0]",
+		Status:     flow.RunStatusSucceeded,
+	})
+	if err != nil {
+		t.Fatalf("failed emitting cross_db_bulk: %v", err)
+	}
+
+	// 2. Same-database transfer
+	err = sink.Emit(ctx, flow.ExecutionEvent{
+		RunID:      "run-bulk-1",
+		Sequence:   2,
+		OccurredAt: now,
+		Type:       flow.EventNodeFinished,
+		NodeKind:   "sql_bulk",
+		NodeID:     "same_db_bulk",
+		NodePath:   "sql_bulk[1]",
+		Status:     flow.RunStatusSucceeded,
+	})
+	if err != nil {
+		t.Fatalf("failed emitting same_db_bulk: %v", err)
+	}
+
+	var spid1, user1, app1 string
+	err = db.QueryRowContext(ctx, "SELECT spid, db_user_name, application_name FROM pipeline_events WHERE sequence_num = 1").Scan(&spid1, &user1, &app1)
+	if err != nil {
+		t.Fatalf("failed querying event 1: %v", err)
+	}
+
+	if spid1 != "111->222" {
+		t.Errorf("expected cross-db SPID '111->222', got %q", spid1)
+	}
+	if user1 != "alice->bob" {
+		t.Errorf("expected cross-db db_user_name 'alice->bob', got %q", user1)
+	}
+	if app1 != "ETL_Source->ETL_Target" {
+		t.Errorf("expected cross-db application_name 'ETL_Source->ETL_Target', got %q", app1)
+	}
+
+	var spid2, user2, app2 string
+	err = db.QueryRowContext(ctx, "SELECT spid, db_user_name, application_name FROM pipeline_events WHERE sequence_num = 2").Scan(&spid2, &user2, &app2)
+	if err != nil {
+		t.Fatalf("failed querying event 2: %v", err)
+	}
+
+	if spid2 != "111" {
+		t.Errorf("expected same-db SPID '111', got %q", spid2)
+	}
+	if user2 != "alice" {
+		t.Errorf("expected same-db db_user_name 'alice', got %q", user2)
+	}
+	if app2 != "ETL_Source" {
+		t.Errorf("expected same-db application_name 'ETL_Source', got %q", app2)
+	}
+}
+
+func TestDatabaseSink_NumericSPIDFallback(t *testing.T) {
+	sink := &DatabaseSink{
+		Driver:        "sqlserver",
+		isNumericSPID: true,
+	}
+	sink.SetSessionIdentity(999, "log_user", "log_app")
+	sink.SetDBSessionIdentity("source_db", 111, "alice", "ETL_Source")
+	sink.SetDBSessionIdentity("target_db", 222, "bob", "ETL_Target")
+
+	sink.RegisterNodes([]flow.PipelineNode{
+		{
+			Kind: flow.NodeSQLBulk,
+			SQLBulk: &flow.SQLBulkElement{
+				ID:       "cross_db_bulk",
+				DBName:   "source_db",
+				TargetDB: "target_db",
+			},
+		},
+	})
+
+	ctx := context.Background()
+	spid, srcSPIDInt, appName, dbUser := sink.resolveEventIdentity(ctx, flow.ExecutionEvent{
+		NodeKind: "sql_bulk",
+		NodeID:   "cross_db_bulk",
+	})
+
+	if spid != "111->222" {
+		t.Errorf("expected string SPID '111->222', got %v", spid)
+	}
+	if srcSPIDInt != 111 {
+		t.Errorf("expected numeric fallback SPID 111, got %d", srcSPIDInt)
+	}
+	if appName != "ETL_Source->ETL_Target" {
+		t.Errorf("expected concatenated app 'ETL_Source->ETL_Target', got %q", appName)
+	}
+	if dbUser != "alice->bob" {
+		t.Errorf("expected concatenated dbUser 'alice->bob', got %q", dbUser)
+	}
+}
+
 

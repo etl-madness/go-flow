@@ -133,8 +133,8 @@ foreach (var name in keys)
 When developing or troubleshooting a pipeline, you often need to verify that specific configuration variables (such as connection strings, file paths, or template outputs) were parsed correctly, and optionally halt before downstream destructive actions occur.
 
 ### Baseline Implementations
-- **Go Reference**: [`../examples/debug_specific_vars_and_exit_pipeline.xml`](../examples/debug_specific_vars_and_exit_pipeline.xml)
-- **CSX Reference**: [`../examples/debug_specific_vars_and_exit_csx_pipeline.xml`](../examples/debug_specific_vars_and_exit_csx_pipeline.xml)
+- **Go Reference**: [`../../examples/debug_specific_vars_and_exit_pipeline.xml`](../../examples/debug_specific_vars_and_exit_pipeline.xml)
+- **CSX Reference**: [`../../examples/debug_specific_vars_and_exit_csx_pipeline.xml`](../../examples/debug_specific_vars_and_exit_csx_pipeline.xml)
 
 ### Side-by-Side Implementation
 
@@ -204,8 +204,8 @@ Salary:      $132500.75
 In production troubleshooting or staging verifications, you may wish to inspect all live variables and prompt an operator whether to continue or abort. If aborted, the script halts execution and emits a structured JSON diagnostic payload.
 
 ### Baseline Implementations
-- **Go Reference**: [`../examples/debug_and_ask_continue_pipeline.xml`](../examples/debug_and_ask_continue_pipeline.xml)
-- **CSX Reference**: [`../examples/debug_and_ask_continue_csx_pipeline.xml`](../examples/debug_and_ask_continue_csx_pipeline.xml)
+- **Go Reference**: [`../../examples/debug_and_ask_continue_pipeline.xml`](../../examples/debug_and_ask_continue_pipeline.xml)
+- **CSX Reference**: [`../../examples/debug_and_ask_continue_csx_pipeline.xml`](../../examples/debug_and_ask_continue_csx_pipeline.xml)
 
 ### Architecture
 
@@ -338,8 +338,8 @@ sequenceDiagram
 In cursor-driven database loops (`<foreach>`), data bugs often occur on specific rows (e.g., unexpected nulls, boundary values, or character encoding mismatches). Placing an inspection script inside the loop captures variable state on every single pass.
 
 ### Baseline Implementations
-- **Go Reference**: [`../examples/debug_and_exit_pipeline.xml`](../examples/debug_and_exit_pipeline.xml)
-- **CSX Reference**: [`../examples/debug_and_exit_csx_pipeline.xml`](../examples/debug_and_exit_csx_pipeline.xml)
+- **Go Reference**: [`../../examples/debug_and_exit_pipeline.xml`](../../examples/debug_and_exit_pipeline.xml)
+- **CSX Reference**: [`../../examples/debug_and_exit_csx_pipeline.xml`](../../examples/debug_and_exit_csx_pipeline.xml)
 
 ### Side-by-Side Implementation
 
@@ -445,8 +445,8 @@ In cursor-driven database loops (`<foreach>`), data bugs often occur on specific
 3. Ensuring termination conditions correctly evaluate and break the loop.
 
 ### Baseline Implementations
-- **Go Reference**: [`../examples/debug_while_loop_pipeline.xml`](../examples/debug_while_loop_pipeline.xml)
-- **CSX Reference**: [`../examples/debug_while_loop_csx_pipeline.xml`](../examples/debug_while_loop_csx_pipeline.xml)
+- **Go Reference**: [`../../examples/debug_while_loop_pipeline.xml`](../../examples/debug_while_loop_pipeline.xml)
+- **CSX Reference**: [`../../examples/debug_while_loop_csx_pipeline.xml`](../../examples/debug_while_loop_csx_pipeline.xml)
 
 ### While Loop Workflow
 

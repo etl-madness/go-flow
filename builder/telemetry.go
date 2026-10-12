@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -80,8 +81,8 @@ type PipelineEventRecord struct {
 	OSUserName       string     `json:"os_user_name,omitempty"`
 	DatabaseUserName string     `json:"database_user_name,omitempty"`
 	DBUserName       string     `json:"db_user_name,omitempty"`
-	SPID             int64      `json:"spid,omitempty"`
-	SSPID            int64      `json:"sspid,omitempty"`
+	SPID             any        `json:"spid,omitempty"`
+	SSPID            any        `json:"sspid,omitempty"`
 	ApplicationName  string     `json:"application_name,omitempty"`
 	Hostname         string     `json:"hostname"`
 	OptionsPath      string     `json:"options_path"`
@@ -383,6 +384,65 @@ func QueryPipelineRuns(ctx context.Context, db *sql.DB, driver string, runsTable
 	return runs, nil
 }
 
+func parseSPIDValue(raw any) any {
+	if raw == nil {
+		return nil
+	}
+	switch v := raw.(type) {
+	case int64:
+		if v == 0 {
+			return nil
+		}
+		return v
+	case int:
+		if v == 0 {
+			return nil
+		}
+		return int64(v)
+	case int32:
+		if v == 0 {
+			return nil
+		}
+		return int64(v)
+	case []byte:
+		str := strings.TrimSpace(string(v))
+		if str == "" {
+			return nil
+		}
+		if n, err := strconv.ParseInt(str, 10, 64); err == nil {
+			if n == 0 {
+				return nil
+			}
+			return n
+		}
+		return str
+	case string:
+		str := strings.TrimSpace(v)
+		if str == "" {
+			return nil
+		}
+		if n, err := strconv.ParseInt(str, 10, 64); err == nil {
+			if n == 0 {
+				return nil
+			}
+			return n
+		}
+		return str
+	default:
+		str := strings.TrimSpace(fmt.Sprintf("%v", raw))
+		if str == "" || str == "<nil>" {
+			return nil
+		}
+		if n, err := strconv.ParseInt(str, 10, 64); err == nil {
+			if n == 0 {
+				return nil
+			}
+			return n
+		}
+		return str
+	}
+}
+
 // QueryPipelineEvents retrieves step-level telemetry events for a given run_id.
 func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsTable, runID string) ([]PipelineEventRecord, error) {
 	if eventsTable == "" {
@@ -436,8 +496,8 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 			userName     sql.NullString
 			osUserName   sql.NullString
 			dbUserName   sql.NullString
-			spidVal      sql.NullInt64
-			sspidVal     sql.NullInt64
+			spidRaw      any
+			sspidRaw     any
 			appNameVal   sql.NullString
 			hostname     sql.NullString
 			optionsPath  sql.NullString
@@ -476,9 +536,9 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 			case "db_user_name", "database_user_name":
 				dest[i] = &dbUserName
 			case "spid":
-				dest[i] = &spidVal
+				dest[i] = &spidRaw
 			case "sspid":
-				dest[i] = &sspidVal
+				dest[i] = &sspidRaw
 			case "application_name", "app_name":
 				dest[i] = &appNameVal
 			case "hostname":
@@ -521,15 +581,13 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 		}
 		rec.DBUserName = dbUserName.String
 		rec.DatabaseUserName = dbUserName.String
-		if sspidVal.Valid && sspidVal.Int64 != 0 {
-			rec.SSPID = sspidVal.Int64
-		} else {
-			rec.SSPID = spidVal.Int64
-		}
-		if spidVal.Valid && spidVal.Int64 != 0 {
-			rec.SPID = spidVal.Int64
-		} else {
+		rec.SSPID = parseSPIDValue(sspidRaw)
+		rec.SPID = parseSPIDValue(spidRaw)
+		if rec.SPID == nil && rec.SSPID != nil {
 			rec.SPID = rec.SSPID
+		}
+		if rec.SSPID == nil && rec.SPID != nil {
+			rec.SSPID = rec.SPID
 		}
 		rec.ApplicationName = appNameVal.String
 		rec.Hostname = hostname.String

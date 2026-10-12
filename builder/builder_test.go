@@ -3244,8 +3244,8 @@ func TestPipelineEventRecord_SPIDAndDBUser(t *testing.T) {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
 	evt := events[0]
-	if evt.SPID != 4242 {
-		t.Errorf("expected SPID 4242, got %d", evt.SPID)
+	if evt.SPID != int64(4242) && evt.SPID != 4242 {
+		t.Errorf("expected SPID 4242, got %v", evt.SPID)
 	}
 	if evt.DBUserName != "analytics_svc" || evt.DatabaseUserName != "analytics_svc" {
 		t.Errorf("expected DBUserName 'analytics_svc', got DBUserName=%q DatabaseUserName=%q", evt.DBUserName, evt.DatabaseUserName)
@@ -3271,6 +3271,77 @@ func TestPipelineEventRecord_SPIDAndDBUser(t *testing.T) {
 	}
 	if run.OSUserName != "srv_runner" || run.UserName != "srv_runner" {
 		t.Errorf("expected run OSUserName 'srv_runner', got OSUserName=%q UserName=%q", run.OSUserName, run.UserName)
+	}
+}
+
+func TestPipelineEventRecord_ConcatenatedSPID(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open in-memory db: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+
+	_, err = db.ExecContext(ctx, `
+		CREATE TABLE pipeline_events (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			run_id TEXT NOT NULL,
+			execution_id TEXT NOT NULL,
+			sequence_num INTEGER NOT NULL,
+			occurred_at TEXT NOT NULL,
+			event_type TEXT NOT NULL,
+			node_kind TEXT NOT NULL,
+			node_id TEXT NOT NULL,
+			status TEXT NOT NULL,
+			user_name TEXT,
+			os_user_name TEXT,
+			db_user_name TEXT,
+			spid TEXT,
+			application_name TEXT,
+			hostname TEXT,
+			options_path TEXT,
+			error_message TEXT,
+			rows_read INTEGER DEFAULT 0,
+			rows_written INTEGER DEFAULT 0,
+			rows_affected INTEGER DEFAULT 0
+		);
+	`)
+	if err != nil {
+		t.Fatalf("failed to create pipeline_events table: %v", err)
+	}
+
+	_, err = db.ExecContext(ctx, `
+		INSERT INTO pipeline_events (
+			run_id, execution_id, sequence_num, occurred_at, event_type,
+			node_kind, node_id, status, user_name, os_user_name, db_user_name,
+			spid, application_name, hostname, options_path
+		) VALUES (
+			'run-cross-db-1', 'exec-1', 1, '2026-03-31T12:00:00Z', 'node.finished',
+			'sql_bulk', 'bulk_sync', 'success', 'srv_runner', 'srv_runner', 'src_user->tgt_user',
+			'4242->5252', 'flow_source->flow_target', 'srv01', ''
+		);
+	`)
+	if err != nil {
+		t.Fatalf("failed inserting test event: %v", err)
+	}
+
+	events, err := QueryPipelineEvents(ctx, db, "sqlite", "pipeline_events", "run-cross-db-1")
+	if err != nil {
+		t.Fatalf("QueryPipelineEvents failed: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	evt := events[0]
+	if evt.SPID != "4242->5252" {
+		t.Errorf("expected concatenated SPID '4242->5252', got %v", evt.SPID)
+	}
+	if evt.DBUserName != "src_user->tgt_user" {
+		t.Errorf("expected concatenated DBUserName 'src_user->tgt_user', got %q", evt.DBUserName)
+	}
+	if evt.ApplicationName != "flow_source->flow_target" {
+		t.Errorf("expected concatenated ApplicationName 'flow_source->flow_target', got %q", evt.ApplicationName)
 	}
 }
 
