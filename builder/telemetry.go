@@ -90,6 +90,7 @@ type PipelineEventRecord struct {
 	RowsRead         int64      `json:"rows_read"`
 	RowsWritten      int64      `json:"rows_written"`
 	RowsAffected     int64      `json:"rows_affected"`
+	NodeOutput       string     `json:"node_output,omitempty"`
 }
 
 // isTableNotFoundError detects standard database errors when a table does not exist.
@@ -505,6 +506,7 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 			rowsRead     sql.NullInt64
 			rowsWritten  sql.NullInt64
 			rowsAffected sql.NullInt64
+			nodeOutput   sql.NullString
 			discard      any
 		)
 
@@ -553,6 +555,8 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 				dest[i] = &rowsWritten
 			case "rows_affected":
 				dest[i] = &rowsAffected
+			case "node_output":
+				dest[i] = &nodeOutput
 			default:
 				dest[i] = &discard
 			}
@@ -596,6 +600,7 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 		rec.RowsRead = rowsRead.Int64
 		rec.RowsWritten = rowsWritten.Int64
 		rec.RowsAffected = rowsAffected.Int64
+		rec.NodeOutput = nodeOutput.String
 
 		events = append(events, rec)
 	}

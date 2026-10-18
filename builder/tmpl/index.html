@@ -518,15 +518,21 @@
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/60 mt-1 text-xs">
-                        <div class="flex items-center space-x-3">
-                            <label class="flex items-center space-x-2 cursor-pointer select-none text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <label class="flex items-center space-x-2 cursor-pointer select-none text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded" title="Execute preflight validation checks only without executing the main flow">
                                 <input type="checkbox" id="runner-preflight" onchange="updatePreflightUI(this.checked)" class="rounded bg-slate-900 border-slate-700 text-amber-500 cursor-pointer">
                                 <span class="font-medium flex items-center space-x-1.5">
                                     <span class="text-amber-400">⚡ Preflight Only</span>
                                     <span class="text-[10px] text-slate-500 font-mono">(-preflight)</span>
                                 </span>
                             </label>
-                            <span class="text-[11px] text-slate-400">Execute preflight validation checks only without executing the main flow</span>
+                            <label class="flex items-center space-x-2 cursor-pointer select-none text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded" title="When logging to a database (log_db), persist each node's execution output to the node_output column on node.finished events">
+                                <input type="checkbox" id="runner-node-output" class="rounded bg-slate-900 border-slate-700 text-cyan-500 cursor-pointer">
+                                <span class="font-medium flex items-center space-x-1.5">
+                                    <span class="text-cyan-400">📝 Log Node Output to DB</span>
+                                    <span class="text-[10px] text-slate-500 font-mono">(-node-output)</span>
+                                </span>
+                            </label>
                         </div>
                         <button type="button" onclick="openDocModal('preflight')" class="text-[11px] text-amber-400 hover:text-amber-300 underline underline-offset-2 font-medium cursor-pointer flex items-center space-x-1" title="View preflight setup, validation gates, and execution options from docs/preflight.md">
                             <span>🛫 Preflight Guide</span>
@@ -1281,6 +1287,12 @@
                 <div id="event-detail-error-box" class="hidden bg-rose-950/40 border border-rose-900/60 rounded-lg p-3 space-y-1">
                     <span class="text-[10px] uppercase font-bold text-rose-400 block tracking-wider">Error Details</span>
                     <pre id="event-detail-error-text" class="text-rose-200 font-mono text-[11px] whitespace-pre-wrap select-all"></pre>
+                </div>
+
+                <!-- Node Output if present -->
+                <div id="event-detail-output-box" class="hidden bg-cyan-950/30 border border-cyan-900/60 rounded-lg p-3 space-y-1">
+                    <span class="text-[10px] uppercase font-bold text-cyan-400 block tracking-wider">Node Output (node_output)</span>
+                    <pre id="event-detail-output-text" class="text-cyan-100 font-mono text-[11px] whitespace-pre-wrap select-all max-h-40 overflow-y-auto"></pre>
                 </div>
 
                 <!-- Raw JSON Accordion -->
@@ -3182,6 +3194,8 @@
                 preflightCheckbox.checked = forcePreflight;
                 updatePreflightUI(forcePreflight);
             }
+            const nodeOutputCheckbox = document.getElementById('runner-node-output');
+            const isNodeOutput = nodeOutputCheckbox ? nodeOutputCheckbox.checked : false;
             const term = document.getElementById('terminal-log');
             const tbody = document.getElementById('execution-results-body');
             const statusInd = document.getElementById('status-indicator');
@@ -3212,6 +3226,9 @@
             }
             if (isPreflight) {
                 url += '&preflight=true';
+            }
+            if (isNodeOutput) {
+                url += '&node_output=true';
             }
             if (shouldIncludeScript) {
                 url += '&file=' + encodeURIComponent(scriptFile || (runnerSource === 'builder' ? 'temp_run_script.xml' : 'scripts.xml'));
@@ -6022,6 +6039,17 @@
                     errBox.classList.remove('hidden');
                 } else {
                     errBox.classList.add('hidden');
+                }
+            }
+
+            const outBox = document.getElementById('event-detail-output-box');
+            const outText = document.getElementById('event-detail-output-text');
+            if (outBox && outText) {
+                if (evt.node_output) {
+                    outText.textContent = evt.node_output;
+                    outBox.classList.remove('hidden');
+                } else {
+                    outBox.classList.add('hidden');
                 }
             }
 

@@ -1,5 +1,58 @@
 # Release Notes
 
+## Release Notes (v1.1.26) - Opt-In Node Output Database Logging (`-node-output` & `pipeline_events.node_output`)
+
+### Overview
+
+Version 1.1.26 introduces opt-in database logging for per-node execution output (`node_output`) across the CLI, `<cli_options>` XML configuration, and Visual Builder:
+1. **Opt-In CLI Flag & Options XML Support**: Added `-node-output` (CLI flag) and `<node-output>` (`<cli_options>` XML element, validated by `xsd/options.xsd`), defaulting to `false` so existing pipelines and telemetry databases remain unaffected unless explicitly enabled.
+2. **Targeted `node.finished` Event Logging**: When `-node-output` is enabled alongside a logging database (`log_db`) and the `pipeline_events` table contains a `node_output` column, `DatabaseSink` populates `node_output` exclusively on `'node.finished'` event rows, leaving lifecycle (`run.started`, `run.finished`) and `node.started` events as `NULL`.
+3. **Automatic Credential Redaction**: Prior to persisting node execution output (`ScriptResult.ResultsString`), `redactNodeOutput` automatically masks sensitive key-value patterns (`password`, `pwd`, `token`, `secret`, and `authorization`) with `[REDACTED]`.
+4. **Visual Builder Runner Option & Observability Inspector**: Added the **Log Node Output (`node_output`)** checkbox (unchecked by default) in the Builder Runner tab, passed `-node-output` during streaming execution (`builder/server.go`), scanned `node_output` in `QueryPipelineEvents` (`builder/telemetry.go`), and added a dedicated **Node Output (`node_output`)** viewer inside the Observability Event Detail modal.
+5. **Cross-Dialect Schema Auto-Detection & Documentation**: Updated `docs/guides/DATABASE_LOGGING_CONFIGURATION.md` and `docs/guides/COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md` with `node_output` DDL definitions (`TEXT`, `LONGTEXT`, `NVARCHAR(MAX)`, `CLOB`) across PostgreSQL, MySQL/MariaDB, SQLite, Microsoft SQL Server, and Oracle, and added multi-dialect parameterized `UPDATE` support (`?`, `$1`, `@p1`, `:1`).
+
+---
+
+### Included Changes
+
+#### 1. CLI & Options XML Configuration (`main.go`, `xsd/options.xsd`)
+- **CLI Flag Registration**:
+  - Added `-node-output` boolean flag (default `false`) in `main.go`.
+  - Follows standard precedence: CLI flag overrides `<cli_options><node-output>`, which overrides default `false`.
+- **XML Schema Update**:
+  - Added `<xs:element name="node-output" type="xs:boolean" minOccurs="0" maxOccurs="1"/>` to `CliOptionsType` in `xsd/options.xsd`.
+- **Execution Mode Support**:
+  - Supported across all output formats (`text`, `json`, `csv`, and `stream`) whenever `log_db` is configured.
+
+#### 2. Database Sink & Credential Redaction (`formating.go`)
+- **Schema Auto-Detection**:
+  - Added `"node_output"` to `knownEventCols` and automatic column presence detection (`hasNodeOutputCol`) in `DatabaseSink.detectColumns`.
+  - Gracefully skips updates without error if `pipeline_events` does not include the `node_output` column.
+- **`node.finished` Matching & Multi-Dialect Updates**:
+  - Tracks emitted `node.finished` events during pipeline execution and correlates them with `[]flow.ScriptResult` via `matchNodeOutputs` (matching by `ScriptID` against `NodeID`, `NodePath`, and leaf path segment, with positional fallback).
+  - Generates dialect-specific parameterized `UPDATE` statements via `buildUpdateNodeFinishedOutputQuery` for PostgreSQL (`$1..$4`), SQL Server (`@p1..@p4` with `dbo.` prefix), Oracle (`:1..:4`), and MySQL/SQLite (`?`).
+- **Sensitive Value Redaction & Safety Truncation**:
+  - Added `redactNodeOutput` (`(?i)(password|pwd|token|secret|authorization)\s*([=:])\s*([^\s,;]+)`) to scrub secrets before writing `node_output` to the database.
+  - Added `truncateNodeOutput` to cap oversized node outputs at 64 KB (`maxNodeOutputBytes = 65536`, or the narrower database column length detected via `ColumnType.Length()`) on a valid UTF-8 rune boundary with `\n...[TRUNCATED]`.
+
+#### 3. Visual Builder & Telemetry Integration (`builder/`)
+- **Runner Tab Control (`builder/tmpl/index.html`, `builder/html_content.go`)**:
+  - Added `#runner-node-output` checkbox (unchecked by default) in the Runner configuration bar and appended `&node_output=true` to `/api/execute/stream` when checked.
+- **Server Execution Handler (`builder/server.go`)**:
+  - Updated `handleExecuteStream` to parse the `node_output` query parameter (`true` / `1`) and append `-node-output` to the `go-flow` CLI invocation.
+- **Telemetry API & Event Detail Modal (`builder/telemetry.go`, `builder/tmpl/index.html`)**:
+  - Added `NodeOutput string` (`json:"node_output,omitempty"`) to `PipelineEventRecord` and scanned `node_output` in `QueryPipelineEvents`.
+  - Added `#event-detail-output-box` to `#event-detail-modal` to display captured node output when inspecting `node.finished` events in the Observability tab.
+
+#### 4. Documentation & Testing
+- **Observability & CLI Guides**:
+  - Updated `docs/guides/DATABASE_LOGGING_CONFIGURATION.md` with `node_output` column specifications, multi-dialect `CREATE TABLE pipeline_events` DDL scripts, and an Opt-In Node Output Logging section.
+  - Updated `docs/guides/COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md` with `-node-output` flag documentation, behavior notes, and `<cli_options>` XML examples.
+- **Unit Tests (`formating_test.go`)**:
+  - Added `TestDatabaseSink_LogNodeOutput` verifying default-off behavior, `node.finished`-only updates, credential redaction, and dialect placeholder formatting across PostgreSQL, SQL Server, Oracle, MySQL, and SQLite.
+
+---
+
 ## Release Notes (v1.1.25) - Dynamic Connection SPID, DB User & Application Name Logging Across [pipeline_events] and [pipeline_runs]
 
 ### Overview

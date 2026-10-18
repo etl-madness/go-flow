@@ -1037,4 +1037,144 @@ func TestDatabaseSink_NumericSPIDFallback(t *testing.T) {
 	}
 }
 
+func TestDatabaseSink_NodeOutputLogging(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open in-memory sqlite: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`
+		CREATE TABLE pipeline_events (
+			run_id VARCHAR(64) NOT NULL,
+			execution_id VARCHAR(64) NOT NULL,
+			sequence_num INT NOT NULL,
+			occurred_at DATETIME NOT NULL,
+			event_type VARCHAR(64) NOT NULL,
+			node_kind VARCHAR(64) NOT NULL,
+			node_id VARCHAR(128) NOT NULL,
+			status VARCHAR(32) NOT NULL,
+			user_name VARCHAR(256),
+			hostname VARCHAR(256),
+			options_path VARCHAR(2048),
+			error_message TEXT,
+			rows_read BIGINT,
+			rows_written BIGINT,
+			rows_affected BIGINT,
+			node_output TEXT
+		);
+	`)
+	if err != nil {
+		t.Fatalf("failed to create pipeline_events table: %v", err)
+	}
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	// 1. Default off: node_output should remain NULL
+	sinkOff := NewDatabaseSink(db, "sqlite")
+	if sinkOff.LogNodeOutput() {
+		t.Fatalf("expected LogNodeOutput to be false by default")
+	}
+	_ = sinkOff.Emit(ctx, flow.ExecutionEvent{
+		RunID:       "run-off",
+		ExecutionID: "exec-1",
+		Sequence:    1,
+		OccurredAt:  now,
+		Type:        flow.EventNodeFinished,
+		NodeKind:    "cmd",
+		NodeID:      "step_1",
+		Status:      flow.RunStatusSucceeded,
+	})
+	if err := sinkOff.RecordNodeOutputs(ctx, []flow.ScriptResult{
+		{ScriptID: "step_1", ResultsString: "hello world"},
+	}); err != nil {
+		t.Fatalf("RecordNodeOutputs (off) returned error: %v", err)
+	}
+
+	var outOff sql.NullString
+	if err := db.QueryRow("SELECT node_output FROM pipeline_events WHERE run_id = 'run-off' AND sequence_num = 1").Scan(&outOff); err != nil {
+		t.Fatalf("failed querying run-off row: %v", err)
+	}
+	if outOff.Valid {
+		t.Errorf("expected node_output to be NULL when LogNodeOutput is false, got %q", outOff.String)
+	}
+
+	// 2. Enabled: node_output populated ONLY on node.finished with credential redaction
+	sinkOn := NewDatabaseSink(db, "sqlite")
+	sinkOn.SetLogNodeOutput(true)
+	if !sinkOn.LogNodeOutput() {
+		t.Fatalf("expected LogNodeOutput to be true after SetLogNodeOutput(true)")
+	}
+
+	_ = sinkOn.Emit(ctx, flow.ExecutionEvent{
+		RunID:      "run-on",
+		Sequence:   1,
+		OccurredAt: now,
+		Type:       flow.EventRunStarted,
+	})
+	_ = sinkOn.Emit(ctx, flow.ExecutionEvent{
+		RunID:       "run-on",
+		ExecutionID: "exec-step-a",
+		Sequence:    2,
+		OccurredAt:  now,
+		Type:        flow.EventNodeStarted,
+		NodeKind:    "cmd",
+		NodeID:      "step_a",
+	})
+	_ = sinkOn.Emit(ctx, flow.ExecutionEvent{
+		RunID:       "run-on",
+		ExecutionID: "exec-step-a",
+		Sequence:    3,
+		OccurredAt:  now,
+		Type:        flow.EventNodeFinished,
+		NodeKind:    "cmd",
+		NodeID:      "step_a",
+		Status:      flow.RunStatusSucceeded,
+	})
+	_ = sinkOn.Emit(ctx, flow.ExecutionEvent{
+		RunID:      "run-on",
+		Sequence:   4,
+		OccurredAt: now,
+		Type:       flow.EventRunFinished,
+		Status:     flow.RunStatusSucceeded,
+	})
+
+	if err := sinkOn.RecordNodeOutputs(ctx, []flow.ScriptResult{
+		{ScriptID: "step_a", ResultsString: "Connected with password=mySecret123; rows=42"},
+	}); err != nil {
+		t.Fatalf("RecordNodeOutputs (on) returned error: %v", err)
+	}
+
+	var outStarted, outFinished sql.NullString
+	if err := db.QueryRow("SELECT node_output FROM pipeline_events WHERE run_id = 'run-on' AND sequence_num = 2").Scan(&outStarted); err != nil {
+		t.Fatalf("failed querying node.started row: %v", err)
+	}
+	if outStarted.Valid {
+		t.Errorf("expected node.started node_output to be NULL, got %q", outStarted.String)
+	}
+
+	if err := db.QueryRow("SELECT node_output FROM pipeline_events WHERE run_id = 'run-on' AND sequence_num = 3").Scan(&outFinished); err != nil {
+		t.Fatalf("failed querying node.finished row: %v", err)
+	}
+	if !outFinished.Valid {
+		t.Fatalf("expected node.finished node_output to be populated, got NULL")
+	}
+	expected := "Connected with password=[REDACTED]; rows=42"
+	if outFinished.String != expected {
+		t.Errorf("expected redacted node_output %q, got %q", expected, outFinished.String)
+	}
+
+	// 3. Truncation: oversized output is safely capped at maxNodeOutputBytes with suffix
+	hugeOutput := strings.Repeat("A", maxNodeOutputBytes+1024)
+	redactedHuge := redactNodeOutput(hugeOutput)
+	if len(redactedHuge) != maxNodeOutputBytes {
+		t.Errorf("expected truncated output length %d, got %d", maxNodeOutputBytes, len(redactedHuge))
+	}
+	if !strings.HasSuffix(redactedHuge, nodeOutputTruncationSuffix) {
+		t.Errorf("expected truncated output to end with %q", nodeOutputTruncationSuffix)
+	}
+}
+
+
 

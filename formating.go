@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/etl-madness/flow"
 )
@@ -47,6 +48,13 @@ type DatabaseSessionIdentity struct {
 	ApplicationName string
 }
 
+type finishedNodeEvent struct {
+	ExecutionID string
+	NodeID      string
+	NodePath    string
+	Sequence    uint64
+}
+
 type DatabaseSink struct {
 	DB               *sql.DB
 	Driver           string
@@ -54,6 +62,9 @@ type DatabaseSink struct {
 	configuredCols   []string
 	colsDetected     bool
 	isNumericSPID    bool
+	logNodeOutput    bool
+	hasNodeOutputCol bool
+	nodeOutputMaxLen int
 	spid             int64
 	dbUser           string
 	appName          string
@@ -66,6 +77,7 @@ type DatabaseSink struct {
 	registry         *flow.Registry
 	nodeTargets      map[string]NodeDBTarget
 	cachedIdentities map[string]DatabaseSessionIdentity
+	finishedNodes    []finishedNodeEvent
 }
 
 // MultiSink fans out execution events to multiple sinks (e.g., Database + Stdout)
@@ -141,6 +153,7 @@ var knownEventCols = map[string]bool{
 	"rows_read":          true,
 	"rows_written":       true,
 	"rows_affected":      true,
+	"node_output":        true,
 }
 
 func defaultApplicationName() string {
@@ -286,7 +299,25 @@ func (s *DatabaseSink) detectColumns(ctx context.Context) {
 		colNames, colErr := rows.Columns()
 		rows.Close()
 		if colErr == nil && len(colNames) > 0 {
-			s.configuredCols = filterAvailableEventCols(colNames)
+			var available []string
+			s.hasNodeOutputCol = false
+			for _, c := range colNames {
+				lower := strings.ToLower(strings.TrimSpace(c))
+				if lower == "node_output" {
+					s.hasNodeOutputCol = true
+					if !s.logNodeOutput {
+						continue
+					}
+				}
+				if knownEventCols[lower] {
+					available = append(available, lower)
+				}
+			}
+			if len(available) == 0 {
+				s.configuredCols = defaultEventCols
+			} else {
+				s.configuredCols = available
+			}
 			s.insertQuery = buildInsertQuery(s.Driver, pipeline_events, s.configuredCols)
 			s.colsDetected = true
 			if typeErr == nil && len(colTypes) > 0 {
@@ -298,6 +329,10 @@ func (s *DatabaseSink) detectColumns(ctx context.Context) {
 							!strings.Contains(typeName, "CHAR") && !strings.Contains(typeName, "TEXT") {
 							s.isNumericSPID = true
 						}
+					} else if name == "node_output" {
+						if colLen, ok := ct.Length(); ok && colLen > 0 && colLen < int64(maxNodeOutputBytes) {
+							s.nodeOutputMaxLen = int(colLen)
+						}
 					}
 				}
 			}
@@ -307,6 +342,25 @@ func (s *DatabaseSink) detectColumns(ctx context.Context) {
 
 	s.configuredCols = defaultEventCols
 	s.insertQuery = buildInsertQuery(s.Driver, pipeline_events, defaultEventCols)
+}
+
+// SetLogNodeOutput enables or disables logging of node output to the node_output column
+func (s *DatabaseSink) SetLogNodeOutput(enabled bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.logNodeOutput = enabled
+	if s.DB != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		s.detectColumns(ctx)
+	}
+}
+
+// LogNodeOutput returns whether logging of node output is enabled
+func (s *DatabaseSink) LogNodeOutput() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.logNodeOutput
 }
 
 // SPID returns the session ID or process ID captured for the database connection
@@ -714,6 +768,14 @@ func (s *DatabaseSink) Emit(ctx context.Context, event flow.ExecutionEvent) erro
 		s.errorClass = string(event.ErrorClass)
 		s.errorMsg = event.ErrorMessage
 	}
+	if event.Type == flow.EventNodeFinished {
+		s.finishedNodes = append(s.finishedNodes, finishedNodeEvent{
+			ExecutionID: event.ExecutionID,
+			NodeID:      event.NodeID,
+			NodePath:    event.NodePath,
+			Sequence:    event.Sequence,
+		})
+	}
 	if !s.colsDetected && s.DB != nil {
 		s.detectColumns(ctx)
 	}
@@ -778,6 +840,8 @@ func (s *DatabaseSink) Emit(ctx context.Context, event flow.ExecutionEvent) erro
 			args = append(args, event.RowCounts.Written)
 		case "rows_affected":
 			args = append(args, event.RowCounts.Affected)
+		case "node_output":
+			args = append(args, nil)
 		default:
 			args = append(args, nil)
 		}
@@ -799,6 +863,123 @@ func (s *DatabaseSink) RunDetails() (runID, status, errorClass, errorMsg string)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.runID, s.status, s.errorClass, s.errorMsg
+}
+
+const (
+	maxNodeOutputBytes         = 65536 // 64 KB safety cap for node_output
+	nodeOutputTruncationSuffix = "\n...[TRUNCATED]"
+)
+
+var sensitiveOutputPattern = regexp.MustCompile(`(?i)(password|pwd|token|secret|authorization)\s*([=:])\s*([^\s,;]+)`)
+
+func truncateNodeOutput(output string, maxLen int) string {
+	if maxLen <= 0 || len(output) <= maxLen {
+		return output
+	}
+	suffixLen := len(nodeOutputTruncationSuffix)
+	if maxLen <= suffixLen {
+		cut := maxLen
+		for cut > 0 && !utf8.RuneStart(output[cut]) {
+			cut--
+		}
+		return output[:cut]
+	}
+	cut := maxLen - suffixLen
+	for cut > 0 && !utf8.RuneStart(output[cut]) {
+		cut--
+	}
+	return output[:cut] + nodeOutputTruncationSuffix
+}
+
+func redactNodeOutput(output string) string {
+	if output == "" {
+		return ""
+	}
+	redacted := sensitiveOutputPattern.ReplaceAllString(output, "$1$2[REDACTED]")
+	return truncateNodeOutput(redacted, maxNodeOutputBytes)
+}
+
+func buildUpdateNodeFinishedOutputQuery(driverType, table string) string {
+	if driverType == "sqlserver" && !strings.Contains(table, ".") {
+		table = "dbo." + table
+	}
+	switch driverType {
+	case "postgres":
+		return fmt.Sprintf("UPDATE %s SET node_output = $1 WHERE run_id = $2 AND execution_id = $3 AND event_type = 'node.finished'", table)
+	case "sqlserver":
+		return fmt.Sprintf("UPDATE %s SET node_output = @p1 WHERE run_id = @p2 AND execution_id = @p3 AND event_type = 'node.finished'", table)
+	case "oracle":
+		return fmt.Sprintf("UPDATE %s SET node_output = :1 WHERE run_id = :2 AND execution_id = :3 AND event_type = 'node.finished'", table)
+	default:
+		return fmt.Sprintf("UPDATE %s SET node_output = ? WHERE run_id = ? AND execution_id = ? AND event_type = 'node.finished'", table)
+	}
+}
+
+func matchNodeOutputs(finished []finishedNodeEvent, results []flow.ScriptResult) map[string]string {
+	matched := make(map[string]string)
+	if len(finished) == 0 || len(results) == 0 {
+		return matched
+	}
+	used := make([]bool, len(finished))
+	for _, res := range results {
+		foundIdx := -1
+		for i, fn := range finished {
+			if used[i] {
+				continue
+			}
+			if fn.NodeID == res.ScriptID {
+				foundIdx = i
+				break
+			}
+		}
+		if foundIdx >= 0 {
+			used[foundIdx] = true
+			if finished[foundIdx].ExecutionID != "" {
+				matched[finished[foundIdx].ExecutionID] = redactNodeOutput(res.ResultsString)
+			}
+		}
+	}
+	return matched
+}
+
+// RecordNodeOutputs updates the node_output column on node.finished events in pipeline_events
+// when node output logging is enabled and the column exists in the table.
+func (s *DatabaseSink) RecordNodeOutputs(ctx context.Context, results []flow.ScriptResult) error {
+	if s == nil || s.DB == nil || !s.LogNodeOutput() || len(results) == 0 {
+		return nil
+	}
+
+	s.mu.Lock()
+	if !s.colsDetected {
+		s.detectColumns(ctx)
+	}
+	hasCol := s.hasNodeOutputCol
+	maxColLen := s.nodeOutputMaxLen
+	runID := s.runID
+	finished := make([]finishedNodeEvent, len(s.finishedNodes))
+	copy(finished, s.finishedNodes)
+	s.mu.Unlock()
+
+	if !hasCol || runID == "" || len(finished) == 0 {
+		return nil
+	}
+
+	outputsByExecID := matchNodeOutputs(finished, results)
+	if len(outputsByExecID) == 0 {
+		return nil
+	}
+
+	query := buildUpdateNodeFinishedOutputQuery(s.Driver, pipeline_events)
+	var firstErr error
+	for execID, out := range outputsByExecID {
+		if maxColLen > 0 {
+			out = truncateNodeOutput(out, maxColLen)
+		}
+		if _, err := s.DB.ExecContext(ctx, query, out, runID, execID); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 // generateRunID creates a cryptographically random 32-character hex ID (matching flow's internal run IDs)

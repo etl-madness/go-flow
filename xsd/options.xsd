@@ -176,6 +176,11 @@
                     <xs:documentation>Path to detached digital signature file (.sig, .asc, or .p7s). Equivalent to the -signature flag. Default: (empty)</xs:documentation>
                 </xs:annotation>
             </xs:element>
+            <xs:element name="node-output" type="xs:boolean" minOccurs="0" maxOccurs="1">
+                <xs:annotation>
+                    <xs:documentation>When true and logging to a database (log_db), records the output of each node into the node_output column on node.finished events in pipeline_events. Equivalent to the -node-output flag. Default: false</xs:documentation>
+                </xs:annotation>
+            </xs:element>
         </xs:all>
     </xs:complexType>
 

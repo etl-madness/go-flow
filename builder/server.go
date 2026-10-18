@@ -1605,6 +1605,7 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 	formatOpt := strings.TrimSpace(r.URL.Query().Get("format"))
 	source := strings.TrimSpace(r.URL.Query().Get("source")) // "builder" or "file"
 	preflightOnly := r.URL.Query().Get("preflight") == "true" || r.URL.Query().Get("preflight") == "1"
+	nodeOutput := r.URL.Query().Get("node_output") == "true" || r.URL.Query().Get("node_output") == "1"
 
 	if source == "builder" {
 		if scriptFile == "" {
@@ -1695,6 +1696,9 @@ func (s *Server) handleExecuteStream(w http.ResponseWriter, r *http.Request) {
 	}
 	if preflightOnly {
 		args = append(args, "-preflight")
+	}
+	if nodeOutput {
+		args = append(args, "-node-output")
 	}
 	if optionsFile == "" {
 		if formatOpt == "" {

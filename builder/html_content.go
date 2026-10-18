@@ -10,11 +10,6 @@ const IndexHTML = `
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-    <script type="module">
-        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
-        window.__mermaidInstance = mermaid;
-    </script>
     <style>
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -526,15 +521,21 @@ const IndexHTML = `
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/60 mt-1 text-xs">
-                        <div class="flex items-center space-x-3">
-                            <label class="flex items-center space-x-2 cursor-pointer select-none text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <label class="flex items-center space-x-2 cursor-pointer select-none text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded" title="Execute preflight validation checks only without executing the main flow">
                                 <input type="checkbox" id="runner-preflight" onchange="updatePreflightUI(this.checked)" class="rounded bg-slate-900 border-slate-700 text-amber-500 cursor-pointer">
                                 <span class="font-medium flex items-center space-x-1.5">
                                     <span class="text-amber-400">⚡ Preflight Only</span>
                                     <span class="text-[10px] text-slate-500 font-mono">(-preflight)</span>
                                 </span>
                             </label>
-                            <span class="text-[11px] text-slate-400">Execute preflight validation checks only without executing the main flow</span>
+                            <label class="flex items-center space-x-2 cursor-pointer select-none text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 px-2.5 py-1 rounded" title="When logging to a database (log_db), persist each node's execution output to the node_output column on node.finished events">
+                                <input type="checkbox" id="runner-node-output" class="rounded bg-slate-900 border-slate-700 text-cyan-500 cursor-pointer">
+                                <span class="font-medium flex items-center space-x-1.5">
+                                    <span class="text-cyan-400">📝 Log Node Output to DB</span>
+                                    <span class="text-[10px] text-slate-500 font-mono">(-node-output)</span>
+                                </span>
+                            </label>
                         </div>
                         <button type="button" onclick="openDocModal('preflight')" class="text-[11px] text-amber-400 hover:text-amber-300 underline underline-offset-2 font-medium cursor-pointer flex items-center space-x-1" title="View preflight setup, validation gates, and execution options from docs/preflight.md">
                             <span>🛫 Preflight Guide</span>
@@ -1289,6 +1290,12 @@ const IndexHTML = `
                 <div id="event-detail-error-box" class="hidden bg-rose-950/40 border border-rose-900/60 rounded-lg p-3 space-y-1">
                     <span class="text-[10px] uppercase font-bold text-rose-400 block tracking-wider">Error Details</span>
                     <pre id="event-detail-error-text" class="text-rose-200 font-mono text-[11px] whitespace-pre-wrap select-all"></pre>
+                </div>
+
+                <!-- Node Output if present -->
+                <div id="event-detail-output-box" class="hidden bg-cyan-950/30 border border-cyan-900/60 rounded-lg p-3 space-y-1">
+                    <span class="text-[10px] uppercase font-bold text-cyan-400 block tracking-wider">Node Output (node_output)</span>
+                    <pre id="event-detail-output-text" class="text-cyan-100 font-mono text-[11px] whitespace-pre-wrap select-all max-h-40 overflow-y-auto"></pre>
                 </div>
 
                 <!-- Raw JSON Accordion -->
@@ -3190,6 +3197,8 @@ const IndexHTML = `
                 preflightCheckbox.checked = forcePreflight;
                 updatePreflightUI(forcePreflight);
             }
+            const nodeOutputCheckbox = document.getElementById('runner-node-output');
+            const isNodeOutput = nodeOutputCheckbox ? nodeOutputCheckbox.checked : false;
             const term = document.getElementById('terminal-log');
             const tbody = document.getElementById('execution-results-body');
             const statusInd = document.getElementById('status-indicator');
@@ -3220,6 +3229,9 @@ const IndexHTML = `
             }
             if (isPreflight) {
                 url += '&preflight=true';
+            }
+            if (isNodeOutput) {
+                url += '&node_output=true';
             }
             if (shouldIncludeScript) {
                 url += '&file=' + encodeURIComponent(scriptFile || (runnerSource === 'builder' ? 'temp_run_script.xml' : 'scripts.xml'));
@@ -3577,7 +3589,6 @@ const IndexHTML = `
                         document.getElementById('db-docs-loading').classList.add('hidden');
                         body.classList.remove('hidden');
                         dbDocsLoaded = true;
-                        runMermaidIn(body);
                         if (preferredDriver) {
                             setTimeout(() => jumpToDbSection(preferredDriver), 150);
                         }
@@ -4785,7 +4796,6 @@ const IndexHTML = `
                         document.getElementById('http-docs-loading').classList.add('hidden');
                         body.classList.remove('hidden');
                         httpDocsLoaded = true;
-                        runMermaidIn(body);
                         if (preferredSection) {
                             setTimeout(() => jumpToHttpSection(preferredSection), 150);
                         }
@@ -5115,7 +5125,6 @@ const IndexHTML = `
                 loadingEl.classList.add('hidden');
                 bodyEl.classList.remove('hidden');
                 updateDocModalNav(normTopic);
-                runMermaidIn(bodyEl);
                 if (preferredSection) {
                     setTimeout(() => jumpToDocSection(preferredSection), 50);
                 }
@@ -5134,7 +5143,6 @@ const IndexHTML = `
                         loadingEl.classList.add('hidden');
                         bodyEl.classList.remove('hidden');
                         updateDocModalNav(normTopic);
-                        runMermaidIn(bodyEl);
                         if (preferredSection) {
                             setTimeout(() => jumpToDocSection(preferredSection), 150);
                         }
@@ -5143,15 +5151,6 @@ const IndexHTML = `
                         loadingEl.innerHTML =
                             '<div class="text-rose-400 p-4 border border-rose-900/50 rounded bg-rose-950/20">Failed to load documentation: ' + escapeHtml(err.message) + '</div>';
                     });
-            }
-        }
-
-        function runMermaidIn(container) {
-            if (!container) return;
-            const nodes = container.querySelectorAll('.mermaid');
-            if (!nodes.length) return;
-            if (window.__mermaidInstance) {
-                window.__mermaidInstance.run({ nodes: Array.from(nodes) });
             }
         }
 
@@ -5279,32 +5278,25 @@ const IndexHTML = `
                 if (line.trim().startsWith(fence)) {
                     if (inCode) {
                         const rawCode = codeBuffer.join('\n');
-                        if (codeLang === 'mermaid') {
-                            const mermaidId = 'mermaid-' + Math.random().toString(36).substring(2, 9);
-                            html += '<div class="my-3 p-3 rounded-lg border border-slate-700 bg-slate-950/60 overflow-x-auto custom-scrollbar">';
-                            html += '  <pre class="mermaid" id="' + mermaidId + '">' + escapeHtml(rawCode) + '</pre>';
-                            html += '</div>';
-                        } else {
-                            const escapedCode = escapeHtml(rawCode);
-                            const codeId = 'code-snippet-' + Math.random().toString(36).substring(2, 9);
-                            const isSingleLine = !rawCode.includes('\n') && (rawCode.includes('://') || rawCode.includes('server=') || rawCode.includes('host=') || rawCode.includes('user='));
-                            const isHttpClientExample = rawCode.trim().startsWith('<http_client') || rawCode.trim().includes('<http_client');
-                            const isXmlExample = /<(?:assert|file_read|file_save|excel_read|excel_write|json_path|yaml_path|xml_xpath|xml_path|script|kv|kv_bulk|sql|sql_bulk|template|template_html|html_template|variable|variables|group|preflight|foreach|loop|while|parallel|if)\b/i.test(rawCode);
-                            let insertBtn = '';
-                            if (isSingleLine || isHttpClientExample || isXmlExample) {
-                                insertBtn = '<button type="button" onclick="useSnippetInInput(\'' + codeId + '\')" class="hover:text-amber-300 text-[11px] flex items-center space-x-1 px-1.5 py-0.5 rounded bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 transition cursor-pointer" title="Insert snippet into form"><span>⚡ Use Example</span></button>';
-                            }
-                            html += '<div class="relative group my-2.5 rounded-lg overflow-hidden border border-slate-800 bg-slate-950">';
-                            html += '  <div class="flex items-center justify-between px-3 py-1.5 bg-slate-900/90 border-b border-slate-800 text-[11px] font-mono text-slate-400 select-none">';
-                            html += '    <span class="text-cyan-400 font-semibold">' + (codeLang || 'text') + '</span>';
-                            html += '    <div class="flex items-center space-x-2">';
-                            html += insertBtn;
-                            html += '      <button type="button" onclick="copySnippetText(this, \'' + codeId + '\')" class="hover:text-cyan-300 text-[11px] flex items-center space-x-1 px-1.5 py-0.5 rounded bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 transition cursor-pointer"><span>📋 Copy</span></button>';
-                            html += '    </div>';
-                            html += '  </div>';
-                            html += '  <pre class="p-3 text-cyan-300 font-mono text-[11px] overflow-x-auto whitespace-pre leading-relaxed custom-scrollbar"><code id="' + codeId + '">' + escapedCode + '</code></pre>';
-                            html += '</div>';
+                        const escapedCode = escapeHtml(rawCode);
+                        const codeId = 'code-snippet-' + Math.random().toString(36).substring(2, 9);
+                        const isSingleLine = !rawCode.includes('\n') && (rawCode.includes('://') || rawCode.includes('server=') || rawCode.includes('host=') || rawCode.includes('user='));
+                        const isHttpClientExample = rawCode.trim().startsWith('<http_client') || rawCode.trim().includes('<http_client');
+                        const isXmlExample = /<(?:assert|file_read|file_save|excel_read|excel_write|json_path|yaml_path|xml_xpath|xml_path|script|kv|kv_bulk|sql|sql_bulk|template|template_html|html_template|variable|variables|group|preflight|foreach|loop|while|parallel|if)\b/i.test(rawCode);
+                        let insertBtn = '';
+                        if (isSingleLine || isHttpClientExample || isXmlExample) {
+                            insertBtn = '<button type="button" onclick="useSnippetInInput(\'' + codeId + '\')" class="hover:text-amber-300 text-[11px] flex items-center space-x-1 px-1.5 py-0.5 rounded bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 transition cursor-pointer" title="Insert snippet into form"><span>⚡ Use Example</span></button>';
                         }
+                        html += '<div class="relative group my-2.5 rounded-lg overflow-hidden border border-slate-800 bg-slate-950">';
+                        html += '  <div class="flex items-center justify-between px-3 py-1.5 bg-slate-900/90 border-b border-slate-800 text-[11px] font-mono text-slate-400 select-none">';
+                        html += '    <span class="text-cyan-400 font-semibold">' + (codeLang || 'text') + '</span>';
+                        html += '    <div class="flex items-center space-x-2">';
+                        html += insertBtn;
+                        html += '      <button type="button" onclick="copySnippetText(this, \'' + codeId + '\')" class="hover:text-cyan-300 text-[11px] flex items-center space-x-1 px-1.5 py-0.5 rounded bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 transition cursor-pointer"><span>📋 Copy</span></button>';
+                        html += '    </div>';
+                        html += '  </div>';
+                        html += '  <pre class="p-3 text-cyan-300 font-mono text-[11px] overflow-x-auto whitespace-pre leading-relaxed custom-scrollbar"><code id="' + codeId + '">' + escapedCode + '</code></pre>';
+                        html += '</div>';
                         inCode = false;
                         codeBuffer = [];
                         codeLang = '';
@@ -6050,6 +6042,17 @@ const IndexHTML = `
                     errBox.classList.remove('hidden');
                 } else {
                     errBox.classList.add('hidden');
+                }
+            }
+
+            const outBox = document.getElementById('event-detail-output-box');
+            const outText = document.getElementById('event-detail-output-text');
+            if (outBox && outText) {
+                if (evt.node_output) {
+                    outText.textContent = evt.node_output;
+                    outBox.classList.remove('hidden');
+                } else {
+                    outBox.classList.add('hidden');
                 }
             }
 

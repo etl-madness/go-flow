@@ -276,6 +276,7 @@ func main() {
 	goPath := flag.String("gopath", os.Getenv("GOPATH"), "GOPATH directory for interpreter package imports")
 	xsltPath := flag.String("xslt", "", "Path to custom XSLT stylesheet (optional)")
 	outFile := flag.String("out", "", "Path to output file for transformed XML (optional)")
+	nodeOutputFlag := flag.Bool("node-output", false, "Log node execution output to node_output column in database pipeline_events table")
 	flag.Parse()
 
 	cliSetFlags := make(map[string]bool)
@@ -740,6 +741,7 @@ func main() {
 
 			dbSink = NewDatabaseSink(logDB, driverType)
 			dbSink.debug = *debug
+			dbSink.SetLogNodeOutput(*nodeOutputFlag)
 			dbSink.SetRegistry(registry)
 			dbSink.RegisterNodes(flowNodes)
 			if len(preflightNodes) > 0 {
@@ -852,10 +854,45 @@ func main() {
 	}()
 
 	if strings.ToLower(*format) == "stream" {
-		results, execErr := executor.ExecuteRun(ctx, nodes)
-		if ctx.Err() != nil {
-			handleCancel()
-			return
+		var results flow.RunResult
+		var execErr error
+		if dbSink != nil && dbSink.LogNodeOutput() {
+			scriptResults, err := executor.Execute(ctx, nodes)
+			execErr = err
+			if ctx.Err() != nil {
+				handleCancel()
+				return
+			}
+			if recErr := dbSink.RecordNodeOutputs(ctx, scriptResults); recErr != nil && *debug {
+				log.Printf("Failed to record node outputs to database: %v", recErr)
+			}
+			runID, statusStr, errClassStr, errMsgStr := dbSink.RunDetails()
+			if statusStr == "" {
+				if execErr != nil {
+					statusStr = string(flow.RunStatusFailed)
+				} else {
+					statusStr = string(flow.RunStatusSucceeded)
+				}
+			}
+			userName, hostname := runtimeIdentity()
+			results = flow.RunResult{
+				RunID:        runID,
+				Status:       flow.RunStatus(statusStr),
+				StartedAt:    start,
+				FinishedAt:   time.Now().UTC(),
+				UserName:     userName,
+				Hostname:     hostname,
+				OptionsPath:  resourceSourceLabel(*optionsPath),
+				ErrorClass:   flow.ErrorClass(errClassStr),
+				ErrorMessage: errMsgStr,
+				Nodes:        make([]flow.NodeResult, len(nodes)),
+			}
+		} else {
+			results, execErr = executor.ExecuteRun(ctx, nodes)
+			if ctx.Err() != nil {
+				handleCancel()
+				return
+			}
 		}
 
 		if logDB != nil {
@@ -917,6 +954,12 @@ func main() {
 		if ctx.Err() != nil {
 			handleCancel()
 			return
+		}
+
+		if dbSink != nil && dbSink.LogNodeOutput() {
+			if err := dbSink.RecordNodeOutputs(ctx, results); err != nil && *debug {
+				log.Printf("Failed to record node outputs to database: %v", err)
+			}
 		}
 
 		// Record run summary if log_db connection exists

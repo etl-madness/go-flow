@@ -102,6 +102,7 @@ All three tools conform to standard operating system exit codes:
 | `-validate` | `bool` | `false` | Validation | Validates XML schema (XSD if specified) and AST semantic structure without executing any pipeline nodes. Exits with code `0` on success. |
 | `-preflight` | `bool` | `false` | Validation | Executes preflight validation nodes only (`<preflight>` section), skipping the main pipeline `<flow>` nodes. |
 | `-xsd` | `string` | `""` | Validation | Path to an XML Schema Definition (`.xsd`) file used to validate the pipeline XML via `xmllint` prior to parsing. |
+| `-node-output` | `bool` | `false` | Diagnostic | When logging to a database (`log_db`), persists each node's execution output (`ResultsString` with credential redaction) to the `node_output` column on `node.finished` rows in `pipeline_events`. Off by default. |
 | `-debug` | `bool` | `false` | Diagnostic | Enables verbose console logging, including connection string resolution, driver dialect detection, digital signature verification metadata, and sink telemetry. |
 | `-gopath` | `string` | `$GOPATH` | Runtime | GOPATH directory for dynamic package imports used by the embedded Yaegi Go interpreter engine. Defaults to the host `GOPATH` environment variable. |
 | `-xslt` | `string` | `""` | Visualization | Path to custom XSLT stylesheet. Transforms pipeline XML while injecting an auto-generated Mermaid workflow diagram. Exits immediately after transformation. |

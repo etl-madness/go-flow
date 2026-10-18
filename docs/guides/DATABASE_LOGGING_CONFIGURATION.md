@@ -65,7 +65,8 @@ CREATE TABLE IF NOT EXISTS pipeline_events (
     error_message TEXT,
     rows_read BIGINT DEFAULT 0,
     rows_written BIGINT DEFAULT 0,
-    rows_affected BIGINT DEFAULT 0
+    rows_affected BIGINT DEFAULT 0,
+    node_output TEXT
 );
 ```
 
@@ -113,7 +114,8 @@ CREATE TABLE IF NOT EXISTS pipeline_events (
     error_message TEXT,
     rows_read BIGINT DEFAULT 0,
     rows_written BIGINT DEFAULT 0,
-    rows_affected BIGINT DEFAULT 0
+    rows_affected BIGINT DEFAULT 0,
+    node_output TEXT
 );
 ```
 
@@ -161,7 +163,8 @@ CREATE TABLE IF NOT EXISTS pipeline_events (
     error_message TEXT,
     rows_read INTEGER DEFAULT 0,
     rows_written INTEGER DEFAULT 0,
-    rows_affected INTEGER DEFAULT 0
+    rows_affected INTEGER DEFAULT 0,
+    node_output TEXT
 );
 ```
 
@@ -218,6 +221,7 @@ BEGIN
         rows_read BIGINT DEFAULT 0,
         rows_written BIGINT DEFAULT 0,
         rows_affected BIGINT DEFAULT 0,
+        node_output NVARCHAR(MAX),
         created_at DATETIMEOFFSET DEFAULT SYSUTCDATETIME()
     );
 END;
@@ -267,9 +271,20 @@ CREATE TABLE pipeline_events (
     error_message CLOB,
     rows_read NUMBER(19) DEFAULT 0,
     rows_written NUMBER(19) DEFAULT 0,
-    rows_affected NUMBER(19) DEFAULT 0
+    rows_affected NUMBER(19) DEFAULT 0,
+    node_output CLOB
 );
 ```
+
+## Node Output Logging (`node_output`)
+
+By default, `go-flow` does **not** persist node execution output to the `pipeline_events` table (`-node-output` is `false`).
+
+When enabled via the `-node-output` command-line flag, `<node-output>true</node-output>` in an options XML file, or the **Log Node Output to DB (`-node-output`)** checkbox in the Visual Builder Runner tab:
+- If `log_db` is configured and the `pipeline_events` table contains a `node_output` column, `go-flow` records each node's execution output (`ScriptResult.ResultsString`) into `pipeline_events.node_output` on `'node.finished'` event rows.
+- Sensitive key-value patterns (`password`, `pwd`, `token`, `secret`, `authorization`) are automatically redacted (`[REDACTED]`) before writing to the database.
+- Oversized node outputs are UTF-8 safely truncated at 64 KB (`65536` bytes, or the detected database column length if narrower) with a `\n...[TRUNCATED]` suffix so database `UPDATE` statements and UI payloads never fail due to size.
+- Other lifecycle events (`run.started`, `node.started`, `run.finished`) leave `node_output` as `NULL`.
 
 ## Session Identity and Auditing Columns
 
@@ -281,5 +296,6 @@ When logging pipeline events or runs to a database, the telemetry subsystem reco
 | `db_user_name` | Database user identity authenticated to the database. In `pipeline_runs`, captures the logging database connection user. In `pipeline_events`, captures the individual step's database connection user (or `source_user->target_user` for cross-database `<sql_bulk>` transfers). | MSSQL: `SYSTEM_USER`<br>PostgreSQL: `CURRENT_USER`<br>MySQL: `CURRENT_USER()`<br>Oracle: `SYS_CONTEXT('USERENV', 'SESSION_USER')`<br>SQLite: `os.Getpid()` / `"sqlite"` |
 | `spid` / `sspid` | Server Process ID (SPID) or database session ID. In `pipeline_runs`, captures the logging database session SPID. In `pipeline_events`, captures the individual step's database session SPID (or `source_spid->target_spid` for cross-database `<sql_bulk>` transfers). | MSSQL: `@@SPID`<br>PostgreSQL: `pg_backend_pid()`<br>MySQL: `CONNECTION_ID()`<br>Oracle: `SYS_CONTEXT('USERENV', 'SID')`<br>SQLite: `os.Getpid()` |
 | `application_name` / `app_name` | Application name executing the pipeline or connected to the database session. In `pipeline_runs`, captures the logging database session application name. In `pipeline_events`, captures the individual step's database session application name (or `source_app->target_app` for cross-database `<sql_bulk>` transfers). | MSSQL: `ISNULL(APP_NAME(), '')`<br>PostgreSQL: `COALESCE(current_setting('application_name', true), '')`<br>MySQL: `COALESCE(@@session.program_name, '')`<br>Oracle: `COALESCE(SYS_CONTEXT('USERENV', 'MODULE'), SYS_CONTEXT('USERENV', 'CLIENT_PROGRAM_NAME'), '')`<br>Fallback/SQLite: Binary executable name (`flow`) |
+| `node_output` | Execution output (`ResultsString`) of a completed node, populated on `'node.finished'` events only when `-node-output` is enabled. | Populated when `-node-output` is set and `node_output` column exists on `pipeline_events` |
 
-> **Backward Compatibility**: If an existing database table was created with earlier schemas that lack `os_user_name`, `db_user_name`, `spid`, `sspid`, or `application_name`, `go-flow` automatically detects available columns and performs inserts without error. If `pipeline_events.spid` retains a legacy numeric type (`BIGINT`), cross-database bulk transfers automatically fall back to the numeric `source_spid` so database inserts never fail. When the columns exist, they are automatically populated.
+> **Backward Compatibility**: If an existing database table was created with earlier schemas that lack `os_user_name`, `db_user_name`, `spid`, `sspid`, `application_name`, or `node_output`, `go-flow` automatically detects available columns and performs inserts without error. If `pipeline_events.spid` retains a legacy numeric type (`BIGINT`), cross-database bulk transfers automatically fall back to the numeric `source_spid` so database inserts never fail. When the columns exist, they are automatically populated.
