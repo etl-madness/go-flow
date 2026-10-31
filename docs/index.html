@@ -313,27 +313,159 @@
             color: var(--text-muted);
             font-size: 0.85rem;
         }
+
+        /* In-Page Markdown Document Reader & Mermaid Styling */
+        #doc-reader-view {
+            display: none;
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 1.5rem 1.5rem 4rem;
+        }
+        .reader-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 0.75rem 1.25rem;
+            margin-bottom: 1.5rem;
+            position: sticky;
+            top: 3.6rem;
+            z-index: 90;
+            backdrop-filter: blur(10px);
+        }
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(56, 189, 248, 0.15);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            color: var(--accent-blue) !important;
+            padding: 0.4rem 0.9rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-decoration: none !important;
+        }
+        .btn-back:hover {
+            background: rgba(56, 189, 248, 0.28);
+        }
+        .reader-breadcrumb {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            word-break: break-all;
+        }
+        .reader-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .reader-select {
+            background: #060911;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.35rem 0.65rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            max-width: 260px;
+        }
+        .md-body {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2.25rem 2.5rem;
+            color: var(--text-primary);
+            line-height: 1.7;
+            overflow-wrap: break-word;
+        }
+        .md-body h1, .md-body h2, .md-body h3, .md-body h4 {
+            color: var(--text-primary);
+            margin-top: 1.75rem;
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+        .md-body h1 {
+            font-size: 2rem;
+            margin-top: 0;
+            padding-bottom: 0.6rem;
+            border-bottom: 1px solid var(--border-color);
+            background: linear-gradient(90deg, #fff, var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .md-body h2 {
+            font-size: 1.45rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .md-body h3 { font-size: 1.18rem; color: var(--accent-blue); }
+        .md-body p, .md-body ul, .md-body ol, .md-body blockquote {
+            margin-bottom: 1rem;
+        }
+        .md-body ul, .md-body ol { padding-left: 1.6rem; }
+        .md-body li { margin-bottom: 0.35rem; }
+        .md-body hr {
+            border: 0;
+            border-top: 1px solid var(--border-color);
+            margin: 2rem 0;
+        }
+        .md-body blockquote {
+            border-left: 4px solid var(--accent-blue);
+            background: rgba(30, 41, 59, 0.55);
+            padding: 0.85rem 1.25rem;
+            border-radius: 0 8px 8px 0;
+            color: var(--text-secondary);
+        }
+        .md-body img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin: 0.75rem 0;
+        }
+        .md-body table {
+            display: block;
+            overflow-x: auto;
+            margin: 1.25rem 0;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+        .mermaid-wrap {
+            background: #060911;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin: 1.25rem 0;
+            overflow-x: auto;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <header class="topbar">
-        <a href="#" class="brand">
+        <a href="#" class="brand" id="brandHomeLink">
             <span>⚡ Flow (<code>go-flow</code>)</span>
             <span class="brand-badge">v1.1.24</span>
         </a>
         <nav class="nav-links">
-            <a href="#overview">Why Flow?</a>
-            <a href="#lifecycle">Architecture</a>
-            <a href="#docs-directory">All 51 Docs</a>
-            <a href="#visual-builder">Visual Studio</a>
-            <a href="#quickstart">Quick Start</a>
-            <a href="#ast-matrix">AST Matrix</a>
-            <a href="#cli-reference">CLI Reference</a>
+            <a href="#overview" class="hub-nav">Why Flow?</a>
+            <a href="#lifecycle" class="hub-nav">Architecture</a>
+            <a href="#docs-directory" class="hub-nav">All 51 Docs</a>
+            <a href="#visual-builder" class="hub-nav">Visual Studio</a>
+            <a href="#quickstart" class="hub-nav">Quick Start</a>
+            <a href="#ast-matrix" class="hub-nav">AST Matrix</a>
+            <a href="#cli-reference" class="hub-nav">CLI Reference</a>
             <a href="builder_slideshow.html" class="btn-cta">▶ Interactive Slideshow</a>
         </nav>
     </header>
 
-    <main class="container">
+    <main class="container" id="hub-view">
         <!-- Hero -->
         <div class="hero">
             <h1>Flow (go-flow) Documentation Hub</h1>
@@ -439,6 +571,7 @@
                     <p>Streams structured output (<code>csv</code>, <code>json</code>, <code>markdown</code>, <code>stream</code>), writes to <code>log_db</code> tables, or renders XSLT 3.0 + Mermaid docs.</p>
                 </div>
             </div>
+            <div class="mermaid-wrap" id="hubMermaidWrap" style="margin-top:1.25rem;"></div>
         </section>
 
         <!-- 3. Complete Documentation Directory (All 51 Docs) -->
@@ -965,7 +1098,28 @@
         </footer>
     </main>
 
+    <!-- In-Page Markdown Document Reader View -->
+    <div id="doc-reader-view">
+        <div class="reader-toolbar">
+            <div style="display:flex; align-items:center; gap:0.85rem; flex-wrap:wrap;">
+                <a href="#" class="btn-back" id="backToHubBtn">← Back to Documentation Hub</a>
+                <span class="reader-breadcrumb" id="readerBreadcrumb">docs /</span>
+            </div>
+            <div class="reader-actions">
+                <select id="docQuickJump" class="reader-select" aria-label="Jump to document">
+                    <option value="">Jump to document...</option>
+                </select>
+                <a href="#" id="rawDocLink" target="_blank" rel="noopener" style="font-size:0.82rem; font-family:var(--font-mono); color:var(--text-secondary);">Raw .md ↗</a>
+            </div>
+        </div>
+        <article class="md-body" id="mdContent">Loading document...</article>
+    </div>
+
+    <script src="docs_bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script>
+        // 1. Live Hub Search Filter
         const searchInput = document.getElementById('docSearch');
         searchInput.addEventListener('input', (e) => {
             const q = e.target.value.toLowerCase().trim();
@@ -978,6 +1132,291 @@
                 row.style.display = match ? '' : 'none';
             });
         });
+
+        // 2. Initialize Mermaid with Slate Dark Theme
+        if (window.mermaid) {
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: 'dark',
+                securityLevel: 'loose',
+                themeVariables: {
+                    darkMode: true,
+                    background: '#060911',
+                    primaryColor: '#1e293b',
+                    primaryTextColor: '#f8fafc',
+                    primaryBorderColor: '#38bdf8',
+                    lineColor: '#38bdf8',
+                    secondaryColor: '#0f172a',
+                    tertiaryColor: '#1e293b'
+                }
+            });
+        }
+
+        const hubView = document.getElementById('hub-view');
+        const readerView = document.getElementById('doc-reader-view');
+        const mdContent = document.getElementById('mdContent');
+        const readerBreadcrumb = document.getElementById('readerBreadcrumb');
+        const rawDocLink = document.getElementById('rawDocLink');
+        const docQuickJump = document.getElementById('docQuickJump');
+        let currentDocPath = '';
+
+        // Populate Quick Jump selector
+        if (window.FLOW_DOCS_BUNDLE) {
+            Object.keys(window.FLOW_DOCS_BUNDLE).sort().forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.textContent = k;
+                docQuickJump.appendChild(opt);
+            });
+        }
+        docQuickJump.addEventListener('change', () => {
+            if (docQuickJump.value) navigateToDoc(docQuickJump.value);
+        });
+
+        // Resolve relative path against a directory base (e.g., base="guides/ENCRYPTION.md", rel="../sql.md" -> "sql.md")
+        const DOC_ALIASES = {
+            'sql_sql_bulk.md': 'sql_and_sql_bulk.md',
+            'guides/observability_usage.md': 'guides/development_observability_usage.md',
+            'observability_usage.md': 'guides/development_observability_usage.md',
+            'templates.md': 'template.md',
+            'guides/templates.md': 'template.md'
+        };
+        function resolveRelativePath(baseDoc, relHref) {
+            let cleanRel = relHref.split('#')[0].split('?')[0].replace(/\\/g, '/');
+            if (!cleanRel) return baseDoc;
+            // Strip file:// prefix if present in any doc link
+            if (cleanRel.includes('/docs/')) {
+                cleanRel = cleanRel.split('/docs/').pop();
+            }
+            const baseParts = baseDoc.split('/');
+            baseParts.pop(); // directory parts
+            const relParts = cleanRel.split('/');
+            for (const part of relParts) {
+                if (!part || part === '.') continue;
+                if (part === '..') baseParts.pop();
+                else baseParts.push(part);
+            }
+            let resolved = baseParts.join('/');
+            if (DOC_ALIASES[resolved]) return DOC_ALIASES[resolved];
+            if (window.FLOW_DOCS_BUNDLE && !window.FLOW_DOCS_BUNDLE[resolved] && /\.md$/i.test(resolved)) {
+                const baseName = resolved.split('/').pop();
+                if (window.FLOW_DOCS_BUNDLE[baseName]) return baseName;
+                if (window.FLOW_DOCS_BUNDLE['guides/' + baseName]) return 'guides/' + baseName;
+            }
+            return resolved;
+        }
+
+        function slugify(text) {
+            return text.toLowerCase().trim()
+                .replace(/[^\w\s-]/g, '')
+                .replace(/\s+/g, '-');
+        }
+
+        async function loadMarkdownText(docPath) {
+            // Try HTTP/HTTPS fetch first when served via web server / GitHub Pages
+            if (location.protocol === 'http:' || location.protocol === 'https:') {
+                try {
+                    const resp = await fetch(docPath);
+                    if (resp.ok) return await resp.text();
+                } catch (_) {}
+            }
+            // Fallback to bundled markdown (works on file:// and offline)
+            if (window.FLOW_DOCS_BUNDLE && window.FLOW_DOCS_BUNDLE[docPath]) {
+                return window.FLOW_DOCS_BUNDLE[docPath];
+            }
+            throw new Error('Document not found: ' + docPath);
+        }
+
+        async function renderDoc(docPath, anchor) {
+            currentDocPath = docPath;
+            hubView.style.display = 'none';
+            readerView.style.display = 'block';
+            readerBreadcrumb.textContent = 'docs / ' + docPath.replace(/\//g, ' / ');
+            rawDocLink.href = docPath;
+            docQuickJump.value = docPath;
+
+            try {
+                let raw = await loadMarkdownText(docPath);
+                // Strip optional YAML frontmatter
+                raw = raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
+
+                // Parse Markdown to HTML
+                let html = window.marked ? marked.parse(raw) : '<pre>' + raw.replace(/</g, '&lt;') + '</pre>';
+                mdContent.innerHTML = html;
+
+                // Add heading IDs for anchor navigation
+                mdContent.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(h => {
+                    if (!h.id) h.id = slugify(h.textContent);
+                });
+
+                // Fix relative image paths inside rendered markdown
+                mdContent.querySelectorAll('img').forEach(img => {
+                    const src = img.getAttribute('src');
+                    if (src && !/^(https?:|data:|\/)/i.test(src)) {
+                        img.setAttribute('src', resolveRelativePath(docPath, src));
+                    }
+                });
+
+                // Transform ```mermaid code blocks into live Mermaid diagrams via mermaid.render()
+                const mermaidCodes = Array.from(mdContent.querySelectorAll('pre code.language-mermaid'));
+                for (let i = 0; i < mermaidCodes.length; i++) {
+                    const codeEl = mermaidCodes[i];
+                    const pre = codeEl.parentElement;
+                    const wrap = document.createElement('div');
+                    wrap.className = 'mermaid-wrap';
+                    const rawGraph = sanitizeMermaidSource(codeEl.textContent);
+                    pre.replaceWith(wrap);
+                    if (window.mermaid) {
+                        try {
+                            const { svg } = await mermaid.render('md_mermaid_' + Date.now() + '_' + i, rawGraph);
+                            wrap.innerHTML = svg;
+                        } catch (mErr) {
+                            wrap.innerHTML = '<pre style="text-align:left;color:#f87171;">' + rawGraph.replace(/</g, '&lt;') + '</pre>';
+                        }
+                    }
+                }
+
+                if (anchor) {
+                    const target = document.getElementById(anchor) || document.getElementById(slugify(anchor));
+                    if (target) target.scrollIntoView({ behavior: 'smooth' });
+                    else window.scrollTo(0, 0);
+                } else {
+                    window.scrollTo(0, 0);
+                }
+            } catch (err) {
+                mdContent.innerHTML = `<div style="color:#f87171; padding:1rem;">Failed to load <code>${docPath}</code>: ${err.message}</div>`;
+            }
+        }
+
+        function sanitizeMermaidSource(src) {
+            // Preserve <br/> and <br>, escape raw XML tags like <foreach> or <group ...> inside quoted labels
+            return src.trim()
+                .replace(/<br\s*\/?>/gi, '___BR___')
+                .replace(/<(\/?[a-zA-Z_][\w:.-]*(?:\s+[^>\n"]*)?)>/g, '&lt;$1&gt;')
+                .replace(/___BR___/g, '<br/>');
+        }
+
+        const HUB_MERMAID_SOURCE = `flowchart TD
+    subgraph Sources["1. Uniform Resource Loader"]
+        S1["Local Filesystem<br/>(scripts.xml / UTF-8 / UTF-16)"]
+        S2["HTTP / HTTPS Endpoints<br/>(https://...)"]
+        S3["Database Repositories<br/>(sql:// or db:// DSN Query)"]
+    end
+
+    subgraph Security["2. Decoupled Cryptographic Gate"]
+        V["Digital Signature Verification<br/>(OpenSSL X.509 / PKCS#7 .p7s / OpenPGP .asc / FLOWSIGNED:v1)"]
+        D["AES-256-GCM Decryption<br/>(PBKDF2-HMAC-SHA256 / FLOWENC:v1)"]
+    end
+
+    subgraph Config["3. Configuration & Validation"]
+        H["Hierarchy Merge<br/>Base (--file) &lt; Options (--options) &lt; Config (--config) &lt; CLI (--vars)"]
+        X["XSD &amp; Semantic AST Validation<br/>(--validate / pipeline.xsd)"]
+    end
+
+    subgraph Runtime["4. Execution Engine"]
+        PRE["Preflight Quality Gates<br/>(&lt;preflight&gt; / --preflight)"]
+        FLOW["Main Workflow Execution<br/>(&lt;flow&gt;: Sequential, &lt;group transaction='true'&gt;, &lt;parallel&gt;, &lt;foreach&gt;, &lt;while&gt;)"]
+    end
+
+    subgraph Telemetry["5. Observability &amp; Output"]
+        OUT["Console Renderer<br/>(csv, text, json, jsonpretty, markdown, stream)"]
+        LOG["Database Audit Sink (log_db)<br/>(pipeline_runs &amp; pipeline_events)"]
+        DOC["Auto-Documentation<br/>(Mermaid.js Flowchart + XSLT 3.0)"]
+    end
+
+    S1 & S2 & S3 --> V
+    V --> D
+    D --> H
+    H --> X
+    X --> PRE
+    PRE --> FLOW
+    FLOW --> OUT & LOG & DOC`;
+
+        async function renderHubMermaid() {
+            const wrap = document.getElementById('hubMermaidWrap');
+            if (!wrap || !window.mermaid || wrap.querySelector('svg')) return;
+            try {
+                const { svg } = await mermaid.render('hub_lifecycle_svg', HUB_MERMAID_SOURCE);
+                wrap.innerHTML = svg;
+            } catch (e) {
+                console.error('Hub Mermaid error:', e);
+            }
+        }
+
+        function showHub(sectionId) {
+            currentDocPath = '';
+            readerView.style.display = 'none';
+            hubView.style.display = 'block';
+            renderHubMermaid();
+            if (sectionId) {
+                const el = document.getElementById(sectionId);
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                window.scrollTo(0, 0);
+            }
+        }
+
+        function navigateToDoc(docPath, anchor) {
+            let hash = '#doc=' + encodeURIComponent(docPath);
+            if (anchor) hash += '&anchor=' + encodeURIComponent(anchor);
+            if (location.hash === hash) {
+                renderDoc(docPath, anchor);
+            } else {
+                location.hash = hash;
+            }
+        }
+
+        // Intercept clicks on any .md link across the Hub and inside rendered Markdown docs
+        document.addEventListener('click', (e) => {
+            const a = e.target.closest('a');
+            if (!a || a.id === 'rawDocLink') return;
+            const href = a.getAttribute('href');
+            if (!href) return;
+
+            // Top navbar links back to Hub sections
+            if (a.classList.contains('hub-nav') || a.id === 'brandHomeLink' || a.id === 'backToHubBtn') {
+                e.preventDefault();
+                const sec = href.startsWith('#') ? href.slice(1) : '';
+                history.pushState(null, '', sec ? '#' + sec : location.pathname);
+                showHub(sec);
+                return;
+            }
+
+            // Internal anchor link inside a currently open Markdown document
+            if (href.startsWith('#') && currentDocPath) {
+                e.preventDefault();
+                const anchor = href.slice(1);
+                const target = document.getElementById(anchor) || document.getElementById(slugify(anchor));
+                if (target) target.scrollIntoView({ behavior: 'smooth' });
+                return;
+            }
+
+            // Relative or local .md links
+            if (!/^(https?:|mailto:)/i.test(href) && /\.md(#.*)?$/i.test(href)) {
+                e.preventDefault();
+                const parts = href.split('#');
+                const resolved = resolveRelativePath(currentDocPath || 'index.html', parts[0]);
+                navigateToDoc(resolved, parts[1] || '');
+            }
+        });
+
+        function handleHashRouting() {
+            const h = location.hash;
+            if (h.startsWith('#doc=')) {
+                const params = new URLSearchParams(h.slice(1));
+                const doc = params.get('doc');
+                const anchor = params.get('anchor') || '';
+                if (doc) {
+                    renderDoc(doc, anchor);
+                    return;
+                }
+            }
+            const sec = h.startsWith('#') ? h.slice(1) : '';
+            showHub(sec);
+        }
+
+        window.addEventListener('hashchange', handleHashRouting);
+        handleHashRouting();
     </script>
 </body>
 </html>
