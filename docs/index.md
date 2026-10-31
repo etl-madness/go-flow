@@ -195,10 +195,11 @@ All documentation in the `docs/` repository is organized below by topic.
 
 ---
 
-### 3.8 Developer & Extension Guides
+### 3.8 Developer, Build & Extension Guides
 
 | Document | Description |
 | :--- | :--- |
+| [**Compilation, Git Workflow & Build Options Guide**](guides/COMPILATION_AND_BUILD_GUIDE.md) | Complete guide to cloning via Git, checking out release tags, co-developing with `flow`, cross-compiling (`GOOS`/`GOARCH`), and all supported `go build` options. |
 | [**Executing Flow Pipelines (`Execute` vs `ExecuteRun`)**](guides/development_execution_guide.md) | Go SDK guide comparing flat `[]ScriptResult` execution with structured `RunResult` observability trees. |
 | [**Builder Modal Tooltips & Documentation Popups**](guides/development_builder_modal_tooltips_guide.md) | Step-by-step developer guide for adding interactive markdown documentation modals and `⚡ Use Example` autofill buttons to the Builder UI. |
 | [**Builder Theme Customization Guide**](guides/development_themes_guide.md) | Architecture of the 15 built-in UI themes (`slate`, `vscode-dark-plus`, `visual-studio-light`, `soft-white`, etc.) and how to add new themes. |

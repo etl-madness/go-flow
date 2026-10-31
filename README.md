@@ -4,6 +4,8 @@
 
 Whether you are looking to streamline database batch jobs, replace fragile shell/Python scripts, or enforce strict audit logging across heterogeneous databases, Flow delivers zero-dependency pipeline execution with enterprise-grade reliability.
 
+**Online Documentation:** [https://etl-madness.github.io/flow-docs/](https://etl-madness.github.io/flow-docs/)
+
 ---
 
 ## Why Flow?
