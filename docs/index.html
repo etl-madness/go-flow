@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow (go-flow) Documentation Hub — v1.1.24</title>
+    <meta name="description" content="Single-Binary, Zero-Dependency ETL & Workflow Orchestration Engine in Go with an Embedded HTMX Visual Studio">
+    <style>
+        :root {
+            --bg-primary: #090d16;
+            --bg-surface: #0f172a;
+            --bg-card: #1e293b;
+            --bg-card-hover: #26354d;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #38bdf8;
+            --accent-indigo: #6366f1;
+            --accent-cyan: #06b6d4;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            line-height: 1.6;
+            background-image:
+                radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.08), transparent 30%),
+                radial-gradient(circle at 85% 80%, rgba(99, 102, 241, 0.08), transparent 30%);
+        }
+        a { color: var(--accent-blue); text-decoration: none; transition: color 0.15s ease; }
+        a:hover { color: #7dd3fc; text-decoration: underline; }
+        code, pre { font-family: var(--font-mono); font-size: 0.88em; }
+        code {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-color);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            color: #e2e8f0;
+        }
+        pre {
+            background: #060911;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        pre code { background: none; border: none; padding: 0; color: #cbd5e1; }
+
+        /* Top Navigation */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(9, 13, 22, 0.88);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: var(--text-primary);
+            text-decoration: none !important;
+        }
+        .brand-badge {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+            color: #fff;
+            font-size: 0.75rem;
+            padding: 0.15rem 0.55rem;
+            border-radius: 999px;
+            font-family: var(--font-mono);
+        }
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            flex-wrap: wrap;
+            font-size: 0.9rem;
+        }
+        .nav-links a { color: var(--text-secondary); text-decoration: none; }
+        .nav-links a:hover { color: var(--text-primary); }
+        .btn-cta {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(99, 102, 241, 0.2));
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            color: var(--accent-blue) !important;
+            padding: 0.35rem 0.85rem;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        .btn-cta:hover {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.35), rgba(99, 102, 241, 0.35));
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1360px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+        .hero {
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.65) 0%, rgba(15, 23, 42, 0.65) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 2.5rem 2rem;
+            margin-bottom: 2.5rem;
+        }
+        .hero h1 {
+            font-size: 2.4rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(90deg, #fff, var(--accent-blue), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.75rem;
+        }
+        .hero p.lead {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            max-width: 920px;
+            margin-bottom: 1.5rem;
+        }
+        .hero-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-bottom: 1.5rem;
+        }
+        .pill {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--border-color);
+            padding: 0.3rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        .pill strong { color: var(--accent-blue); }
+
+        /* Search Bar */
+        .search-bar {
+            position: relative;
+            max-width: 640px;
+            margin-top: 1rem;
+        }
+        .search-bar input {
+            width: 100%;
+            background: #060911;
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            color: var(--text-primary);
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+        }
+        .search-bar input:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+        }
+
+        /* Sections */
+        section { margin-bottom: 3rem; scroll-margin-top: 4.5rem; }
+        h2.section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        h3.cat-title {
+            font-size: 1.15rem;
+            color: var(--accent-blue);
+            margin: 1.75rem 0 0.85rem;
+            font-weight: 600;
+        }
+
+        /* Doc Grid & Cards */
+        .doc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1rem;
+        }
+        .doc-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1.1rem 1.25rem;
+            transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .doc-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(56, 189, 248, 0.45);
+            background: var(--bg-card);
+        }
+        .doc-card h4 {
+            font-size: 1rem;
+            margin-bottom: 0.4rem;
+            color: var(--text-primary);
+        }
+        .doc-card p {
+            font-size: 0.87rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+        .doc-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+        }
+
+        /* Tables */
+        .table-wrap {
+            overflow-x: auto;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th, td {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            background: rgba(30, 41, 59, 0.7);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(30, 41, 59, 0.35); }
+
+        /* Lifecycle Flow */
+        .lifecycle-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 0.85rem;
+            margin-top: 1rem;
+        }
+        .step-box {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--accent-blue);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        .step-box .step-num {
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .step-box h4 { margin: 0.25rem 0 0.4rem; font-size: 0.98rem; }
+        .step-box p { font-size: 0.83rem; color: var(--text-secondary); }
+
+        /* Screenshots */
+        .screenshot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1rem;
+        }
+        .screenshot-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .screenshot-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .screenshot-card .caption {
+            padding: 0.75rem 1rem;
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+        }
+
+        footer {
+            border-top: 1px solid var(--border-color);
+            padding-top: 2rem;
+            margin-top: 3rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <a href="#" class="brand">
+            <span>⚡ Flow (<code>go-flow</code>)</span>
+            <span class="brand-badge">v1.1.24</span>
+        </a>
+        <nav class="nav-links">
+            <a href="#overview">Why Flow?</a>
+            <a href="#lifecycle">Architecture</a>
+            <a href="#docs-directory">All 51 Docs</a>
+            <a href="#visual-builder">Visual Studio</a>
+            <a href="#quickstart">Quick Start</a>
+            <a href="#ast-matrix">AST Matrix</a>
+            <a href="#cli-reference">CLI Reference</a>
+            <a href="builder_slideshow.html" class="btn-cta">▶ Interactive Slideshow</a>
+        </nav>
+    </header>
+
+    <main class="container">
+        <!-- Hero -->
+        <div class="hero">
+            <h1>Flow (go-flow) Documentation Hub</h1>
+            <p class="lead">
+                Single-binary, zero-dependency enterprise ETL &amp; workflow orchestration engine written in Go.
+                Combines Git-friendly declarative XML pipelines with an embedded HTMX visual studio (<code>-builder</code>),
+                O(1)-memory bulk streaming replication, in-process Go scripting (Yaegi), AES-256-GCM encryption, and multi-standard digital signatures.
+            </p>
+            <div class="hero-pills">
+                <span class="pill"><strong>Runtime:</strong> Single Static Binary (<code>flow.exe</code> / <code>flow</code>)</span>
+                <span class="pill"><strong>Visual Studio:</strong> <code>flow -builder</code> (15 Built-in Themes)</span>
+                <span class="pill"><strong>Databases:</strong> SQL Server, Postgres, MySQL, Oracle, SQLite, Redis, etcd, Badger, bbolt</span>
+                <span class="pill"><strong>Security:</strong> AES-256-GCM + X.509 / PKCS#7 / OpenPGP</span>
+                <span class="pill"><strong>Markdown Index:</strong> <a href="index.md">index.md</a></span>
+            </div>
+            <div class="search-bar">
+                <input type="search" id="docSearch" placeholder="🔍 Filter all 51 documentation guides, XML tags (<sql_bulk>, <parallel>, <kv>...), or CLI flags..." aria-label="Search documentation">
+            </div>
+        </div>
+
+        <!-- 1. Executive Overview -->
+        <section id="overview">
+            <h2 class="section-title">1. Executive Overview &amp; Why Flow?</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Capability</th>
+                            <th>Traditional Python / Cluster (Airflow, Prefect)</th>
+                            <th>Legacy Enterprise GUI (SSIS, Informatica)</th>
+                            <th>Flow (<code>go-flow</code>)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Deployment Footprint</strong></td>
+                            <td>Multi-container cluster, Redis/Celery, Python venvs</td>
+                            <td>Heavy Windows server licenses &amp; proprietary agents</td>
+                            <td><strong>Single static binary (~30 MB), zero runtime dependencies</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Authoring Experience</strong></td>
+                            <td>Imperative Python code only</td>
+                            <td>Desktop-only drag-and-drop</td>
+                            <td><strong>Bidirectional: Embedded Web UI (<code>-builder</code>) + Git-friendly XML</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>High-Volume Bulk ETL</strong></td>
+                            <td>Memory-heavy DataFrames (<code>pandas</code>)</td>
+                            <td>Fast, but locked to specific vendor ecosystems</td>
+                            <td><strong>O(1) constant-memory streaming (<code>&lt;sql_bulk&gt;</code>, <code>&lt;kv_bulk&gt;</code>)</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>In-Process Scripting</strong></td>
+                            <td>Native Python (dependency conflicts common)</td>
+                            <td>C# / VB (requires compilation/GAC)</td>
+                            <td><strong>Embedded Go (Yaegi) + PowerShell, Bash, Cmd, Zsh, CSX</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Cryptographic Security</strong></td>
+                            <td>External vaults / custom plugins</td>
+                            <td>OS-bound DPAPI encryption</td>
+                            <td><strong>Cross-platform AES-256-GCM + OpenSSL/PKCS#7/OpenPGP signatures</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Audit &amp; Observability</strong></td>
+                            <td>Requires external Postgres + log forwarders</td>
+                            <td>Proprietary logging tables</td>
+                            <td><strong>Plug-and-play <code>log_db</code> sink, JSONL, &amp; real-time stream events</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 2. Execution Lifecycle -->
+        <section id="lifecycle">
+            <h2 class="section-title">2. Architecture &amp; Deterministic Execution Lifecycle</h2>
+            <div class="lifecycle-steps">
+                <div class="step-box">
+                    <div class="step-num">Stage 01</div>
+                    <h4>Uniform Resource Loader</h4>
+                    <p>Loads pipelines, options, and configs from local files (UTF-8/UTF-16), HTTP/HTTPS endpoints, or <code>sql://</code> / <code>db://</code> database queries.</p>
+                </div>
+                <div class="step-box">
+                    <div class="step-num">Stage 02</div>
+                    <h4>Cryptographic Gate</h4>
+                    <p>Verifies detached or inline envelopes (X.509, PKCS#7 <code>.p7s</code>, OpenPGP <code>.asc</code>, <code>FLOWSIGNED:v1</code>) and decrypts AES-256-GCM (<code>FLOWENC:v1</code>).</p>
+                </div>
+                <div class="step-box">
+                    <div class="step-num">Stage 03</div>
+                    <h4>Hierarchy &amp; AST Validation</h4>
+                    <p>Merges <code>--file</code> &lt; <code>--options</code> &lt; <code>--config</code> &lt; <code>--vars</code> and validates against <code>pipeline.xsd</code> &amp; semantic AST rules.</p>
+                </div>
+                <div class="step-box">
+                    <div class="step-num">Stage 04</div>
+                    <h4>Preflight &amp; Main Flow</h4>
+                    <p>Executes <code>&lt;preflight&gt;</code> readiness gates followed by <code>&lt;flow&gt;</code> steps (transactions, parallel pools, bulk streams, scripts).</p>
+                </div>
+                <div class="step-box">
+                    <div class="step-num">Stage 05</div>
+                    <h4>Observability &amp; Audit</h4>
+                    <p>Streams structured output (<code>csv</code>, <code>json</code>, <code>markdown</code>, <code>stream</code>), writes to <code>log_db</code> tables, or renders XSLT 3.0 + Mermaid docs.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Complete Documentation Directory (All 51 Docs) -->
+        <section id="docs-directory">
+            <h2 class="section-title">3. Complete Documentation Directory (51 Guides &amp; References)</h2>
+
+            <h3 class="cat-title">3.1 Executive Summaries &amp; Visual Tour</h3>
+            <div class="doc-grid">
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="BUSINESS_SUMMARY.md">Business &amp; Executive Summary</a></h4>
+                        <p>Architectural value proposition, TCO reduction, security posture, and enterprise comparison matrix.</p>
+                    </div>
+                    <div class="doc-meta"><span>BUSINESS_SUMMARY.md</span><span>Executive</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/AUTOMATION_ETL_SUMMARY.md">Automation &amp; ETL Architecture Summary</a></h4>
+                        <p>Condensed technical overview of CLI flags, AST primitives, SQL dialect parameter binding, and telemetry schemas.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/AUTOMATION_ETL_SUMMARY.md</span><span>Architecture</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="BUILDER_SLIDESHOW.md">Visual Builder Slideshow (Markdown)</a></h4>
+                        <p>Step-by-step visual walkthrough of the 3-panel HTMX studio, modals, themes, and runner dashboard.</p>
+                    </div>
+                    <div class="doc-meta"><span>BUILDER_SLIDESHOW.md</span><span>Visual Tour</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="builder_slideshow.html">Interactive Builder Slideshow (HTML)</a></h4>
+                        <p>Standalone interactive browser presentation showcasing the Flow Builder UI with keyboard navigation.</p>
+                    </div>
+                    <div class="doc-meta"><span>builder_slideshow.html</span><span>Interactive HTML</span></div>
+                </div>
+            </div>
+
+            <h3 class="cat-title">3.2 CLI, Configuration Hierarchy &amp; Remote Sources</h3>
+            <div class="doc-grid">
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md">Complete CLI Reference</a></h4>
+                        <p>Exhaustive flag reference, secret precedence rules, exit codes, and enterprise recipes across <code>flow</code>, <code>crypto_tool</code>, and <code>db_importer</code>.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md</span><span>CLI</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/SUMMARY_OF_AVAILABLE_OPTIONS.md">Summary of Available Pipeline XML Options</a></h4>
+                        <p>Complete XML element and attribute specification for <code>&lt;pipeline&gt;</code>, <code>&lt;databases&gt;</code>, <code>&lt;variables&gt;</code>, <code>&lt;preflight&gt;</code>, and <code>&lt;flow&gt;</code>.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/SUMMARY_OF_AVAILABLE_OPTIONS.md</span><span>XML Spec</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/CONFIG_HIERARCHY.md">Configuration &amp; Execution Hierarchy</a></h4>
+                        <p>How Flow merges <code>--file</code>, <code>--options</code>, <code>--config</code>, and <code>--vars</code> across Dev, Staging, and Production environments.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/CONFIG_HIERARCHY.md</span><span>Hierarchy</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="variables.md">Variables Container (&lt;variables&gt;)</a></h4>
+                        <p>Declaring typed variable collections (<code>string</code>, <code>int</code>, <code>float</code>, <code>bool</code>, <code>date</code>, <code>datetime</code>) and recursive <code>{{var}}</code> expansion.</p>
+                    </div>
+                    <div class="doc-meta"><span>variables.md</span><span>Variables</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="variable.md">Variable Element (&lt;variable&gt;)</a></h4>
+                        <p>Detailed reference for individual <code>&lt;variable&gt;</code> definitions, type parsing, and runtime overrides.</p>
+                    </div>
+                    <div class="doc-meta"><span>variable.md</span><span>Variables</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/FLOW_WITH_REMOTE_FILE_SOURCE.md">Remote File, HTTP &amp; SQL DSN Sources</a></h4>
+                        <p>Loading pipelines, options, and configs from local paths, HTTP/HTTPS (with Basic Auth), and <code>sql://</code> or <code>db://</code> queries.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/FLOW_WITH_REMOTE_FILE_SOURCE.md</span><span>Remote URI</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/README_DATABASE_XML.md">Database-Backed XML Storage</a></h4>
+                        <p>Storing and executing <code>PipelineXML</code>, <code>OptionsXML</code>, and <code>ConfigXML</code> inside SQL Server via <code>db_importer</code>.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/README_DATABASE_XML.md</span><span>DB Storage</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/README_UTF.md">UTF-8 &amp; UTF-16 Encoding Guide</a></h4>
+                        <p>Automatic BOM detection and transcoding for Windows PowerShell UTF-16LE files and SQL Server <code>NVARCHAR(MAX)</code> columns.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/README_UTF.md</span><span>Encoding</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/USING_DESCRIPTIONS.md">Using Pipeline &amp; Node Descriptions</a></h4>
+                        <p>Best practices for self-documenting pipelines using <code>description</code> attributes rendered in logs and Mermaid flowcharts.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/USING_DESCRIPTIONS.md</span><span>Best Practices</span></div>
+                </div>
+            </div>
+
+            <h3 class="cat-title">3.3 Security: Encryption &amp; Digital Signatures</h3>
+            <div class="doc-grid">
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/SECURITY_ORDER_AND_OPTIONS.md">Security Order of Operations &amp; Options</a></h4>
+                        <p>Deep dive into Encrypt-then-Sign vs. Sign-then-Encrypt vs. Detached Signatures, key precedence, and security flags.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/SECURITY_ORDER_AND_OPTIONS.md</span><span>Security</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/COMBINED_ENCRYPTION_AND_SIGNATURES.md">Single-File Cryptography (.sec / -wrap)</a></h4>
+                        <p>End-to-end Windows (PowerShell/Cert Store) and Linux/macOS (OpenSSL/Bash) walkthroughs for unified <code>.sec</code> packages.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/COMBINED_ENCRYPTION_AND_SIGNATURES.md</span><span>Crypto</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/ENCRYPTION.md">Cross-Platform Encryption Guide (FLOWENC:v1:)</a></h4>
+                        <p>AES-256-GCM architecture, PBKDF2-HMAC-SHA256 key derivation, memory zeroization, and at-rest database encryption.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/ENCRYPTION.md</span><span>AES-256-GCM</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/SIGNATURES.md">Cross-Platform Digital Signatures (FLOWSIG:v1:)</a></h4>
+                        <p>Pure-Go verification and signing with OpenSSL (RSA/ECDSA/Ed25519), PKCS#7/CMS (<code>.p7s</code>), and OpenPGP/GPG (<code>.asc</code>).</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/SIGNATURES.md</span><span>Signatures</span></div>
+                </div>
+            </div>
+
+            <h3 class="cat-title">3.4 Databases, Bulk ETL, Key-Value &amp; Transactions</h3>
+            <div class="doc-grid">
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="database.md">Database Connections &amp; Pooling (&lt;database&gt;)</a></h4>
+                        <p>Configuring relational and KV drivers, connection pool tuning (<code>max_open_conns</code>, <code>workload</code>), and dialect rules.</p>
+                    </div>
+                    <div class="doc-meta"><span>database.md</span><span>Database</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="database_connection_strings.md">Database Connection Strings Reference</a></h4>
+                        <p>Copy-paste connection string templates for SQL Server (including Azure Entra ID <code>fedauth</code>), Postgres, MySQL, Oracle, SQLite, and KV stores.</p>
+                    </div>
+                    <div class="doc-meta"><span>database_connection_strings.md</span><span>DSN Reference</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="sql.md">SQL Execution (&lt;sql&gt;)</a></h4>
+                        <p>Executing DDL, DML, and <code>SELECT</code> queries with intelligent statement classification, parameter binding, and <code>output_var</code>.</p>
+                    </div>
+                    <div class="doc-meta"><span>sql.md</span><span>SQL</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="sql_bulk.md">High-Speed Bulk ETL (&lt;sql_bulk&gt;)</a></h4>
+                        <p>O(1) constant-memory cross-database streaming replication, native SQL Server TDS <code>CopyIn</code> (<code>tablock</code>), and batch tuning.</p>
+                    </div>
+                    <div class="doc-meta"><span>sql_bulk.md</span><span>Bulk ETL</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="sql_and_sql_bulk.md">Comparing &lt;sql&gt; and &lt;sql_bulk&gt;</a></h4>
+                        <p>Architectural comparison and decision guide for choosing between standard <code>&lt;sql&gt;</code> execution and <code>&lt;sql_bulk&gt;</code> streaming.</p>
+                    </div>
+                    <div class="doc-meta"><span>sql_and_sql_bulk.md</span><span>Comparison</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/DATABASE_TRANSACTIONS.md">Database Transactions &amp; Savepoints</a></h4>
+                        <p>Atomic <code>&lt;group transaction="true"&gt;</code> blocks, dialect-aware nested savepoints, parallel transaction isolation, and bulk copy caveats.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/DATABASE_TRANSACTIONS.md</span><span>Transactions</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="kv.md">Key-Value Store Operations (&lt;kv&gt; &amp; &lt;kv_bulk&gt;)</a></h4>
+                        <p>Unified NoSQL interface for bbolt, BadgerDB, Redis/Valkey, and etcd, plus SQL-to-KV bulk streaming (<code>&lt;kv_bulk&gt;</code>).</p>
+                    </div>
+                    <div class="doc-meta"><span>kv.md</span><span>NoSQL / KV</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="db_select_template_stdio.md">DB Select, Template &amp; Stdio Pattern</a></h4>
+                        <p>End-to-end guide for querying relational data, formatting rows via <code>&lt;template&gt;</code>, and streaming to standard output.</p>
+                    </div>
+                    <div class="doc-meta"><span>db_select_template_stdio.md</span><span>Pattern</span></div>
+                </div>
+            </div>
+            <h3 class="cat-title">3.5 Control Flow, Loops, Concurrency &amp; Quality Gates</h3>
+            <div class="doc-grid">
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="preflight.md">Preflight Validation Gates (&lt;preflight&gt;)</a></h4>
+                        <p>Pre-execution environment checks, connectivity verification, and schema readiness assertions before <code>&lt;flow&gt;</code> begins.</p>
+                    </div>
+                    <div class="doc-meta"><span>preflight.md</span><span>Quality Gate</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="group.md">Sequential &amp; Transactional Grouping (&lt;group&gt;)</a></h4>
+                        <p>Organizing steps into logical units with optional conditional execution (<code>if_var</code>/<code>if_equals</code>) and atomic transactions.</p>
+                    </div>
+                    <div class="doc-meta"><span>group.md</span><span>Control Flow</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="if_then_else.md">Conditional Branching (&lt;if&gt;, &lt;then&gt;, &lt;else&gt;)</a></h4>
+                        <p>Dynamic branching using variable equality (<code>var</code>/<code>equals</code>) or expression evaluation (<code>condition</code>).</p>
+                    </div>
+                    <div class="doc-meta"><span>if_then_else.md</span><span>Control Flow</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="foreach.md">Dataset Iteration (&lt;foreach&gt; / &lt;loop&gt;)</a></h4>
+                        <p>Row-by-row SQL cursor iteration in O(1) streaming mode (<code>stream="true"</code>) or buffered mode with automatic column binding.</p>
+                    </div>
+                    <div class="doc-meta"><span>foreach.md</span><span>Iteration</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="while.md">Conditional Loops (&lt;while&gt;)</a></h4>
+                        <p>State-driven polling and pagination loops with <code>WHILE_INDEX</code> tracking and <code>max_iterations</code> safety guards.</p>
+                    </div>
+                    <div class="doc-meta"><span>while.md</span><span>Iteration</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="parallel.md">Concurrent Worker Pools (&lt;parallel&gt;)</a></h4>
+                        <p>Multi-threaded execution (<code>max_threads</code>) with isolated variable cloning, cooperative cancellation, and collision namespacing.</p>
+                    </div>
+                    <div class="doc-meta"><span>parallel.md</span><span>Concurrency</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="assert.md">Declarative Assertions (&lt;assert&gt;)</a></h4>
+                        <p>Data quality gates with <code>halt</code> vs. <code>warn</code> policies, failure flag variables (<code>fail_var</code>), and nested <code>&lt;on_failure&gt;</code> recovery blocks.</p>
+                    </div>
+                    <div class="doc-meta"><span>assert.md</span><span>Quality Gate</span></div>
+                </div>
+            </div>
+
+            <h3 class="cat-title">3.6 Scripting, Templates, HTTP &amp; Data Formats</h3>
+            <div class="doc-grid">
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="script.md">Polyglot Scripting (&lt;script&gt;)</a></h4>
+                        <p>In-process pure-Go Yaegi interpreter (<code>host/vars</code>, <code>host/db</code>) plus external shells (<code>pwsh</code>, <code>powershell</code>, <code>bash</code>, <code>sh</code>, <code>cmd</code>, <code>zsh</code>, <code>csx</code>).</p>
+                    </div>
+                    <div class="doc-meta"><span>script.md</span><span>Scripting</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="template.md">Text Templates (&lt;template&gt;)</a></h4>
+                        <p>Dynamic SQL, JSON, and report generation using Go's <code>text/template</code> engine and helper functions.</p>
+                    </div>
+                    <div class="doc-meta"><span>template.md</span><span>Templates</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="template_html.md">HTML Templates (&lt;template_html&gt;)</a></h4>
+                        <p>Context-aware XSS-safe HTML email and dashboard rendering using Go's <code>html/template</code> engine.</p>
+                    </div>
+                    <div class="doc-meta"><span>template_html.md</span><span>Templates</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="template_and_template_html.md">Comparing &lt;template&gt; and &lt;template_html&gt;</a></h4>
+                        <p>Side-by-side comparison of raw text interpolation vs. automatic HTML contextual escaping.</p>
+                    </div>
+                    <div class="doc-meta"><span>template_and_template_html.md</span><span>Comparison</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="http_client.md">HTTP / REST Client (&lt;http_client&gt;)</a></h4>
+                        <p>Full-featured REST integration with custom headers, TLS/mTLS tuning, proxies, cookie jars, redirects, and status capture.</p>
+                    </div>
+                    <div class="doc-meta"><span>http_client.md</span><span>HTTP / REST</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="json_path.md">JSONPath Extraction (&lt;json_path&gt;)</a></h4>
+                        <p>Extracting scalars, objects, and arrays from API responses or files using JSONPath expressions.</p>
+                    </div>
+                    <div class="doc-meta"><span>json_path.md</span><span>JSON</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="json_path_guide.md">JSONPath Syntax &amp; Examples Guide</a></h4>
+                        <p>Comprehensive tutorial on JSONPath operators, recursive descent, array slicing, and filter expressions in Flow.</p>
+                    </div>
+                    <div class="doc-meta"><span>json_path_guide.md</span><span>JSON Guide</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="xml_path.md">XPath Extraction (&lt;xml_xpath&gt;)</a></h4>
+                        <p>Querying XML documents and SOAP payloads with XPath expressions in <code>text</code>, <code>xml</code>, or <code>json_array</code> output modes.</p>
+                    </div>
+                    <div class="doc-meta"><span>xml_path.md</span><span>XML / XPath</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="yaml_path.md">YAML Path Extraction (&lt;yaml_path&gt;)</a></h4>
+                        <p>Extracting configuration values and structured nodes from YAML files or variables.</p>
+                    </div>
+                    <div class="doc-meta"><span>yaml_path.md</span><span>YAML</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="excel_read.md">Excel Workbook Reader (&lt;excel_read&gt;)</a></h4>
+                        <p>Reading <code>.xlsx</code> worksheets into structured JSON arrays for downstream iteration and transformation.</p>
+                    </div>
+                    <div class="doc-meta"><span>excel_read.md</span><span>Excel</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="excel_write.md">Excel Workbook Writer (&lt;excel_write&gt;)</a></h4>
+                        <p>Exporting SQL query results directly into multi-tab <code>.xlsx</code> spreadsheets with automatic header generation.</p>
+                    </div>
+                    <div class="doc-meta"><span>excel_write.md</span><span>Excel</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="file_read.md">File Reader (&lt;file_read&gt;)</a></h4>
+                        <p>Loading local text, JSON, XML, or SQL files into pipeline variables.</p>
+                    </div>
+                    <div class="doc-meta"><span>file_read.md</span><span>File I/O</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="file_save.md">File Writer (&lt;file_save&gt;)</a></h4>
+                        <p>Writing or appending pipeline variables and inline templates to disk with automatic directory creation.</p>
+                    </div>
+                    <div class="doc-meta"><span>file_save.md</span><span>File I/O</span></div>
+                </div>
+            </div>
+
+            <h3 class="cat-title">3.7 Observability, Telemetry, Failure Handling &amp; Debugging</h3>
+            <div class="doc-grid">
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/DATABASE_LOGGING_CONFIGURATION.md">Database Logging Configuration (log_db)</a></h4>
+                        <p>DDL schemas for PostgreSQL, SQL Server, MySQL, Oracle, and SQLite (<code>pipeline_runs</code> &amp; <code>pipeline_events</code>) and <code>-node-output</code>.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/DATABASE_LOGGING_CONFIGURATION.md</span><span>Audit Log</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/FAILURE_RESPONSE.md">Failure Response &amp; Error Propagation</a></h4>
+                        <p>Fail-fast semantics, cooperative <code>&lt;parallel&gt;</code> cancellation, cursor cleanup, transaction rollbacks, and <code>&lt;assert&gt;</code> recovery paths.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/FAILURE_RESPONSE.md</span><span>Resilience</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/DEBUGGING_GUIDE.md">Comprehensive Pipeline Debugging Guide</a></h4>
+                        <p>5 production debugging patterns (variable dumps, interactive prompts, loop tracing, state mutation, and post-mortems) in Go and CSX.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/DEBUGGING_GUIDE.md</span><span>Debugging</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/development_observability_usage.md">Observability &amp; Event Sinks Usage Guide</a></h4>
+                        <p>Programmatic guide to <code>ExecuteRun</code>, <code>JSONLineSink</code>, multi-sink fanout (<code>SetEventSinks</code>), and OpenTelemetry bridges.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/development_observability_usage.md</span><span>Telemetry</span></div>
+                </div>
+            </div>
+
+            <h3 class="cat-title">3.8 Developer &amp; Extension Guides</h3>
+            <div class="doc-grid">
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/development_execution_guide.md">Executing Flow Pipelines (Execute vs ExecuteRun)</a></h4>
+                        <p>Go SDK guide comparing flat <code>[]ScriptResult</code> execution with structured <code>RunResult</code> observability trees.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/development_execution_guide.md</span><span>Go SDK</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/development_builder_modal_tooltips_guide.md">Builder Modal Tooltips &amp; Documentation Popups</a></h4>
+                        <p>Developer guide for adding interactive markdown documentation modals and <code>⚡ Use Example</code> autofill buttons to the Builder UI.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/development_builder_modal_tooltips_guide.md</span><span>Builder UI</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="guides/development_themes_guide.md">Builder Theme Customization Guide</a></h4>
+                        <p>Architecture of the 15 built-in UI themes (<code>slate</code>, <code>vscode-dark-plus</code>, <code>visual-studio-light</code>, etc.) and adding new themes.</p>
+                    </div>
+                    <div class="doc-meta"><span>guides/development_themes_guide.md</span><span>Themes</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Visual Pipeline Builder Studio -->
+        <section id="visual-builder">
+            <h2 class="section-title">
+                <span>4. Visual Pipeline Builder Studio (<code>flow -builder</code>)</span>
+                <a href="builder_slideshow.html" class="btn-cta" style="font-size:0.85rem;">Launch Interactive Tour →</a>
+            </h2>
+            <p style="color:var(--text-secondary); margin-bottom:0.75rem;">
+                Launching <code>./flow -builder -builder-port 8080</code> starts an embedded HTMX web studio backed by a local SQLite project store (<code>flow_builder.db</code>).
+            </p>
+            <div class="screenshot-grid">
+                <div class="screenshot-card">
+                    <img src="screenshots/Builder_Default_Theme.png" alt="Flow Builder Default Slate Theme" loading="lazy">
+                    <div class="caption"><strong>Unified 3-Panel Studio (Slate Theme):</strong> Component Palette, 4-Phase Canvas, and Live Bidirectional XML Preview.</div>
+                </div>
+                <div class="screenshot-card">
+                    <img src="screenshots/Builder_VS_Dark_Execute_Options_File_Runner.png" alt="Flow Builder Live Runner" loading="lazy">
+                    <div class="caption"><strong>Live Pipeline Runner:</strong> Execute preflight checks or full pipelines with streaming logs and duration tracking.</div>
+                </div>
+                <div class="screenshot-card">
+                    <img src="screenshots/Builder_VS_Light_Theme.png" alt="Visual Studio Light Theme" loading="lazy">
+                    <div class="caption"><strong>Visual Studio Light Theme:</strong> High-contrast light workspace for daytime authoring.</div>
+                </div>
+                <div class="screenshot-card">
+                    <img src="screenshots/Builder_VS_Dark_Theme.png" alt="Visual Studio Dark Theme" loading="lazy">
+                    <div class="caption"><strong>Visual Studio Dark Theme:</strong> One of 15 built-in IDE themes persisted in <code>localStorage</code>.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. Quick Start -->
+        <section id="quickstart">
+            <h2 class="section-title">5. Quick Start &amp; Sample Pipeline</h2>
+            <pre><code># 1. Validate XML Schema and Semantic AST without executing
+./flow -file pipeline.xml -xsd ./xsd/pipeline.xsd -validate
+
+# 2. Run Preflight Checks only
+./flow -file pipeline.xml -preflight
+
+# 3. Execute Pipeline with Runtime Variable Overrides and Live Stream Output
+./flow -file pipeline.xml -vars "MinSpend=10000.00" -format stream</code></pre>
+        </section>
+
+        <!-- 6. AST Matrix -->
+        <section id="ast-matrix">
+            <h2 class="section-title">6. Complete AST Component Matrix</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>XML Element</th>
+                            <th>Primary Purpose</th>
+                            <th>Detailed Guide</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Setup &amp; Config</td><td><code>&lt;variables&gt;</code> / <code>&lt;variable&gt;</code></td><td>Typed variable definitions (<code>string</code>, <code>int</code>, <code>float</code>, <code>bool</code>, <code>date</code>, <code>datetime</code>)</td><td><a href="variables.md">variables.md</a> / <a href="variable.md">variable.md</a></td></tr>
+                        <tr><td>Setup &amp; Config</td><td><code>&lt;databases&gt;</code> / <code>&lt;database&gt;</code></td><td>Relational &amp; Key-Value connection pools with dynamic <code>{{var}}</code> DSNs</td><td><a href="database.md">database.md</a></td></tr>
+                        <tr><td>Quality Gate</td><td><code>&lt;preflight&gt;</code></td><td>Pre-execution validation and environment readiness checks</td><td><a href="preflight.md">preflight.md</a></td></tr>
+                        <tr><td>Control Flow</td><td><code>&lt;group&gt;</code></td><td>Sequential container with optional conditional check and atomic <code>transaction="true"</code></td><td><a href="group.md">group.md</a></td></tr>
+                        <tr><td>Control Flow</td><td><code>&lt;if&gt;</code> / <code>&lt;then&gt;</code> / <code>&lt;else&gt;</code></td><td>Dynamic conditional branching on variables or expressions</td><td><a href="if_then_else.md">if_then_else.md</a></td></tr>
+                        <tr><td>Control Flow</td><td><code>&lt;foreach&gt;</code> / <code>&lt;loop&gt;</code></td><td>SQL dataset cursor iteration (O(1) streaming or buffered)</td><td><a href="foreach.md">foreach.md</a></td></tr>
+                        <tr><td>Control Flow</td><td><code>&lt;while&gt;</code></td><td>Conditional polling / pagination loop with <code>max_iterations</code> guard</td><td><a href="while.md">while.md</a></td></tr>
+                        <tr><td>Control Flow</td><td><code>&lt;parallel&gt;</code></td><td>Concurrent worker pool (<code>max_threads</code>) with thread-isolated variables</td><td><a href="parallel.md">parallel.md</a></td></tr>
+                        <tr><td>Quality Gate</td><td><code>&lt;assert&gt;</code></td><td>State invariant check (<code>halt</code> or <code>warn</code>) with <code>&lt;on_failure&gt;</code> fallback block</td><td><a href="assert.md">assert.md</a></td></tr>
+                        <tr><td>Database &amp; KV</td><td><code>&lt;sql&gt;</code></td><td>Single or multi-statement SQL query/DML execution</td><td><a href="sql.md">sql.md</a></td></tr>
+                        <tr><td>Database &amp; KV</td><td><code>&lt;sql_bulk&gt;</code></td><td>High-speed O(1) cross-database streaming bulk copy</td><td><a href="sql_bulk.md">sql_bulk.md</a></td></tr>
+                        <tr><td>Database &amp; KV</td><td><code>&lt;kv&gt;</code> / <code>&lt;kv_bulk&gt;</code></td><td>NoSQL Key-Value operations &amp; SQL-to-KV bulk streaming (<code>bbolt</code>, <code>badger</code>, <code>redis</code>, <code>etcd</code>)</td><td><a href="kv.md">kv.md</a></td></tr>
+                        <tr><td>Code &amp; Templates</td><td><code>&lt;script&gt;</code></td><td>Embedded Go (<code>Yaegi</code>) &amp; shell scripts (<code>pwsh</code>, <code>bash</code>, <code>cmd</code>, <code>zsh</code>, <code>csx</code>)</td><td><a href="script.md">script.md</a></td></tr>
+                        <tr><td>Code &amp; Templates</td><td><code>&lt;template&gt;</code></td><td>Go <code>text/template</code> dynamic text/SQL/JSON rendering</td><td><a href="template.md">template.md</a></td></tr>
+                        <tr><td>Code &amp; Templates</td><td><code>&lt;template_html&gt;</code></td><td>Go <code>html/template</code> XSS-safe HTML rendering</td><td><a href="template_html.md">template_html.md</a></td></tr>
+                        <tr><td>Web &amp; Extraction</td><td><code>&lt;http_client&gt;</code></td><td>REST/HTTP client with TLS, proxy, timeout, and header controls</td><td><a href="http_client.md">http_client.md</a></td></tr>
+                        <tr><td>Web &amp; Extraction</td><td><code>&lt;json_path&gt;</code></td><td>JSONPath query extraction (<code>value</code>, <code>json</code>, <code>json_array</code>)</td><td><a href="json_path.md">json_path.md</a></td></tr>
+                        <tr><td>Web &amp; Extraction</td><td><code>&lt;xml_xpath&gt;</code></td><td>XPath query extraction (<code>text</code>, <code>xml</code>, <code>json_array</code>)</td><td><a href="xml_path.md">xml_path.md</a></td></tr>
+                        <tr><td>Web &amp; Extraction</td><td><code>&lt;yaml_path&gt;</code></td><td>YAML path query extraction (<code>value</code>, <code>json</code>, <code>json_array</code>, <code>yaml</code>)</td><td><a href="yaml_path.md">yaml_path.md</a></td></tr>
+                        <tr><td>Files &amp; Excel</td><td><code>&lt;excel_read&gt;</code></td><td><code>.xlsx</code> worksheet reader to JSON array</td><td><a href="excel_read.md">excel_read.md</a></td></tr>
+                        <tr><td>Files &amp; Excel</td><td><code>&lt;excel_write&gt;</code></td><td>SQL query exporter to multi-sheet <code>.xlsx</code> workbooks</td><td><a href="excel_write.md">excel_write.md</a></td></tr>
+                        <tr><td>Files &amp; Excel</td><td><code>&lt;file_read&gt;</code></td><td>Local file reader into pipeline variable</td><td><a href="file_read.md">file_read.md</a></td></tr>
+                        <tr><td>Files &amp; Excel</td><td><code>&lt;file_save&gt;</code></td><td>Local file writer / appender from variable or inline content</td><td><a href="file_save.md">file_save.md</a></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 7. CLI Reference -->
+        <section id="cli-reference">
+            <h2 class="section-title">7. Ecosystem CLI Reference (<code>flow</code>, <code>crypto_tool</code>, <code>db_importer</code>)</h2>
+            <p style="color:var(--text-secondary); margin-bottom:0.75rem;">
+                For the complete flag reference and recipes, see <a href="guides/COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md">Complete CLI Options and Arguments</a>.
+            </p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Flag</th><th>Default</th><th>Description</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>-file &lt;path|uri&gt;</code></td><td><code>scripts.xml</code></td><td>Pipeline XML path, HTTP(S) URL, or <code>sql://</code> / <code>db://</code> database query URI.</td></tr>
+                        <tr><td><code>-options &lt;path|uri&gt;</code></td><td><code>""</code></td><td>XML options profile defining default CLI flags (<code>&lt;flow_cli_options&gt;</code>).</td></tr>
+                        <tr><td><code>-config &lt;path|uri&gt;</code></td><td><code>""</code></td><td>Environment override XML (<code>CONFIG.xml</code>) for variables and databases.</td></tr>
+                        <tr><td><code>-vars "K=V,..."</code></td><td><code>""</code></td><td>Runtime variable overrides (highest precedence; recursive expansion up to 3 levels).</td></tr>
+                        <tr><td><code>-format &lt;fmt&gt;</code></td><td><code>csv</code></td><td>Output renderer: <code>csv</code>, <code>text</code>, <code>json</code>, <code>jsonpretty</code>, <code>markdown</code>, or <code>stream</code>.</td></tr>
+                        <tr><td><code>-validate</code></td><td><code>false</code></td><td>Validates XML schema (<code>-xsd</code>) and AST semantics without executing nodes.</td></tr>
+                        <tr><td><code>-preflight</code></td><td><code>false</code></td><td>Executes <code>&lt;preflight&gt;</code> nodes only and exits.</td></tr>
+                        <tr><td><code>-builder</code></td><td><code>false</code></td><td>Launches the interactive HTMX visual pipeline studio web server.</td></tr>
+                        <tr><td><code>-builder-port &lt;int&gt;</code></td><td><code>0</code></td><td>Port for the visual builder web server (<code>0</code> selects an ephemeral port).</td></tr>
+                        <tr><td><code>-encrypted</code></td><td><code>false</code></td><td>Decrypts AES-256-GCM input resources (auto-detected for <code>FLOWENC:v1:</code> payloads).</td></tr>
+                        <tr><td><code>-key-file &lt;path&gt;</code></td><td><code>""</code></td><td>Path to symmetric key/passphrase file (recommended over <code>-secure-key</code>).</td></tr>
+                        <tr><td><code>-verify-signature</code></td><td><code>false</code></td><td>Enforces digital signature verification before decryption or execution.</td></tr>
+                        <tr><td><code>-public-key</code> / <code>-cert</code></td><td><code>""</code></td><td>Public key (<code>.pem</code>) or X.509 certificate (<code>.pem</code>/<code>.cer</code>) for signature verification.</td></tr>
+                        <tr><td><code>-node-output</code></td><td><code>false</code></td><td>Persists redacted node outputs into <code>pipeline_events.node_output</code> when <code>log_db</code> is active.</td></tr>
+                        <tr><td><code>-xslt &lt;path&gt;</code> / <code>-out</code></td><td><code>""</code></td><td>Transforms pipeline XML via XSLT 3.0 with an injected Mermaid.js diagram.</td></tr>
+                        <tr><td><code>-debug</code></td><td><code>false</code></td><td>Enables verbose diagnostic logging.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer>
+            Flow (<code>go-flow</code>) v1.1.24 Documentation Hub &bull;
+            <a href="index.md">Markdown Version (index.md)</a> &bull;
+            <a href="builder_slideshow.html">Interactive Builder Slideshow</a>
+        </footer>
+    </main>
+
+    <script>
+        const searchInput = document.getElementById('docSearch');
+        searchInput.addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase().trim();
+            document.querySelectorAll('.doc-card').forEach(card => {
+                const match = !q || card.textContent.toLowerCase().includes(q);
+                card.style.display = match ? '' : 'none';
+            });
+            document.querySelectorAll('#ast-matrix tbody tr, #cli-reference tbody tr').forEach(row => {
+                const match = !q || row.textContent.toLowerCase().includes(q);
+                row.style.display = match ? '' : 'none';
+            });
+        });
+    </script>
+</body>
+</html>
