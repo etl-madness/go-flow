@@ -28,3 +28,4 @@ go.work.sum
 *.njsproj
 *.sln
 *.sw?
+temp_run_script.*
