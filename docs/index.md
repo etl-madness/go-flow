@@ -8,7 +8,7 @@ description: Single-Binary, Zero-Dependency ETL & Workflow Orchestration Engine 
 > **Slashing ETL Madness with Go, HTMX, and Declarative Pipelines**  
 > **Current Version:** `1.1.24` | **Runtime:** Single-Binary Go (`flow.exe` / `flow`) | **Visual Studio:** `flow -builder`
 
-**Flow** (`go-flow`) is an enterprise-grade, single-binary ETL and workflow orchestration engine written in Go. It combines declarative, Git-friendly XML pipeline definitions with an embedded HTMX visual web builder (`-builder`), multi-engine relational and Key-Value database connectors, $O(1)$-memory bulk streaming replication, in-process Go scripting (via Yaegi), cross-platform AES-256-GCM encryption, and multi-standard digital signatures.
+**Flow** (`go-flow`) is an enterprise-grade, single-binary ETL and workflow orchestration engine written in Go. It combines declarative, Git-friendly XML pipeline definitions with an embedded HTMX visual web builder (`-builder`), multi-engine relational and Key-Value database connectors, $O(1)$-memory bulk streaming replication, in-process Go (via Yaegi) and Lua (via Gopher-Lua) scripting, cross-platform AES-256-GCM encryption, and multi-standard digital signatures.
 
 ---
 
@@ -43,7 +43,7 @@ Traditional enterprise data orchestration forces teams to choose between heavywe
 | **Deployment Footprint** | Multi-container cluster, Redis/Celery, Python venvs | Heavy Windows server licenses & proprietary agents | **Single static binary (~30 MB), zero runtime dependencies** |
 | **Authoring Experience** | Imperative Python code only | Desktop-only drag-and-drop | **Bidirectional: Embedded Web UI (`-builder`) + Git-friendly XML** |
 | **High-Volume Bulk ETL** | Memory-heavy DataFrames (`pandas`) | Fast, but locked to specific vendor ecosystems | **$O(1)$ constant-memory streaming (`<sql_bulk>`, `<kv_bulk>`)** |
-| **In-Process Scripting** | Native Python (dependency conflicts common) | C# / VB (requires compilation/GAC) | **Embedded Go (Yaegi) + PowerShell, Bash, Cmd, Zsh, CSX** |
+| **In-Process Scripting** | Native Python (dependency conflicts common) | C# / VB (requires compilation/GAC) | **Embedded Go (Yaegi) & Lua (Gopher-Lua) + PowerShell, Bash, Cmd, Zsh, CSX** |
 | **Cryptographic Security** | External vaults / custom plugins | OS-bound DPAPI encryption | **Cross-platform AES-256-GCM + OpenSSL/PKCS#7/OpenPGP signatures** |
 | **Audit & Observability** | Requires external Postgres + log forwarders | Proprietary logging tables | **Plug-and-play `log_db` sink, JSONL, & real-time stream events** |
 
@@ -168,7 +168,8 @@ All documentation in the `docs/` repository is organized below by topic.
 
 | Document | Description |
 | :--- | :--- |
-| [**Polyglot Scripting (`<script>`)**](script.md) | In-process pure-Go **Yaegi** interpreter (`host/vars`, `host/db`) plus external shells (`pwsh`, `powershell`, `bash`, `sh`, `cmd`, `zsh`, `csx`). |
+| [**Polyglot Scripting (`<script>`)**](script.md) | In-process pure-Go **Yaegi** (`host/vars`, `host/db`) and **Gopher-Lua** (`vars`) interpreters plus external shells (`pwsh`, `powershell`, `bash`, `sh`, `cmd`, `zsh`, `csx`). |
+| [**Embedded Lua Scripting (`<script language="lua">`)**](lua.md) | Zero-dependency Lua 5.1 VM (`Gopher-Lua`), global `vars` registry bridge, bidirectional Go↔Lua table marshaling, and `.lua` file execution. |
 | [**Text Templates (`<template>`)**](template.md) | Dynamic SQL, JSON, and report generation using Go's `text/template` engine and helper functions. |
 | [**HTML Templates (`<template_html>`)**](template_html.md) | Context-aware XSS-safe HTML email and dashboard rendering using Go's `html/template` engine. |
 | [**Comparing `<template>` and `<template_html>`**](template_and_template_html.md) | Side-by-side comparison of raw text interpolation vs. automatic HTML contextual escaping. |
@@ -342,7 +343,7 @@ go build -o crypto_tool.exe ./crypto_tool
 | **Database & KV** | `<sql>` | Single or multi-statement SQL query/DML execution | [sql.md](sql.md) |
 | **Database & KV** | `<sql_bulk>` | High-speed $O(1)$ cross-database streaming bulk copy | [sql_bulk.md](sql_bulk.md) |
 | **Database & KV** | `<kv>` / `<kv_bulk>` | NoSQL Key-Value operations & SQL-to-KV bulk streaming (`bbolt`, `badger`, `redis`, `etcd`) | [kv.md](kv.md) |
-| **Code & Templates** | `<script>` | Embedded Go (`Yaegi`) & shell scripts (`pwsh`, `bash`, `cmd`, `zsh`, `csx`) | [script.md](script.md) |
+| **Code & Templates** | `<script>` | Embedded Go (`Yaegi`) & Lua (`Gopher-Lua`), plus shell scripts (`pwsh`, `bash`, `cmd`, `zsh`, `csx`) | [script.md](script.md) / [lua.md](lua.md) |
 | **Code & Templates** | `<template>` | Go `text/template` dynamic text/SQL/JSON rendering | [template.md](template.md) |
 | **Code & Templates** | `<template_html>` | Go `html/template` XSS-safe HTML rendering | [template_html.md](template_html.md) |
 | **Web & Extraction** | `<http_client>` | REST/HTTP client with TLS, proxy, timeout, and header controls | [http_client.md](http_client.md) |

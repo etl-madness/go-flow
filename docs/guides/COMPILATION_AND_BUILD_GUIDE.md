@@ -501,11 +501,12 @@ go test -v ./db_importer
 
 ## 10. Optional External Script Runtimes (`dotnet-script` & PowerShell `pwsh`)
 
-By default, `<script language="go">` runs **in-process** via the embedded pure-Go **Yaegi** interpreter and requires zero external tools. However, if your pipelines use C# scripts (`<script language="csx">`) or cross-platform PowerShell 7+ (`<script language="pwsh">`), you can install those optional runtimes from the command line as shown below.
+By default, both `<script language="go">` (powered by **Yaegi**) and `<script language="lua">` (powered by **Gopher-Lua**) run **in-process** inside the `flow` binary and require zero external tools. However, if your pipelines use C# scripts (`<script language="csx">`) or cross-platform PowerShell 7+ (`<script language="pwsh">`), you can install those optional runtimes from the command line as shown below.
 
 | `<script>` Language Attribute | Runtime Binary Invoked | Bundled in `flow`? | When Installation Is Needed |
 | :--- | :--- | :--- | :--- |
 | `language="go"` | Embedded **Yaegi** engine | **Yes (Built-in)** | Never — compiled directly into `flow`. |
+| `language="lua"` | Embedded **Gopher-Lua** VM | **Yes (Built-in)** | Never — compiled directly into `flow`. |
 | `language="sh"` / `"bash"` / `"zsh"` / `"cmd"` | Host OS shell | **OS Built-in** | Included on standard POSIX / Windows hosts. |
 | `language="csx"` | `dotnet-script` | Optional external | Required only if pipelines execute C# `.csx` `<script>` nodes. |
 | `language="pwsh"` | `pwsh` (PowerShell 7+) | Optional external | Required on Linux, macOS, FreeBSD (or Windows for PS7+) when using `language="pwsh"`. |

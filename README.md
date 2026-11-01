@@ -1,4 +1,5 @@
-# Flow: Modern, Lightweight ETL & Workflow Orchestration Engine (v1.1.24)
+
+# Flow: Modern, Lightweight ETL & Workflow Orchestration Engine (v1.1.27)
 
 **Flow** is a single-binary, high-performance ETL execution engine and workflow orchestrator built in Go. Designed as a modern alternative to bloated legacy ETL tools (e.g., SSIS) and complex code-heavy orchestrators (e.g., Apache Airflow), Flow combines declarative XML pipelines, an embedded visual HTMX web builder, native cross-database execution, automated compliance telemetry, and built-in cryptographic security (AES-256-GCM encryption & multi-standard digital signatures).
 

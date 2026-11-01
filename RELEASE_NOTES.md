@@ -1,5 +1,13 @@
 # Release Notes
 
+## Release Notes (v1.1.27) - `flowcrypto` Package Relocation
+
+### Overview
+
+Version 1.1.27 moves `flowcrypto` under the Flow package.
+
+---
+
 ## Release Notes (v1.1.26) - Opt-In Node Output Database Logging (`-node-output` & `pipeline_events.node_output`)
 
 ### Overview

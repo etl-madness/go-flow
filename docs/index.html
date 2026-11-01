@@ -456,7 +456,7 @@
         <nav class="nav-links">
             <a href="#overview" class="hub-nav">Why Flow?</a>
             <a href="#lifecycle" class="hub-nav">Architecture</a>
-            <a href="#docs-directory" class="hub-nav">All 51 Docs</a>
+            <a href="#docs-directory" class="hub-nav">All 52 Docs</a>
             <a href="#visual-builder" class="hub-nav">Visual Studio</a>
             <a href="#quickstart" class="hub-nav">Quick Start</a>
             <a href="#ast-matrix" class="hub-nav">AST Matrix</a>
@@ -472,7 +472,7 @@
             <p class="lead">
                 Single-binary, zero-dependency enterprise ETL &amp; workflow orchestration engine written in Go.
                 Combines Git-friendly declarative XML pipelines with an embedded HTMX visual studio (<code>-builder</code>),
-                O(1)-memory bulk streaming replication, in-process Go scripting (Yaegi), AES-256-GCM encryption, and multi-standard digital signatures.
+                O(1)-memory bulk streaming replication, in-process Go (Yaegi) &amp; Lua (Gopher-Lua) scripting, AES-256-GCM encryption, and multi-standard digital signatures.
             </p>
             <div class="hero-pills">
                 <span class="pill"><strong>Runtime:</strong> Single Static Binary (<code>flow.exe</code> / <code>flow</code>)</span>
@@ -482,7 +482,7 @@
                 <span class="pill"><strong>Markdown Index:</strong> <a href="index.md">index.md</a></span>
             </div>
             <div class="search-bar">
-                <input type="search" id="docSearch" placeholder="🔍 Filter all 51 documentation guides, XML tags (<sql_bulk>, <parallel>, <kv>...), or CLI flags..." aria-label="Search documentation">
+                <input type="search" id="docSearch" placeholder="🔍 Filter all 52 documentation guides, XML tags (<sql_bulk>, <parallel>, <kv>, <script language='lua'>...), or CLI flags..." aria-label="Search documentation">
             </div>
         </div>
 
@@ -522,7 +522,7 @@
                             <td><strong>In-Process Scripting</strong></td>
                             <td>Native Python (dependency conflicts common)</td>
                             <td>C# / VB (requires compilation/GAC)</td>
-                            <td><strong>Embedded Go (Yaegi) + PowerShell, Bash, Cmd, Zsh, CSX</strong></td>
+                            <td><strong>Embedded Go (Yaegi) &amp; Lua (Gopher-Lua) + PowerShell, Bash, Cmd, Zsh, CSX</strong></td>
                         </tr>
                         <tr>
                             <td><strong>Cryptographic Security</strong></td>
@@ -826,9 +826,16 @@
                 <div class="doc-card">
                     <div>
                         <h4><a href="script.md">Polyglot Scripting (&lt;script&gt;)</a></h4>
-                        <p>In-process pure-Go Yaegi interpreter (<code>host/vars</code>, <code>host/db</code>) plus external shells (<code>pwsh</code>, <code>powershell</code>, <code>bash</code>, <code>sh</code>, <code>cmd</code>, <code>zsh</code>, <code>csx</code>).</p>
+                        <p>In-process pure-Go Yaegi (<code>host/vars</code>, <code>host/db</code>) and Gopher-Lua (<code>vars</code>) interpreters plus external shells (<code>pwsh</code>, <code>powershell</code>, <code>bash</code>, <code>sh</code>, <code>cmd</code>, <code>zsh</code>, <code>csx</code>).</p>
                     </div>
                     <div class="doc-meta"><span>script.md</span><span>Scripting</span></div>
+                </div>
+                <div class="doc-card">
+                    <div>
+                        <h4><a href="lua.md">Embedded Lua Scripting (&lt;script language="lua"&gt;)</a></h4>
+                        <p>Zero-dependency Lua 5.1 VM (Gopher-Lua), global <code>vars</code> registry bridge, bidirectional Go↔Lua table marshaling, and <code>.lua</code> file execution.</p>
+                    </div>
+                    <div class="doc-meta"><span>lua.md</span><span>Embedded Lua</span></div>
                 </div>
                 <div class="doc-card">
                     <div>
@@ -1049,7 +1056,7 @@
                         <tr><td>Database &amp; KV</td><td><code>&lt;sql&gt;</code></td><td>Single or multi-statement SQL query/DML execution</td><td><a href="sql.md">sql.md</a></td></tr>
                         <tr><td>Database &amp; KV</td><td><code>&lt;sql_bulk&gt;</code></td><td>High-speed O(1) cross-database streaming bulk copy</td><td><a href="sql_bulk.md">sql_bulk.md</a></td></tr>
                         <tr><td>Database &amp; KV</td><td><code>&lt;kv&gt;</code> / <code>&lt;kv_bulk&gt;</code></td><td>NoSQL Key-Value operations &amp; SQL-to-KV bulk streaming (<code>bbolt</code>, <code>badger</code>, <code>redis</code>, <code>etcd</code>)</td><td><a href="kv.md">kv.md</a></td></tr>
-                        <tr><td>Code &amp; Templates</td><td><code>&lt;script&gt;</code></td><td>Embedded Go (<code>Yaegi</code>) &amp; shell scripts (<code>pwsh</code>, <code>bash</code>, <code>cmd</code>, <code>zsh</code>, <code>csx</code>)</td><td><a href="script.md">script.md</a></td></tr>
+                        <tr><td>Code &amp; Templates</td><td><code>&lt;script&gt;</code></td><td>Embedded Go (<code>Yaegi</code>) &amp; Lua (<code>Gopher-Lua</code>), plus shell scripts (<code>pwsh</code>, <code>bash</code>, <code>cmd</code>, <code>zsh</code>, <code>csx</code>)</td><td><a href="script.md">script.md</a> / <a href="lua.md">lua.md</a></td></tr>
                         <tr><td>Code &amp; Templates</td><td><code>&lt;template&gt;</code></td><td>Go <code>text/template</code> dynamic text/SQL/JSON rendering</td><td><a href="template.md">template.md</a></td></tr>
                         <tr><td>Code &amp; Templates</td><td><code>&lt;template_html&gt;</code></td><td>Go <code>html/template</code> XSS-safe HTML rendering</td><td><a href="template_html.md">template_html.md</a></td></tr>
                         <tr><td>Web &amp; Extraction</td><td><code>&lt;http_client&gt;</code></td><td>REST/HTTP client with TLS, proxy, timeout, and header controls</td><td><a href="http_client.md">http_client.md</a></td></tr>
