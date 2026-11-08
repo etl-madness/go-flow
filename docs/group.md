@@ -220,7 +220,7 @@ Demonstrates debiting one account, crediting another, and writing an audit trail
 
     <databases>
         <database name="core_banking" driver="postgres"
-                  connection_string="postgresql://app_user:Secret123@db.internal:5432/banking?sslmode=require" />
+                  connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@db.internal:5432/banking?sslmode=require" />
     </databases>
 
     <flow>
@@ -308,7 +308,7 @@ Demonstrates verifying an external API health check before running a group that 
 
     <databases>
         <database name="stage_db" driver="postgres"
-                  connection_string="postgresql://app:pass@localhost:5432/staging" />
+                  connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/staging" />
     </databases>
 
     <flow>
@@ -402,9 +402,9 @@ Demonstrates running multi-regional partition archiving concurrently across 3 wo
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
-        <database name="eu_db" driver="postgres" connection_string="postgresql://app:pass@eu-db:5432/main" />
-        <database name="us_db" driver="postgres" connection_string="postgresql://app:pass@us-db:5432/main" />
-        <database name="ap_db" driver="postgres" connection_string="postgresql://app:pass@ap-db:5432/main" />
+        <database name="eu_db" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@eu-db:5432/main" />
+        <database name="us_db" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@us-db:5432/main" />
+        <database name="ap_db" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@ap-db:5432/main" />
     </databases>
 
     <flow>

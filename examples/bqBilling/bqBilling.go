@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -150,32 +151,52 @@ func main() {
 	}
 
 	w := bufio.NewWriter(os.Stdout)
-	defer w.Flush()
+	if err := writeBillingRows(w, it); err != nil {
+		log.Fatal(err)
+	}
+	if err := w.Flush(); err != nil {
+		log.Fatalf("Error flushing billing output: %v", err)
+	}
+}
 
-	w.WriteString("[\n")
+type billingRowIterator interface {
+	Next(dst interface{}) error
+}
+
+func writeBillingRows(w io.Writer, rows billingRowIterator) error {
+	if _, err := io.WriteString(w, "[\n"); err != nil {
+		return fmt.Errorf("error writing billing output: %w", err)
+	}
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("  ", "  ")
 
 	first := true
 	for {
 		var row BillingExportRow
-		err := it.Next(&row)
+		err := rows.Next(&row)
 		if err == iterator.Done {
 			break
 		}
 		if err != nil {
-			log.Fatalf("Error iterating billing rows: %v", err)
+			return fmt.Errorf("error iterating billing rows: %w", err)
 		}
 
 		if !first {
-			w.WriteString(",\n")
+			if _, err := io.WriteString(w, ",\n"); err != nil {
+				return fmt.Errorf("error writing billing output: %w", err)
+			}
 		}
 		first = false
 
-		w.WriteString("  ")
+		if _, err := io.WriteString(w, "  "); err != nil {
+			return fmt.Errorf("error writing billing output: %w", err)
+		}
 		if err := encoder.Encode(row); err != nil {
-			log.Fatalf("Error encoding record to JSON: %v", err)
+			return fmt.Errorf("error encoding record to JSON: %w", err)
 		}
 	}
-	w.WriteString("\n]\n")
+	if _, err := io.WriteString(w, "\n]\n"); err != nil {
+		return fmt.Errorf("error writing billing output: %w", err)
+	}
+	return nil
 }

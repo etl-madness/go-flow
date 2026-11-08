@@ -122,6 +122,38 @@ func (s *Server) getActiveScript(r *http.Request) (Script, error) {
 	return s.storage.GetOrCreateDefaultScript()
 }
 
+func (s *Server) loadCanvasData(r *http.Request) (PageData, error) {
+	activeScript, err := s.getActiveScript(r)
+	if err != nil {
+		return PageData{}, err
+	}
+
+	data := PageData{ActiveScript: activeScript}
+	for _, section := range []struct {
+		name  string
+		label string
+		tree  bool
+		dest  *[]PipelineNode
+	}{
+		{"variables", "variable", false, &data.VariableNodes},
+		{"databases", "database", false, &data.DatabaseNodes},
+		{"preflight", "preflight", true, &data.PreflightNodes},
+		{"flow", "flow", true, &data.FlowNodes},
+	} {
+		var nodes []PipelineNode
+		if section.tree {
+			nodes, err = s.storage.GetNodeTree(activeScript.ID, section.name)
+		} else {
+			nodes, err = s.storage.GetNodes(activeScript.ID, section.name)
+		}
+		if err != nil {
+			return PageData{}, fmt.Errorf("failed to get %s nodes: %w", section.label, err)
+		}
+		*section.dest = nodes
+	}
+	return data, nil
+}
+
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	scripts, err := s.storage.ListScripts()
 	if err != nil {
@@ -129,30 +161,9 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	activeScript, err := s.getActiveScript(r)
+	data, err := s.loadCanvasData(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	varNodes, err := s.storage.GetNodes(activeScript.ID, "variables")
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get variable nodes: %v", err), http.StatusInternalServerError)
-		return
-	}
-	dbNodes, err := s.storage.GetNodes(activeScript.ID, "databases")
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get database nodes: %v", err), http.StatusInternalServerError)
-		return
-	}
-	preNodes, err := s.storage.GetNodeTree(activeScript.ID, "preflight")
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get preflight nodes: %v", err), http.StatusInternalServerError)
-		return
-	}
-	flowNodes, err := s.storage.GetNodeTree(activeScript.ID, "flow")
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get flow nodes: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -165,20 +176,12 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := PageData{
-		AllScripts:            scripts,
-		ActiveScript:          activeScript,
-		Components:            s.catalog.Components,
-		Categories:            s.catalog.Categories,
-		CatalogJSON:           template.JS(catJSON),
-		VariableNodes:         varNodes,
-		DatabaseNodes:         dbNodes,
-		PreflightNodes:        preNodes,
-		FlowNodes:             flowNodes,
-		DefaultConfigContent:  configContent,
-		DefaultOptionsContent: optionsContent,
-		CSRFToken:             "",
-	}
+	data.AllScripts = scripts
+	data.Components = s.catalog.Components
+	data.Categories = s.catalog.Categories
+	data.CatalogJSON = template.JS(catJSON)
+	data.DefaultConfigContent = configContent
+	data.DefaultOptionsContent = optionsContent
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.template.Execute(w, data); err != nil {
@@ -187,39 +190,10 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCanvas(w http.ResponseWriter, r *http.Request) {
-	activeScript, err := s.getActiveScript(r)
+	data, err := s.loadCanvasData(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}
-
-	varNodes, err := s.storage.GetNodes(activeScript.ID, "variables")
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get variable nodes: %v", err), http.StatusInternalServerError)
-		return
-	}
-	dbNodes, err := s.storage.GetNodes(activeScript.ID, "databases")
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get database nodes: %v", err), http.StatusInternalServerError)
-		return
-	}
-	preNodes, err := s.storage.GetNodeTree(activeScript.ID, "preflight")
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get preflight nodes: %v", err), http.StatusInternalServerError)
-		return
-	}
-	flowNodes, err := s.storage.GetNodeTree(activeScript.ID, "flow")
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get flow nodes: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	data := PageData{
-		ActiveScript:   activeScript,
-		VariableNodes:  varNodes,
-		DatabaseNodes:  dbNodes,
-		PreflightNodes: preNodes,
-		FlowNodes:      flowNodes,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -997,6 +971,28 @@ func (s *Server) handleTestDatabase(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) getLogDatabase(w http.ResponseWriter, dbIDStr string) *SavedDatabaseConnection {
+	dbID, err := strconv.ParseInt(dbIDStr, 10, 64)
+	if err != nil || dbID <= 0 {
+		http.Error(w, "Invalid db_id parameter", http.StatusBadRequest)
+		return nil
+	}
+	conn, err := s.storage.GetSavedDatabaseConnection(dbID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "Database connection not found", http.StatusNotFound)
+			return nil
+		}
+		http.Error(w, fmt.Sprintf("Failed to fetch database connection: %v", err), http.StatusInternalServerError)
+		return nil
+	}
+	if conn == nil {
+		http.Error(w, "Database connection not found", http.StatusNotFound)
+		return nil
+	}
+	return conn
+}
+
 func (s *Server) handleListLogRuns(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -1008,23 +1004,8 @@ func (s *Server) handleListLogRuns(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing db_id parameter", http.StatusBadRequest)
 		return
 	}
-	dbID, err := strconv.ParseInt(dbIDStr, 10, 64)
-	if err != nil || dbID <= 0 {
-		http.Error(w, "Invalid db_id parameter", http.StatusBadRequest)
-		return
-	}
-
-	conn, err := s.storage.GetSavedDatabaseConnection(dbID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			http.Error(w, "Database connection not found", http.StatusNotFound)
-			return
-		}
-		http.Error(w, fmt.Sprintf("Failed to fetch database connection: %v", err), http.StatusInternalServerError)
-		return
-	}
+	conn := s.getLogDatabase(w, dbIDStr)
 	if conn == nil {
-		http.Error(w, "Database connection not found", http.StatusNotFound)
 		return
 	}
 
@@ -1108,23 +1089,8 @@ func (s *Server) handleListLogEvents(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing db_id or run_id parameter", http.StatusBadRequest)
 		return
 	}
-	dbID, err := strconv.ParseInt(dbIDStr, 10, 64)
-	if err != nil || dbID <= 0 {
-		http.Error(w, "Invalid db_id parameter", http.StatusBadRequest)
-		return
-	}
-
-	conn, err := s.storage.GetSavedDatabaseConnection(dbID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			http.Error(w, "Database connection not found", http.StatusNotFound)
-			return
-		}
-		http.Error(w, fmt.Sprintf("Failed to fetch database connection: %v", err), http.StatusInternalServerError)
-		return
-	}
+	conn := s.getLogDatabase(w, dbIDStr)
 	if conn == nil {
-		http.Error(w, "Database connection not found", http.StatusNotFound)
 		return
 	}
 
@@ -1243,41 +1209,14 @@ func (s *Server) handleSaveFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
-	if !s.validateCSRF(r) {
-		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
-		return
-	}
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		Name    string `json:"name"`
-		Content string `json:"content"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	writePath, err := s.sanitizeWritePath(req.Name)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err := s.storage.SaveConfigFile(req.Name, req.Content); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	_ = os.WriteFile(writePath, []byte(req.Content), 0644)
-
-	w.WriteHeader(http.StatusOK)
+	s.handleSaveSettings(w, r, s.storage.SaveConfigFile)
 }
 
 func (s *Server) handleSaveOptions(w http.ResponseWriter, r *http.Request) {
+	s.handleSaveSettings(w, r, s.storage.SaveOptionsFile)
+}
+
+func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request, save func(string, string) error) {
 	if !s.validateCSRF(r) {
 		http.Error(w, "Invalid CSRF token", http.StatusForbidden)
 		return
@@ -1302,7 +1241,7 @@ func (s *Server) handleSaveOptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.storage.SaveOptionsFile(req.Name, req.Content); err != nil {
+	if err := save(req.Name, req.Content); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

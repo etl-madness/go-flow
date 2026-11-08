@@ -10,7 +10,7 @@ This section provides an example of how to describe a pipeline, including its pu
     <databases>
         <database name="sales_db" 
                   driver="postgres" 
-                  connection_string="host=localhost port=5432 user=postgres password=secret dbname=sales sslmode=disable" 
+                  connection_string="host=localhost port=5432 user={{PG_USER}} password={{PG_PASSWORD}} dbname=sales sslmode=disable"
                   description="Primary Analytics Database" />
     </databases>
 

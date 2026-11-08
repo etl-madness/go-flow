@@ -164,7 +164,7 @@ Generate dynamic SQL statements based on runtime parameters and execute them wit
     </variables>
 
     <databases>
-        <database name="app_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/appdb" />
+        <database name="app_db" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/appdb" />
     </databases>
 
     <flow>

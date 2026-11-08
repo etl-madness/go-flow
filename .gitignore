@@ -28,4 +28,8 @@ go.work.sum
 *.njsproj
 *.sln
 *.sw?
+.scannerwork/
+.sonarqube/
+sonar-project.properties
+run-sonarqube.ps1
 temp_run_script.*

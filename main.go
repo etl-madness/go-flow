@@ -112,7 +112,7 @@ func resolveSecureKeyWithFile(cliKey, keyFilePath string) string {
 	return ""
 }
 
-func exportFromDatabase(dsn, itemType, name string) (string, error) {
+func importExportDriver(dsn string) (string, string) {
 	driver := "sqlserver"
 	cleanDSN := dsn
 	if strings.HasPrefix(dsn, "sql://") || strings.HasPrefix(dsn, "db://") {
@@ -127,7 +127,11 @@ func exportFromDatabase(dsn, itemType, name string) (string, error) {
 	} else if strings.HasPrefix(dsn, "mysql://") {
 		driver = "mysql"
 	}
+	return driver, cleanDSN
+}
 
+func exportFromDatabase(dsn, itemType, name string) (string, error) {
+	driver, cleanDSN := importExportDriver(dsn)
 	db, err := sql.Open(driver, cleanDSN)
 	if err != nil {
 		return "", fmt.Errorf("failed connecting to database: %w", err)
@@ -169,21 +173,7 @@ func exportFromDatabase(dsn, itemType, name string) (string, error) {
 }
 
 func importToDatabase(dsn, itemType, name, desc, content string) error {
-	driver := "sqlserver"
-	cleanDSN := dsn
-	if strings.HasPrefix(dsn, "sql://") || strings.HasPrefix(dsn, "db://") {
-		raw := strings.TrimPrefix(strings.TrimPrefix(dsn, "sql://"), "db://")
-		parts := strings.SplitN(raw, "@", 2)
-		if len(parts) == 2 {
-			driver = strings.ToLower(strings.TrimSpace(parts[0]))
-			cleanDSN = parts[1]
-		}
-	} else if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
-		driver = "postgres"
-	} else if strings.HasPrefix(dsn, "mysql://") {
-		driver = "mysql"
-	}
-
+	driver, cleanDSN := importExportDriver(dsn)
 	db, err := sql.Open(driver, cleanDSN)
 	if err != nil {
 		return fmt.Errorf("failed connecting to database: %w", err)

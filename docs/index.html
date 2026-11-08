@@ -1130,8 +1130,9 @@
     </div>
 
     <script src="docs_bundle.js"></script>
+    <script src="sanitize_mermaid.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.8/dist/mermaid.min.js" integrity="sha384-N3QqR/7q+xm3BGX+CBbNI8AUmRRqcsDzToy+0z1NLDI0QmTKW8zvwLvqulJgk3dP" crossorigin="anonymous"></script>
     <script>
         // 1. Live Hub Search Filter
         const searchInput = document.getElementById('docSearch');
@@ -1300,14 +1301,6 @@
             } catch (err) {
                 mdContent.innerHTML = `<div style="color:#f87171; padding:1rem;">Failed to load <code>${docPath}</code>: ${err.message}</div>`;
             }
-        }
-
-        function sanitizeMermaidSource(src) {
-            // Preserve <br/> and <br>, escape raw XML tags like <foreach> or <group ...> inside quoted labels
-            return src.trim()
-                .replace(/<br\s*\/?>/gi, '___BR___')
-                .replace(/<(\/?[a-zA-Z_][\w:.-]*(?:\s+[^>\n"]*)?)>/g, '&lt;$1&gt;')
-                .replace(/___BR___/g, '<br/>');
         }
 
         const HUB_MERMAID_SOURCE = `flowchart TD

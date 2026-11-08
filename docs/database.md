@@ -8,7 +8,7 @@ Flow features native, high-performance integration with both relational SQL data
 
 | Engine / Store | Driver Identifier(s) | Type | Connection String Example | Primary Workload & Capabilities |
 | :--- | :--- | :--- | :--- | :--- |
-| **PostgreSQL** | `postgres`, `postgresql`, `pq` | Relational SQL | `postgresql://user:pass@localhost:5432/dbname?sslmode=disable` | OLTP, high-throughput bulk ETL, JSON analytics |
+| **PostgreSQL** | `postgres`, `postgresql`, `pq` | Relational SQL | `postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/dbname?sslmode=disable` | OLTP, high-throughput bulk ETL, JSON analytics |
 | **SQLite** | `sqlite`, `sqlite3` | Embedded SQL | `file::memory:?cache=shared` or `./app.db` | Local development, testing, caching, zero-config persistence |
 | **MySQL** | `mysql` | Relational SQL | `user:pass@tcp(localhost:3306)/dbname?parseTime=true` | Web OLTP, read replicas, batch ingestion |
 | **SQL Server** | `sqlserver`, `mssql` | Relational SQL | `sqlserver://sa:pass@localhost:1433?database=dbname` | Enterprise OLTP, analytics, fast bulk copies (`tablock`) |
@@ -60,7 +60,7 @@ These workload labels are not limited to a single database engine; they describe
 <databases>
     <database name="analytics_db"
               driver="postgres"
-              connection_string="host=localhost port=5432 user=app password=secret dbname=analytics sslmode=disable"
+              connection_string="host=localhost port=5432 user={{PG_USER}} password={{PG_PASSWORD}} dbname=analytics sslmode=disable"
               max_open_conns="25"
               max_idle_conns="10"
               conn_max_lifetime_seconds="300"
@@ -78,7 +78,7 @@ Use a larger pool for high-throughput bulk workloads and a shorter idle lifetime
 <databases>
     <database name="warehouse_db"
               driver="postgres"
-              connection_string="host=warehouse.internal port=5432 user=loader password=secret dbname=warehouse sslmode=disable"
+              connection_string="host=warehouse.internal port=5432 user={{PG_USER}} password={{PG_PASSWORD}} dbname=warehouse sslmode=disable"
               max_open_conns="80"
               max_idle_conns="20"
               conn_max_lifetime_seconds="180"
@@ -190,7 +190,7 @@ Filter database records dynamically utilizing pipeline environment variables.
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
-        <database name="production_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/prod" />
+        <database name="production_db" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/prod" />
     </databases>
     <variables>
         <variable name="MIN_RATING" type="float" value="4.5" />
@@ -244,7 +244,7 @@ Consolidate multiple database reports into separate tabs inside a single `.xlsx`
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
-        <database name="retail_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/retail" />
+        <database name="retail_db" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/retail" />
     </databases>
     <flow>
         <!-- Tab 1: Store Sales Overview -->
@@ -280,7 +280,7 @@ Build a complete end-to-end data staging, bulk copy, and multi-tab Excel dashboa
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
-        <database name="crm_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/crm" />
+        <database name="crm_db" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/crm" />
         <database name="reporting_warehouse" driver="sqlite" connection_string="./warehouse.db" />
     </databases>
     <flow>
@@ -337,7 +337,7 @@ Extract data from a spreadsheet using `<excel_read>` and write it to a database 
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
-        <database name="inventory_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/inventory" />
+        <database name="inventory_db" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/inventory" />
     </databases>
     <flow>
         <!-- 1. Extract spreadsheet data into a pipeline variable containing JSON string -->
@@ -406,7 +406,7 @@ Flow implements a thread-safe transaction stack (`activeTxs`):
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
-        <database name="finance_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/finance" />
+        <database name="finance_db" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/finance" />
     </databases>
     <flow>
         <!-- Outer transaction boundary with a 30s deadline -->
@@ -444,7 +444,7 @@ If your database engine supports native JSON processing functions, you can pass 
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
-        <database name="store_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/store" />
+        <database name="store_db" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/store" />
     </databases>
     <flow>
         <!-- 1. Extract spreadsheet rows to a variable containing a JSON array string -->
@@ -552,7 +552,7 @@ Streams key-value projections from a relational SQL database straight into a Key
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
-        <database name="sql_catalog" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/store" />
+        <database name="sql_catalog" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/store" />
         <database name="fast_redis" driver="redis" connection_string="redis://localhost:6379/0" />
         <database name="embedded_badger" driver="badger" connection_string="./data/product_cache" />
     </databases>

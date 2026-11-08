@@ -10,7 +10,7 @@ The table below outlines each database and storage engine supported by `go-flow`
 
 | Database / Engine | Driver Aliases | Underlying Go Library | Default Port | Primary DSN Schemes | Key Capabilities | Safe Default Example |
 | :--- | :--- | :--- | :---: | :--- | :--- | :--- |
-| **PostgreSQL** | `postgres`<br>`postgresql`<br>`pq` | `github.com/lib/pq` | `5432` | `postgresql://`<br>`postgres://`<br>`host=...` (Key-Value) | Full SSL/TLS (mTLS), schema `search_path`, session timeouts, binary parameters, connection keepalives | `postgresql://user:pass@localhost:5432/mydb?sslmode=disable` |
+| **PostgreSQL** | `postgres`<br>`postgresql`<br>`pq` | `github.com/lib/pq` | `5432` | `postgresql://`<br>`postgres://`<br>`host=...` (Key-Value) | Full SSL/TLS (mTLS), schema `search_path`, session timeouts, binary parameters, connection keepalives | `postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/mydb?sslmode=disable` |
 | **MySQL & MariaDB** | `mysql` | `github.com/go-sql-driver/mysql` | `3306` | `user:pass@tcp(host:port)/db`<br>`user:pass@unix(socket)/db` | Datetime parsing (`parseTime`), TLS/SSL, bulk parameter interpolation (`interpolateParams`), multi-statements, packet sizing | `user:pass@tcp(localhost:3306)/mydb?parseTime=true&loc=UTC` |
 | **Microsoft SQL Server & Azure SQL** | `sqlserver`<br>`mssql`<br>`azuresql` | `github.com/microsoft/go-mssqldb`<br>(incl. `/azuread`) | `1433` | `sqlserver://`<br>`server=...;` (ADO.NET) | TLS encryption, self-signed cert trust, named instances, Kerberos/AD auth, Microsoft Entra (`fedauth`), MultiSubnetFailover (Always On AG), packet sizing (`packet size`), MARS | `sqlserver://sa:pass@localhost:1433?database=mydb&encrypt=disable` |
 | **SQLite** | `sqlite`<br>`sqlite3` | `modernc.org/sqlite` | N/A | `file:...`<br>`:memory:`<br>`/path/to/file.db` | Pure Go (zero CGO), WAL journal mode, busy timeouts, RAM caches, shared in-memory caches, read-only immutable mounts | `file:app.db?cache=shared&mode=rwc&_pragma=journal_mode(WAL)` |
@@ -22,7 +22,7 @@ The table below outlines each database and storage engine supported by `go-flow`
 
 > [!IMPORTANT]
 > **XML Entity Escaping**: When defining connection strings inside XML pipeline files (`<database connection_string="..." />`) or options files (`<options><dsn>...</dsn></options>`), all literal ampersands (`&`) separating URL query parameters **must be escaped as `&amp;`**.
-> * Example: `postgresql://user:pass@localhost:5432/db?sslmode=disable&amp;connect_timeout=10`
+> * Example: `postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/db?sslmode=disable&amp;connect_timeout=10`
 
 ---
 
@@ -48,6 +48,21 @@ The following table summarizes common operational categories and how they are co
 ## 3. PostgreSQL
 
 The PostgreSQL driver (`github.com/lib/pq`) supports two distinct connection string formats: **URI format** (`postgresql://...`) and **Key-Value format** (`host=... port=...`).
+
+The URI examples use `{{PG_USER}}` and `{{PG_PASSWORD}}` as placeholders, not actual credentials. Supply these as Flow pipeline variables through your configuration when using XML examples; they are not automatically read from environment variables. URI-encode username and password values when they contain reserved characters.
+
+For applications building a URI directly, read credentials from the environment instead of embedding them:
+
+```python
+import os
+from urllib.parse import quote
+
+user = quote(os.environ["PG_USER"], safe="")
+password = quote(os.environ["PG_PASSWORD"], safe="")
+uri = f"postgresql://{user}:{password}@example.com/testdb"
+```
+
+Keep the resulting URI out of logs and command-line arguments where possible: passing credentials on a command line may expose them to other processes.
 
 ### Available Options Reference
 
@@ -75,23 +90,23 @@ The PostgreSQL driver (`github.com/lib/pq`) supports two distinct connection str
 
 #### Example 1: Local Development (Plaintext / No SSL)
 ```text
-postgresql://postgres:localDevPass123@localhost:5432/app_db?sslmode=disable
+postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/app_db?sslmode=disable
 ```
 *Equivalent Key-Value format:*
 ```text
-host=localhost port=5432 user=postgres password=localDevPass123 dbname=app_db sslmode=disable
+host=localhost port=5432 user={{PG_USER}} password={{PG_PASSWORD}} dbname=app_db sslmode=disable
 ```
 
 #### Example 2: Production Cloud Database (AWS RDS / GCP Cloud SQL / Neon / Supabase)
 Requires TLS encryption with connection timeout and UTC session timezone:
 ```text
-postgresql://app_user:StrongProdPass2026!@db.internal.company.com:5432/analytics_prod?sslmode=require&connect_timeout=10&timezone=UTC&application_name=flow_pipeline
+postgresql://{{PG_USER}}:{{PG_PASSWORD}}@db.internal.company.com:5432/analytics_prod?sslmode=require&connect_timeout=10&timezone=UTC&application_name=flow_pipeline
 ```
 *XML pipeline syntax (note the escaped `&amp;`):*
 ```xml
 <database name="analytics_db"
           driver="postgres"
-          connection_string="postgresql://app_user:StrongProdPass2026!@db.internal.company.com:5432/analytics_prod?sslmode=require&amp;connect_timeout=10&amp;timezone=UTC&amp;application_name=flow_pipeline" />
+          connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@db.internal.company.com:5432/analytics_prod?sslmode=require&amp;connect_timeout=10&amp;timezone=UTC&amp;application_name=flow_pipeline" />
 ```
 
 #### Example 3: High-Security Mutual TLS (mTLS) with Root CA Verification
@@ -103,7 +118,7 @@ host=secure-db.internal port=5432 user=etl_service dbname=finance sslmode=verify
 #### Example 4: Schema Isolation with Search Path & Statement Guardrails
 Directs queries to the `staging` schema first and aborts long-running statements after 60 seconds:
 ```text
-postgresql://loader:SecretPass@db.internal:5432/warehouse?sslmode=require&search_path=staging,shared,public&statement_timeout=60000&application_name=batch_loader
+postgresql://{{PG_USER}}:{{PG_PASSWORD}}@db.internal:5432/warehouse?sslmode=require&search_path=staging,shared,public&statement_timeout=60000&application_name=batch_loader
 ```
 
 #### Example 5: High-Speed Local Unix Domain Socket
@@ -716,7 +731,7 @@ sql://<driver>@<connection_string>#<SQL_SELECT_QUERY>
 #### Examples:
 ```powershell
 # From PostgreSQL
-.\flow.exe -source "sql://postgres@postgresql://app:SecretPass@localhost:5432/pipelines?sslmode=disable#SELECT xml_content FROM pipeline_catalog WHERE pipeline_name = 'daily_sales'"
+.\flow.exe -source "sql://postgres@postgresql://$([uri]::EscapeDataString($env:PG_USER)):$([uri]::EscapeDataString($env:PG_PASSWORD))@localhost:5432/pipelines?sslmode=disable#SELECT xml_content FROM pipeline_catalog WHERE pipeline_name = 'daily_sales'"
 
 # From SQL Server
 .\flow.exe -source "sql://sqlserver@sqlserver://sa:SecretPass!@localhost:1433?database=master&encrypt=disable#SELECT definition_xml FROM dbo.etl_scripts WHERE id = 42"
