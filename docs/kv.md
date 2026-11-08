@@ -175,7 +175,7 @@ Stream 100,000+ user records directly from PostgreSQL into a local bbolt embedde
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
-        <database name="postgres_db" driver="postgres" connection_string="postgres://user:pass@localhost:5432/app?sslmode=disable" />
+        <database name="postgres_db" driver="postgres" connection_string="postgres://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/app?sslmode=disable" />
         <database name="cache_db" driver="bbolt" connection_string="./cache/lookup.db" />
     </databases>
 

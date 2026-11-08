@@ -86,7 +86,7 @@ Extracting rows into a pipeline variable formats the result as a structured JSON
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
-        <database name="oltp_pg" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/appdb" />
+        <database name="oltp_pg" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/appdb" />
     </databases>
 
     <flow>

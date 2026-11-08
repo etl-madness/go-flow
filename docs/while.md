@@ -252,7 +252,7 @@ Process a work queue in batches until no pending records remain in the queue tab
     </variables>
 
     <databases>
-        <database name="queue_db" connection_string="postgres://app:secret@localhost:5432/appdb?sslmode=disable" />
+        <database name="queue_db" connection_string="postgres://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/appdb?sslmode=disable" />
     </databases>
 
     <flow>

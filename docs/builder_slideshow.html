@@ -253,6 +253,8 @@
       border-radius: 8px;
       background: #020617;
       cursor: zoom-in;
+      border: 0;
+      width: 100%;
       position: relative;
     }
 
@@ -548,6 +550,8 @@
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
+      width: 100%;
+      text-align: left;
     }
 
     .overview-card:hover {
@@ -602,6 +606,23 @@
 
     .lightbox-modal.open {
       display: flex;
+    }
+
+    .lightbox-dismiss {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+    }
+
+    .nav-arrow:focus-visible, .media-preview-wrapper:focus-visible,
+    .overview-card:focus-visible, .lightbox-dismiss:focus-visible {
+      outline: 3px solid var(--accent-blue);
+      outline-offset: -3px;
     }
 
     .lightbox-img {
@@ -704,8 +725,8 @@
   <main class="slides-viewport" id="viewport">
     
     <!-- Prev / Next Floating Arrows -->
-    <div class="nav-arrow prev-btn" onclick="prevSlide()" title="Previous slide (Left Arrow)">❮</div>
-    <div class="nav-arrow next-btn" onclick="nextSlide()" title="Next slide (Right Arrow / Space)">❯</div>
+    <button type="button" class="nav-arrow prev-btn" aria-label="Previous slide" onclick="prevSlide()" title="Previous slide (Left Arrow)">❮</button>
+    <button type="button" class="nav-arrow next-btn" aria-label="Next slide" onclick="nextSlide()" title="Next slide (Right Arrow / Space)">❯</button>
 
     <!-- ================= SLIDE 1: Hero / Introduction ================= -->
     <section class="slide active" data-index="0">
@@ -813,10 +834,10 @@ flow -builder -builder-port 8080</pre>
       </div>
       <div class="slide-body-split">
         <div class="media-card">
-          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+          <button type="button" class="media-preview-wrapper" onclick="openLightbox(this)" aria-label="Zoom Builder Default Theme">
             <img src="screenshots/Builder_Default_Theme.png" alt="Builder Default Theme" onerror="this.onerror=null; this.src='docs/screenshots/Builder_Default_Theme.png';">
-            <div class="media-overlay-hint">🔍 Click to zoom</div>
-          </div>
+            <span class="media-overlay-hint" aria-hidden="true">🔍 Click to zoom</span>
+          </button>
           <div class="media-caption">
             <span>Visual Pipeline Designer · Slate (Default) Theme</span>
             <span><code>Builder_Default_Theme.png</code></span>
@@ -857,10 +878,10 @@ flow -builder -builder-port 8080</pre>
       </div>
       <div class="slide-body-split">
         <div class="media-card">
-          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+          <button type="button" class="media-preview-wrapper" onclick="openLightbox(this)" aria-label="Zoom Builder VS Light Theme">
             <img src="screenshots/Builder_VS_Light_Theme.png" alt="Builder VS Light Theme" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Light_Theme.png';">
-            <div class="media-overlay-hint">🔍 Click to zoom</div>
-          </div>
+            <span class="media-overlay-hint" aria-hidden="true">🔍 Click to zoom</span>
+          </button>
           <div class="media-caption">
             <span>Dynamic Re-theming · Visual Studio Light</span>
             <span><code>Builder_VS_Light_Theme.png</code></span>
@@ -895,10 +916,10 @@ flow -builder -builder-port 8080</pre>
       </div>
       <div class="slide-body-split">
         <div class="media-card">
-          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+          <button type="button" class="media-preview-wrapper" onclick="openLightbox(this)" aria-label="Zoom Builder VS Dark Theme">
             <img src="screenshots/Builder_VS_Dark_Theme.png" alt="Builder VS Dark Theme" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Theme.png';">
-            <div class="media-overlay-hint">🔍 Click to zoom</div>
-          </div>
+            <span class="media-overlay-hint" aria-hidden="true">🔍 Click to zoom</span>
+          </button>
           <div class="media-caption">
             <span>Developer Dark Mode · Visual Studio Dark</span>
             <span><code>Builder_VS_Dark_Theme.png</code></span>
@@ -932,10 +953,10 @@ flow -builder -builder-port 8080</pre>
       </div>
       <div class="slide-body-split">
         <div class="media-card">
-          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+          <button type="button" class="media-preview-wrapper" onclick="openLightbox(this)" aria-label="Zoom Loaded Pipeline with Component Search">
             <img src="screenshots/Builder_VS_Dark_Loaded_Saved_if_testing_with_search.png" alt="Loaded Pipeline with Component Search" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Loaded_Saved_if_testing_with_search.png';">
-            <div class="media-overlay-hint">🔍 Click to zoom</div>
-          </div>
+            <span class="media-overlay-hint" aria-hidden="true">🔍 Click to zoom</span>
+          </button>
           <div class="media-caption">
             <span>Active Pipeline: if_testing · Palette Search "sql"</span>
             <span><code>Builder_VS_Dark_Loaded_Saved_if_testing_with_search.png</code></span>
@@ -974,10 +995,10 @@ flow -builder -builder-port 8080</pre>
       </div>
       <div class="slide-body-split">
         <div class="media-card">
-          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+          <button type="button" class="media-preview-wrapper" onclick="openLightbox(this)" aria-label="Zoom Add Step to IF THEN Modal">
             <img src="screenshots/Builder_VS_Dark_Add_Step_To_IF_THEN.png" alt="Add Step to IF THEN Modal" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Add_Step_To_IF_THEN.png';">
-            <div class="media-overlay-hint">🔍 Click to zoom</div>
-          </div>
+            <span class="media-overlay-hint" aria-hidden="true">🔍 Click to zoom</span>
+          </button>
           <div class="media-caption">
             <span>Modal: Add Step to &lt;then&gt; container</span>
             <span><code>Builder_VS_Dark_Add_Step_To_IF_THEN.png</code></span>
@@ -1020,10 +1041,10 @@ flow -builder -builder-port 8080</pre>
       </div>
       <div class="slide-body-split">
         <div class="media-card">
-          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+          <button type="button" class="media-preview-wrapper" onclick="openLightbox(this)" aria-label="Zoom Edit Database Connection Modal">
             <img src="screenshots/Builder_VS_Dark_Edit_Database_Connection.png" alt="Edit Database Connection Modal" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Edit_Database_Connection.png';">
-            <div class="media-overlay-hint">🔍 Click to zoom</div>
-          </div>
+            <span class="media-overlay-hint" aria-hidden="true">🔍 Click to zoom</span>
+          </button>
           <div class="media-caption">
             <span>Modal: Edit &lt;database&gt; Connection Pool</span>
             <span><code>Builder_VS_Dark_Edit_Database_Connection.png</code></span>
@@ -1061,10 +1082,10 @@ flow -builder -builder-port 8080</pre>
       </div>
       <div class="slide-body-split">
         <div class="media-card">
-          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+          <button type="button" class="media-preview-wrapper" onclick="openLightbox(this)" aria-label="Zoom Manage Loaded Pipelines Modal">
             <img src="screenshots/Builder_VS_Dark_Manage_Import_New_Scripts.png" alt="Manage Loaded Pipelines Modal" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Manage_Import_New_Scripts.png';">
-            <div class="media-overlay-hint">🔍 Click to zoom</div>
-          </div>
+            <span class="media-overlay-hint" aria-hidden="true">🔍 Click to zoom</span>
+          </button>
           <div class="media-caption">
             <span>Modal: Pipeline Catalog & Switching</span>
             <span><code>Builder_VS_Dark_Manage_Import_New_Scripts.png</code></span>
@@ -1105,10 +1126,10 @@ flow -builder -builder-port 8080</pre>
       </div>
       <div class="slide-body-split">
         <div class="media-card">
-          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+          <button type="button" class="media-preview-wrapper" onclick="openLightbox(this)" aria-label="Zoom Select CLI Options File Modal">
             <img src="screenshots/Builder_VS_Dark_Select_Options_File_Runner.png" alt="Select CLI Options File Modal" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Select_Options_File_Runner.png';">
-            <div class="media-overlay-hint">🔍 Click to zoom</div>
-          </div>
+            <span class="media-overlay-hint" aria-hidden="true">🔍 Click to zoom</span>
+          </button>
           <div class="media-caption">
             <span>Modal: Filesystem Navigator for CLI Options XML</span>
             <span><code>Builder_VS_Dark_Select_Options_File_Runner.png</code></span>
@@ -1148,10 +1169,10 @@ flow -builder -builder-port 8080</pre>
       </div>
       <div class="slide-body-split">
         <div class="media-card">
-          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+          <button type="button" class="media-preview-wrapper" onclick="openLightbox(this)" aria-label="Zoom Execute Pipeline Runner with Stream Logs">
             <img src="screenshots/Builder_VS_Dark_Execute_Options_File_Runner.png" alt="Execute Pipeline Runner with Stream Logs" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_Execute_Options_File_Runner.png';">
-            <div class="media-overlay-hint">🔍 Click to zoom</div>
-          </div>
+            <span class="media-overlay-hint" aria-hidden="true">🔍 Click to zoom</span>
+          </button>
           <div class="media-caption">
             <span>Pipeline Runner · Full Execution & Live Stream</span>
             <span><code>Builder_VS_Dark_Execute_Options_File_Runner.png</code></span>
@@ -1208,10 +1229,10 @@ flow -builder -builder-port 8080</pre>
       </div>
       <div class="slide-body-split">
         <div class="media-card">
-          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+          <button type="button" class="media-preview-wrapper" onclick="openLightbox(this)" aria-label="Zoom PreFlight Runner">
             <img src="screenshots/Builder_VS_Dark_PreFlight_Runner.png" alt="PreFlight Runner" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_PreFlight_Runner.png';">
-            <div class="media-overlay-hint">🔍 Click to zoom</div>
-          </div>
+            <span class="media-overlay-hint" aria-hidden="true">🔍 Click to zoom</span>
+          </button>
           <div class="media-caption">
             <span>Preflight Only Runner · Draft Validation</span>
             <span><code>Builder_VS_Dark_PreFlight_Runner.png</code></span>
@@ -1252,10 +1273,10 @@ flow -builder -builder-port 8080</pre>
       </div>
       <div class="slide-body-split">
         <div class="media-card">
-          <div class="media-preview-wrapper" onclick="openLightbox(this)">
+          <button type="button" class="media-preview-wrapper" onclick="openLightbox(this)" aria-label="Zoom PreFlight From Options File Runner">
             <img src="screenshots/Builder_VS_Dark_PreFlight_From_Options_File_Runner.png" alt="PreFlight From Options File Runner" onerror="this.onerror=null; this.src='docs/screenshots/Builder_VS_Dark_PreFlight_From_Options_File_Runner.png';">
-            <div class="media-overlay-hint">🔍 Click to zoom</div>
-          </div>
+            <span class="media-overlay-hint" aria-hidden="true">🔍 Click to zoom</span>
+          </button>
           <div class="media-caption">
             <span>Preflight via Options File · Assertion Checks</span>
             <span><code>Builder_VS_Dark_PreFlight_From_Options_File_Runner.png</code></span>
@@ -1348,9 +1369,11 @@ flow -file pipeline.xml -vars "TargetTable=prod_orders"</pre>
   </div>
 
   <!-- Lightbox Modal -->
-  <div class="lightbox-modal" id="lightboxModal" onclick="closeLightbox()">
-    <span class="lightbox-close">&times;</span>
-    <img src="" alt="Zoomed Screenshot" class="lightbox-img" id="lightboxImg">
+  <div class="lightbox-modal" id="lightboxModal">
+    <button type="button" class="lightbox-dismiss" onclick="closeLightbox()" aria-label="Close zoomed screenshot">
+      <span class="lightbox-close" aria-hidden="true">&times;</span>
+      <img src="" alt="" class="lightbox-img" id="lightboxImg">
+    </button>
   </div>
 
   <!-- Keyboard Shortcuts Help Modal -->
@@ -1400,6 +1423,8 @@ flow -file pipeline.xml -vars "TargetTable=prod_orders"</pre>
     const lightboxModal = document.getElementById('lightboxModal');
     const lightboxImg = document.getElementById('lightboxImg');
     const shortcutsModal = document.getElementById('shortcutsModal');
+    let overviewTrigger = null;
+    let lightboxTrigger = null;
 
     function updatePresentation(index) {
       if (index < 0) index = 0;
@@ -1472,15 +1497,16 @@ flow -file pipeline.xml -vars "TargetTable=prod_orders"</pre>
         const imgEl = slide.querySelector('img');
         const imgSrc = imgEl ? imgEl.src : '../flow-mascot.jpg';
 
-        const card = document.createElement('div');
+        const card = document.createElement('button');
+        card.type = 'button';
         card.className = `overview-card ${i === currentIndex ? 'active' : ''}`;
         card.onclick = () => goToSlide(i);
         card.innerHTML = `
           <img src="${imgSrc}" alt="${title}" class="overview-card-img" onerror="this.onerror=null; this.src='../flow-mascot.jpg';">
-          <div class="overview-card-title">
+          <span class="overview-card-title">
             <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;">${title}</span>
             <span class="overview-card-num">#${i + 1}</span>
-          </div>
+          </span>
         `;
         overviewGrid.appendChild(card);
       });
@@ -1489,9 +1515,12 @@ flow -file pipeline.xml -vars "TargetTable=prod_orders"</pre>
     function toggleOverview() {
       if (overviewModal.classList.contains('open')) {
         overviewModal.classList.remove('open');
+        if (overviewTrigger) overviewTrigger.focus();
       } else {
+        overviewTrigger = document.activeElement;
         buildOverview();
         overviewModal.classList.add('open');
+        overviewGrid.querySelector('.overview-card.active').focus();
       }
     }
 
@@ -1499,13 +1528,16 @@ flow -file pipeline.xml -vars "TargetTable=prod_orders"</pre>
     function openLightbox(wrapperEl) {
       const img = wrapperEl.querySelector('img');
       if (img) {
+        lightboxTrigger = wrapperEl;
         lightboxImg.src = img.src;
         lightboxModal.classList.add('open');
+        lightboxModal.querySelector('.lightbox-dismiss').focus();
       }
     }
 
     function closeLightbox() {
       lightboxModal.classList.remove('open');
+      if (lightboxTrigger) lightboxTrigger.focus();
     }
 
     // Help modal
@@ -1516,7 +1548,7 @@ flow -file pipeline.xml -vars "TargetTable=prod_orders"</pre>
     // Keyboard navigation
     window.addEventListener('keydown', (e) => {
       // Don't intercept if inside input
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
       if (e.key === 'Escape') {
         if (lightboxModal.classList.contains('open')) closeLightbox();
@@ -1524,6 +1556,8 @@ flow -file pipeline.xml -vars "TargetTable=prod_orders"</pre>
         else if (shortcutsModal.classList.contains('open')) toggleHelp();
         return;
       }
+
+      if (e.key === ' ' && e.target.closest('button, a')) return;
 
       if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
         e.preventDefault();

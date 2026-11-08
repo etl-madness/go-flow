@@ -31,6 +31,32 @@ type ComponentCatalog struct {
 	Categories []string
 }
 
+func htmlTemplateFields() []ComponentField {
+	return []ComponentField{
+		{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
+		{Name: "into", Label: "Into Variable", Type: "text", Mandatory: false, Description: "Variable name to receive rendered HTML"},
+		{Name: "file", Label: "Output HTML File", Type: "text", Mandatory: false, Description: "File path to write rendered HTML directly"},
+		{Name: "name", Label: "Template Name", Type: "text", Mandatory: false, Description: "Optional template identifier during parsing"},
+		{Name: "output_var", Label: "Output Variable (Alias)", Type: "text", Mandatory: false, Description: "Alias for into"},
+		{Name: "var", Label: "Var (Alias)", Type: "text", Mandatory: false, Description: "Alias for into"},
+		{Name: "timeout", Label: "Timeout Duration", Type: "text", Mandatory: false, Description: "Template rendering timeout duration (e.g. 10s, 1m)"},
+		{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Human-readable description of this HTML template step"},
+	}
+}
+
+func xmlPathFields(modeDescription string) []ComponentField {
+	return []ComponentField{
+		{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID for logging and orchestration"},
+		{Name: "source", Label: "Source XML Variable", Type: "text", Mandatory: true, Description: "Variable holding XML string (alias var)"},
+		{Name: "query", Label: "XPath Query", Type: "text", Mandatory: true, Description: "XPath expression (alias xpath, e.g. //book/title/text())"},
+		{Name: "into", Label: "Target Variable", Type: "text", Mandatory: true, Description: "Variable receiving result (alias output_var)"},
+		{Name: "mode", Label: "Output Mode", Type: "select", Mandatory: false, Default: "text", Options: []string{"text", "xml", "json_array"}, Description: modeDescription},
+		{Name: "file", Label: "Source File Path", Type: "text", Mandatory: false, Description: "Optional path to XML file on disk instead of variable"},
+		{Name: "timeout", Label: "Timeout Duration", Type: "text", Mandatory: false, Description: "Timeout duration"},
+		{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Step explanation displayed in logs and flowcharts"},
+	}
+}
+
 // GetCatalog returns the full built-in component catalog for Flow.
 func GetCatalog() *ComponentCatalog {
 	components := []ComponentMeta{
@@ -351,16 +377,7 @@ Status: {{.Status}}
 			Section:     "flow",
 			HasContent:  true,
 			ContentHelp: "HTML template body with Go html/template syntax.",
-			Fields: []ComponentField{
-				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
-				{Name: "into", Label: "Into Variable", Type: "text", Mandatory: false, Description: "Variable name to receive rendered HTML"},
-				{Name: "file", Label: "Output HTML File", Type: "text", Mandatory: false, Description: "File path to write rendered HTML directly"},
-				{Name: "name", Label: "Template Name", Type: "text", Mandatory: false, Description: "Optional template identifier during parsing"},
-				{Name: "output_var", Label: "Output Variable (Alias)", Type: "text", Mandatory: false, Description: "Alias for into"},
-				{Name: "var", Label: "Var (Alias)", Type: "text", Mandatory: false, Description: "Alias for into"},
-				{Name: "timeout", Label: "Timeout Duration", Type: "text", Mandatory: false, Description: "Template rendering timeout duration (e.g. 10s, 1m)"},
-				{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Human-readable description of this HTML template step"},
-			},
+			Fields:      htmlTemplateFields(),
 			DefaultXML: `<template_html id="GenerateReportHTML" file="report.html">
 <html>
 <body>
@@ -379,16 +396,7 @@ Status: {{.Status}}
 			Section:     "flow",
 			HasContent:  true,
 			ContentHelp: "HTML template body with Go html/template syntax.",
-			Fields: []ComponentField{
-				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID"},
-				{Name: "into", Label: "Into Variable", Type: "text", Mandatory: false, Description: "Variable name to receive rendered HTML"},
-				{Name: "file", Label: "Output HTML File", Type: "text", Mandatory: false, Description: "File path to write rendered HTML directly"},
-				{Name: "name", Label: "Template Name", Type: "text", Mandatory: false, Description: "Optional template identifier during parsing"},
-				{Name: "output_var", Label: "Output Variable (Alias)", Type: "text", Mandatory: false, Description: "Alias for into"},
-				{Name: "var", Label: "Var (Alias)", Type: "text", Mandatory: false, Description: "Alias for into"},
-				{Name: "timeout", Label: "Timeout Duration", Type: "text", Mandatory: false, Description: "Template rendering timeout duration (e.g. 10s, 1m)"},
-				{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Human-readable description of this HTML template step"},
-			},
+			Fields:      htmlTemplateFields(),
 			DefaultXML: `<html_template id="GenerateReportHTML" file="report.html">
 <html>
 <body>
@@ -527,17 +535,8 @@ SELECT date, product, revenue FROM sales_data;
 			Description: "Evaluates XPath expressions against XML documents.",
 			Section:     "flow",
 			HasContent:  false,
-			Fields: []ComponentField{
-				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID for logging and orchestration"},
-				{Name: "source", Label: "Source XML Variable", Type: "text", Mandatory: true, Description: "Variable holding XML string (alias var)"},
-				{Name: "query", Label: "XPath Query", Type: "text", Mandatory: true, Description: "XPath expression (alias xpath, e.g. //book/title/text())"},
-				{Name: "into", Label: "Target Variable", Type: "text", Mandatory: true, Description: "Variable receiving result (alias output_var)"},
-				{Name: "mode", Label: "Output Mode", Type: "select", Mandatory: false, Default: "text", Options: []string{"text", "xml", "json_array"}, Description: "Output format: text (joined text), xml (raw tags), json_array"},
-				{Name: "file", Label: "Source File Path", Type: "text", Mandatory: false, Description: "Optional path to XML file on disk instead of variable"},
-				{Name: "timeout", Label: "Timeout Duration", Type: "text", Mandatory: false, Description: "Timeout duration"},
-				{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Step explanation displayed in logs and flowcharts"},
-			},
-			DefaultXML: `<xml_xpath id="ExtractTitles" source="{{XmlCatalog}}" query="//book/title/text()" into="BookTitles" mode="text" />`,
+			Fields:      xmlPathFields("Output format: text (joined text), xml (raw tags), json_array"),
+			DefaultXML:  `<xml_xpath id="ExtractTitles" source="{{XmlCatalog}}" query="//book/title/text()" into="BookTitles" mode="text" />`,
 		},
 		{
 			Type:        "xml_path",
@@ -547,17 +546,8 @@ SELECT date, product, revenue FROM sales_data;
 			Description: "Evaluates XPath expressions against XML documents (alias for xml_xpath).",
 			Section:     "flow",
 			HasContent:  false,
-			Fields: []ComponentField{
-				{Name: "id", Label: "Step ID", Type: "text", Mandatory: true, Description: "Unique step ID for logging and orchestration"},
-				{Name: "source", Label: "Source XML Variable", Type: "text", Mandatory: true, Description: "Variable holding XML string (alias var)"},
-				{Name: "query", Label: "XPath Query", Type: "text", Mandatory: true, Description: "XPath expression (alias xpath, e.g. //book/title/text())"},
-				{Name: "into", Label: "Target Variable", Type: "text", Mandatory: true, Description: "Variable receiving result (alias output_var)"},
-				{Name: "mode", Label: "Output Mode", Type: "select", Mandatory: false, Default: "text", Options: []string{"text", "xml", "json_array"}, Description: "Output format: text, xml, json_array"},
-				{Name: "file", Label: "Source File Path", Type: "text", Mandatory: false, Description: "Optional path to XML file on disk instead of variable"},
-				{Name: "timeout", Label: "Timeout Duration", Type: "text", Mandatory: false, Description: "Timeout duration"},
-				{Name: "description", Label: "Description", Type: "text", Mandatory: false, Description: "Step explanation displayed in logs and flowcharts"},
-			},
-			DefaultXML: `<xml_path id="ExtractTitles" source="{{XmlCatalog}}" query="//book/title/text()" into="BookTitles" mode="text" />`,
+			Fields:      xmlPathFields("Output format: text, xml, json_array"),
+			DefaultXML:  `<xml_path id="ExtractTitles" source="{{XmlCatalog}}" query="//book/title/text()" into="BookTitles" mode="text" />`,
 		},
 
 		// 8. Quality Gates & Assertions

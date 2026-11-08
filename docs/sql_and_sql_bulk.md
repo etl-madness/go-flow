@@ -90,7 +90,7 @@ A clean, minimal example demonstrating table setup, standard `<sql>` querying in
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
-        <database name="oltp_db" driver="postgres" connection_string="postgresql://app:secret@localhost:5432/orders_app" />
+        <database name="oltp_db" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/orders_app" />
         <database name="reporting_db" driver="sqlite" connection_string="./reporting.db" />
     </databases>
 
@@ -300,7 +300,7 @@ This example replicates 20 million rows from a PostgreSQL transaction log into a
     <databases>
         <database name="source_pg" 
                   driver="postgres" 
-                  connection_string="postgresql://pg_read:Secret2026@pg-cluster.internal:5432/tx_db?sslmode=require"
+                  connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@pg-cluster.internal:5432/tx_db?sslmode=require"
                   max_open_conns="30"
                   workload="bulk" />
 

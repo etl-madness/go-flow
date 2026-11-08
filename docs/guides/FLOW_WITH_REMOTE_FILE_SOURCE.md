@@ -53,7 +53,7 @@ Examples:
 
 .\flow.exe --options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name = 'OPTIONS_PROD'"
 
-.\flow.exe --config "sql://postgres@postgres://app_user:Password123!@prod-db:5432/appdb?sslmode=require#SELECT config_xml FROM flow_config WHERE name = 'PROD'"
+.\flow.exe --config "sql://postgres@postgres://$([uri]::EscapeDataString($env:PG_USER)):$([uri]::EscapeDataString($env:PG_PASSWORD))@prod-db:5432/appdb?sslmode=require#SELECT config_xml FROM flow_config WHERE name = 'PROD'"
 ```
 
 SQL Server with Windows integrated security / trusted connection:

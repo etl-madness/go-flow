@@ -50,7 +50,7 @@ Example:
     id="analytics-db"
     name="analytics_db"
     driver="postgres"
-    connection_string="host=localhost port=5432 user=postgres password={{DB_PASSWORD}} dbname=analytics sslmode=disable"
+    connection_string="host=localhost port=5432 user={{PG_USER}} password={{DB_PASSWORD}} dbname=analytics sslmode=disable"
     max_open_conns="50"
     max_idle_conns="20"
     conn_max_lifetime_seconds="300"

@@ -613,7 +613,7 @@ Uses the built-in `"host/db"` integration package to inspect an active database 
     <databases>
         <database name="production_db"
                   driver="postgres"
-                  connection_string="host=db.example.internal port=5432 user=flow_user password=SecretPassword dbname=analytics sslmode=require" />
+                  connection_string="host=db.example.internal port=5432 user={{PG_USER}} password={{PG_PASSWORD}} dbname=analytics sslmode=require" />
     </databases>
 
     <variables>

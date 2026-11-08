@@ -122,7 +122,7 @@ The example uses SQLite for immediate, zero-dependency execution. You can target
 
 <!-- PostgreSQL -->
 <database name="sample_db" driver="postgres" 
-          connection_string="postgres://app_user:secret@localhost:5432/production?sslmode=disable" />
+          connection_string="postgres://{{PG_USER}}:{{PG_PASSWORD}}@localhost:5432/production?sslmode=disable" />
 
 <!-- MySQL -->
 <database name="sample_db" driver="mysql" 

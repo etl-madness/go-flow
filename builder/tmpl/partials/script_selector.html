@@ -1,4 +1,5 @@
 {{define "script_selector"}}
+<label for="active-script-select" class="sr-only">Active pipeline</label>
 <select id="active-script-select" onchange="window.location.href='/?script_id=' + this.value"
         class="bg-slate-950 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-cyan-300 font-semibold focus:outline-none focus:border-blue-500 shadow-inner">
     {{range .AllScripts}}

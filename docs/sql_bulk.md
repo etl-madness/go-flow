@@ -48,7 +48,7 @@ Streams aggregated daily orders directly from a production PostgreSQL instance i
 <pipeline xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/etl-madness/flow/main/xsd/pipeline.xsd">
     <databases>
-        <database name="oltp_pg" driver="postgres" connection_string="postgresql://app:secret@pg-primary:5432/orders" />
+        <database name="oltp_pg" driver="postgres" connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@pg-primary:5432/orders" />
         <database name="reporting_sqlite" driver="sqlite" connection_string="./reporting_daily.db" />
     </databases>
 
@@ -101,7 +101,7 @@ Transfers millions of transaction records from a transactional PostgreSQL log in
     <databases>
         <database name="source_pg" 
                   driver="postgres" 
-                  connection_string="postgresql://etl:Secret2026@pg-cluster.corp:5432/tx_db?sslmode=require"
+                  connection_string="postgresql://{{PG_USER}}:{{PG_PASSWORD}}@pg-cluster.corp:5432/tx_db?sslmode=require"
                   max_open_conns="30"
                   workload="bulk" />
 

@@ -7,9 +7,9 @@ const IndexHTML = `
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Flow Pipeline Builder</title>
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM" crossorigin="anonymous"></script>
     <style>
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -301,6 +301,7 @@ const IndexHTML = `
         <div class="flex items-center space-x-3">
             <div class="flex items-center space-x-1.5 bg-slate-800 border border-slate-700 rounded-md px-2 py-1">
                 <span class="text-xs text-slate-400">🎨</span>
+                <label for="theme-selector" class="sr-only">Theme</label>
                 <select id="theme-selector" onchange="setTheme(this.value)" class="bg-transparent text-xs text-slate-200 font-medium focus:outline-none cursor-pointer">
                     <option value="slate" class="bg-slate-900 text-slate-200">Slate (Default)</option>
                     <option value="midnight" class="bg-slate-900 text-slate-200">Midnight Blue</option>
@@ -335,6 +336,7 @@ const IndexHTML = `
         <div id="tab-pipeline" class="flex-1 flex w-full h-full">
             <aside class="w-80 bg-slate-900 border-r border-slate-800 flex flex-col">
                 <div class="p-3 border-b border-slate-800">
+                    <label for="component-filter" class="sr-only">Search components</label>
                     <input type="text" id="component-filter" oninput="filterComponents(this.value)" placeholder="Search components..." 
                            class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500">
                 </div>
@@ -345,15 +347,15 @@ const IndexHTML = `
                         <div class="space-y-1.5">
                             {{range $.Components}}
                             {{if eq .Category $cat}}
-                            <div class="component-card group bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 p-2.5 rounded-lg transition-all cursor-pointer shadow-sm"
+                            <button type="button" class="component-card group w-full text-left bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 p-2.5 rounded-lg transition-all cursor-pointer shadow-sm focus-visible:ring-2 focus-visible:ring-blue-500"
                                  onclick="openAddNodeModal('{{.Type}}', '{{.Name}}', '{{.Section}}')"
                                  data-name="{{.Name}}" data-type="{{.Type}}" data-desc="{{.Description}}">
-                                <div class="flex items-center justify-between mb-1">
+                                <span class="flex items-center justify-between mb-1">
                                     <span class="text-xs font-semibold text-slate-200 group-hover:text-cyan-400 transition-colors">&lt;{{.Tag}}&gt; {{.Name}}</span>
                                     <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">{{.Section}}</span>
-                                </div>
-                                <p class="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">{{.Description}}</p>
-                            </div>
+                                </span>
+                                <span class="block text-[11px] text-slate-400 line-clamp-2 leading-relaxed">{{.Description}}</span>
+                            </button>
                             {{end}}
                             {{end}}
                         </div>
@@ -378,12 +380,14 @@ const IndexHTML = `
                 </div>
             </section>
             <!-- Live XML Preview Resizer Splitter -->
-            <div id="xml-preview-resizer" 
-                 class="w-1.5 hover:w-2 bg-slate-800 hover:bg-cyan-500 active:bg-cyan-400 cursor-col-resize transition-all flex-shrink-0 relative group select-none z-10"
-                 title="Drag to resize Live XML Preview (Double-click to reset)">
-                <div class="absolute inset-y-0 -left-1.5 -right-1.5 cursor-col-resize"></div>
-                <div class="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-0.5 h-6 bg-slate-600 rounded group-hover:bg-cyan-200 transition-colors pointer-events-none"></div>
-            </div>
+            <button type="button" id="xml-preview-resizer" aria-label="Resize Live XML Preview" aria-controls="xml-preview-panel" aria-describedby="xml-preview-resize-help xml-preview-resize-value"
+                 class="w-1.5 hover:w-2 bg-slate-800 hover:bg-cyan-500 active:bg-cyan-400 cursor-col-resize transition-all flex-shrink-0 relative group select-none z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+                 title="Drag to resize; use arrow keys to adjust, Enter or Space to reset">
+                <span class="absolute inset-y-0 -left-1.5 -right-1.5 cursor-col-resize"></span>
+                <span class="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-0.5 h-6 bg-slate-600 rounded group-hover:bg-cyan-200 transition-colors pointer-events-none"></span>
+            </button>
+            <span id="xml-preview-resize-help" class="sr-only">Use left and right arrow keys to resize, Home and End for minimum and maximum, or Enter or Space to reset.</span>
+            <span id="xml-preview-resize-value" class="sr-only" aria-live="polite">Width: 384 pixels</span>
 
             <!-- Live XML Preview Panel -->
             <aside id="xml-preview-panel" class="bg-slate-900 border-l border-slate-800 flex flex-col flex-shrink-0 relative" style="width: 384px; min-width: 200px; max-width: calc(100vw - 360px);">
@@ -415,6 +419,7 @@ const IndexHTML = `
                     </button>
                 </div>
                 <div class="flex-1 p-4 bg-slate-950">
+                    <label for="config-editor" class="sr-only">Configuration content</label>
                     <textarea id="config-editor" class="w-full h-full bg-slate-950 text-cyan-300 font-mono text-xs p-4 rounded border border-slate-800 focus:outline-none focus:border-blue-500 resize-none leading-relaxed custom-scrollbar">{{.DefaultConfigContent}}</textarea>
                 </div>
             </div>
@@ -431,6 +436,7 @@ const IndexHTML = `
                     </button>
                 </div>
                 <div class="flex-1 p-4 bg-slate-950">
+                    <label for="options-editor" class="sr-only">Options content</label>
                     <textarea id="options-editor" class="w-full h-full bg-slate-950 text-cyan-300 font-mono text-xs p-4 rounded border border-slate-800 focus:outline-none focus:border-blue-500 resize-none leading-relaxed custom-scrollbar">{{.DefaultOptionsContent}}</textarea>
                 </div>
             </div>
@@ -466,7 +472,7 @@ const IndexHTML = `
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                         <div class="flex flex-col space-y-1">
                             <div class="flex items-center justify-between">
-                                <label class="text-[11px] font-semibold text-slate-300">📜 Pipeline Script (<span class="text-amber-400">*</span>)</label>
+                                <label for="runner-script-file" class="text-[11px] font-semibold text-slate-300">📜 Pipeline Script (<span class="text-amber-400">*</span>)</label>
                                 <span id="runner-source-label" class="text-[10px] text-cyan-400 font-mono">source: filesystem</span>
                             </div>
                             <div class="flex items-center">
@@ -478,7 +484,7 @@ const IndexHTML = `
                         </div>
                         <div class="flex flex-col space-y-1">
                             <div class="flex items-center justify-between">
-                                <label class="text-[11px] font-semibold text-slate-300">⚙️ Config Overrides (optional)</label>
+                                <label for="runner-config-file" class="text-[11px] font-semibold text-slate-300">⚙️ Config Overrides (optional)</label>
                                 <span class="text-[10px] text-slate-500 font-mono">-config</span>
                             </div>
                             <div class="flex items-center">
@@ -491,7 +497,7 @@ const IndexHTML = `
                         </div>
                         <div class="flex flex-col space-y-1">
                             <div class="flex items-center justify-between">
-                                <label class="text-[11px] font-semibold text-slate-300">🎛️ CLI Options (optional)</label>
+                                <label for="runner-options-file" class="text-[11px] font-semibold text-slate-300">🎛️ CLI Options (optional)</label>
                                 <span class="text-[10px] text-slate-500 font-mono">-options</span>
                             </div>
                             <div class="flex items-center">
@@ -504,7 +510,7 @@ const IndexHTML = `
                         </div>
                         <div class="flex flex-col space-y-1" id="runner-format-group">
                             <div class="flex items-center justify-between">
-                                <label class="text-[11px] font-semibold text-slate-300">📊 Output Format</label>
+                                <label for="runner-format" class="text-[11px] font-semibold text-slate-300">📊 Output Format</label>
                                 <span id="runner-format-badge" class="text-[10px] text-cyan-400 font-mono">-format</span>
                             </div>
                             <div class="flex items-center">
@@ -597,7 +603,7 @@ const IndexHTML = `
                     <!-- Database Dropdown -->
                     <div class="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 shadow-sm">
                         <span class="text-xs text-slate-400 font-medium">🗄️ Database:</span>
-                        <select id="log-db-select" onchange="onLogDatabaseChanged(this.value)" class="bg-transparent text-xs text-slate-200 font-semibold focus:outline-none cursor-pointer min-w-[170px]">
+                        <select id="log-db-select" aria-label="Database" onchange="onLogDatabaseChanged(this.value)" class="bg-transparent text-xs text-slate-200 font-semibold focus:outline-none cursor-pointer min-w-[170px]">
                             <option value="">Select a database...</option>
                         </select>
                     </div>
@@ -631,9 +637,9 @@ const IndexHTML = `
                         <div class="flex items-center space-x-2">
                             <div class="relative flex-1">
                                 <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400 text-xs">🔍</span>
-                                <input type="text" id="log-runs-search" placeholder="Search Run ID, SPID, script, host, user, error..." oninput="filterLogRuns()" class="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-md text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
+                                <input type="text" id="log-runs-search" aria-label="Search pipeline runs" placeholder="Search Run ID, SPID, script, host, user, error..." oninput="filterLogRuns()" class="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-md text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
                             </div>
-                            <select id="log-runs-status-filter" onchange="filterLogRuns()" class="bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-md px-2.5 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer">
+                            <select id="log-runs-status-filter" aria-label="Filter pipeline runs by status" onchange="filterLogRuns()" class="bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-md px-2.5 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer">
                                 <option value="all">All Statuses</option>
                                 <option value="succeeded">Succeeded</option>
                                 <option value="failed">Failed</option>
@@ -818,7 +824,7 @@ const IndexHTML = `
                 <input type="hidden" id="modal-parent-node-id" name="parent_node_id">
                 <input type="hidden" id="modal-node-type" name="node_type">
                 <div class="space-y-1">
-                    <label class="text-xs font-medium text-slate-300">Target Section</label>
+                    <label for="modal-node-section" class="text-xs font-medium text-slate-300">Target Section</label>
                     <select id="modal-node-section" name="section" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
                         <option value="flow">4. Pipeline Flow (&lt;flow&gt; sequential steps)</option>
                         <option value="preflight">3. Preflight Checks (&lt;preflight&gt;)</option>
@@ -829,13 +835,13 @@ const IndexHTML = `
                 <div id="modal-fields-container" class="space-y-3"></div>
                 <div class="pt-2 border-t border-slate-800">
                     <div class="flex items-center justify-between mb-2">
-                        <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Custom / Extra Attributes</label>
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Custom / Extra Attributes</span>
                         <button type="button" onclick="addCustomAttributeRow('', '', getAvailableAttributesForNode(window.currentNodeMeta || getCurrentNodeMeta()))" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium">＋ Add Attribute</button>
                     </div>
                     <div id="modal-custom-attrs" class="space-y-2"></div>
                 </div>
                 <div id="modal-content-container" class="hidden space-y-1.5">
-                    <label id="modal-content-label" class="block text-xs font-medium text-slate-300">Content / Script</label>
+                    <label for="modal-content-text" id="modal-content-label" class="block text-xs font-medium text-slate-300">Content / Script</label>
                     <textarea id="modal-content-text" name="content" rows="6" class="w-full bg-slate-950 border border-slate-700 rounded-md p-2.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500 custom-scrollbar"></textarea>
                 </div>
                 <div class="flex items-center justify-end space-x-2.5 pt-4 border-t border-slate-800">
@@ -850,11 +856,11 @@ const IndexHTML = `
             <h3 class="text-sm font-bold text-white">Create New Pipeline</h3>
             <form onsubmit="submitNewScript(event)" class="space-y-3">
                 <div>
-                    <label class="block text-xs text-slate-300 mb-1">Pipeline Name</label>
+                    <label for="new-script-name" class="block text-xs text-slate-300 mb-1">Pipeline Name</label>
                     <input type="text" id="new-script-name" required class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-300 mb-1">Description</label>
+                    <label for="new-script-desc" class="block text-xs text-slate-300 mb-1">Description</label>
                     <input type="text" id="new-script-desc" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
                 </div>
                 <div class="flex justify-end space-x-2 pt-2">
@@ -875,7 +881,7 @@ const IndexHTML = `
             </div>
             <form onsubmit="submitCopyScript(event)" class="space-y-3">
                 <div>
-                    <label class="block text-xs text-slate-300 mb-1">New Pipeline Name</label>
+                    <label for="copy-script-name" class="block text-xs text-slate-300 mb-1">New Pipeline Name</label>
                     <input type="text" id="copy-script-name" required class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
                 </div>
                 <p class="text-[11px] text-slate-400">All variables, databases, preflight gates, and flow steps will be copied into the new pipeline draft.</p>
@@ -897,7 +903,7 @@ const IndexHTML = `
             </div>
             <form onsubmit="submitImportScript(event)" class="space-y-3">
                 <div>
-                    <label class="block text-xs text-slate-300 mb-1">Pipeline File (.xml)</label>
+                    <label for="import-file-path" class="block text-xs text-slate-300 mb-1">Pipeline File (.xml)</label>
                     <div class="flex space-x-2">
                         <input type="text" id="import-file-path" list="quick-xml-files" placeholder="examples/check_two_tables_in_parallel_take_action.xml" required class="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500 font-mono">
                         <button type="button" onclick="browseForImportFile()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs rounded transition flex items-center space-x-1">
@@ -906,7 +912,7 @@ const IndexHTML = `
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-300 mb-1">Custom Pipeline Name (Optional)</label>
+                    <label for="import-script-name" class="block text-xs text-slate-300 mb-1">Custom Pipeline Name (Optional)</label>
                     <input type="text" id="import-script-name" placeholder="Leave empty to use XML/file name" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
                 </div>
                 <p class="text-[11px] text-slate-400">The XML file will be parsed and imported into SQLite as an editable visual draft with all variables, databases, and flow nodes.</p>
@@ -992,11 +998,11 @@ const IndexHTML = `
             <form id="database-form" onsubmit="submitDatabaseForm(event)" class="flex-1 overflow-y-auto custom-scrollbar space-y-3.5 pr-1">
                 <input type="hidden" id="db-conn-id" name="id">
                 <div class="space-y-1">
-                    <label class="text-xs font-medium text-slate-300">Connection Name (<span class="text-amber-400">*</span>)</label>
+                    <label for="db-conn-name" class="text-xs font-medium text-slate-300">Connection Name (<span class="text-amber-400">*</span>)</label>
                     <input type="text" id="db-conn-name" name="name" required placeholder="e.g. log_db, analytics_db, local_sqlite" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500 font-mono">
                 </div>
                 <div class="space-y-1">
-                    <label class="text-xs font-medium text-slate-300">Driver (<span class="text-amber-400">*</span>)</label>
+                    <label for="db-conn-driver" class="text-xs font-medium text-slate-300">Driver (<span class="text-amber-400">*</span>)</label>
                     <select id="db-conn-driver" name="driver" onchange="updateDriverPlaceholder(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
                         <option value="postgres">PostgreSQL (postgres / postgresql)</option>
                         <option value="sqlserver">Microsoft SQL Server (sqlserver / mssql)</option>
@@ -1008,7 +1014,7 @@ const IndexHTML = `
                 </div>
                 <div class="space-y-1">
                     <div class="flex items-center justify-between">
-                        <label class="text-xs font-medium text-slate-300">Connection String / DSN (<span class="text-amber-400">*</span>)</label>
+                        <label for="db-conn-str" class="text-xs font-medium text-slate-300">Connection String / DSN (<span class="text-amber-400">*</span>)</label>
                         <div class="flex items-center space-x-3">
                             <button type="button" onclick="openDbDocsModal(document.getElementById('db-conn-driver').value)" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2 flex items-center space-x-1 cursor-pointer" title="View documentation, connection string parameters, and real-world examples from database_connection_strings.md">
                                 <span>📖 Connection String Guide</span>
@@ -1024,16 +1030,16 @@ const IndexHTML = `
                 </div>
                 <div id="db-test-result" class="hidden text-xs p-2.5 rounded border"></div>
                 <div class="space-y-1">
-                    <label class="text-xs font-medium text-slate-300">Description (optional)</label>
+                    <label for="db-conn-desc" class="text-xs font-medium text-slate-300">Description (optional)</label>
                     <input type="text" id="db-conn-desc" name="description" placeholder="e.g. Primary audit logging database for pipeline_runs" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-white focus:outline-none focus:border-blue-500">
                 </div>
                 <div class="grid grid-cols-2 gap-3 pt-2">
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-300">Max Open Conns</label>
+                        <label for="db-conn-max-open" class="text-xs font-medium text-slate-300">Max Open Conns</label>
                         <input type="number" id="db-conn-max-open" name="max_open_conns" value="10" min="1" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
                     </div>
                     <div class="space-y-1">
-                        <label class="text-xs font-medium text-slate-300">Max Idle Conns</label>
+                        <label for="db-conn-max-idle" class="text-xs font-medium text-slate-300">Max Idle Conns</label>
                         <input type="number" id="db-conn-max-idle" name="max_idle_conns" value="5" min="1" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
                     </div>
                 </div>
@@ -1045,8 +1051,9 @@ const IndexHTML = `
         </div>
     </div>
     <!-- DATABASE CONNECTION STRINGS DOCS MODAL -->
-    <div id="db-docs-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[75]" onclick="if(event.target===this)closeDbDocsModal()">
-        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-5xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[92vh]">
+    <div id="db-docs-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[75]">
+        <button type="button" aria-label="Close database guide" onclick="closeDbDocsModal()" class="absolute inset-0 cursor-default"></button>
+        <div class="relative bg-slate-900 border border-slate-800 rounded-xl max-w-5xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[92vh]">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div class="flex items-center space-x-3">
                     <span class="text-2xl">📖</span>
@@ -1068,7 +1075,7 @@ const IndexHTML = `
             <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
                 <div class="flex items-center space-x-2 flex-1 min-w-[200px]">
                     <span class="text-xs text-slate-500">🔍</span>
-                    <input type="text" id="db-docs-filter" oninput="filterDbDocs(this.value)" placeholder="Search drivers, parameters, examples (e.g. sqlserver, entra, sslmode, mars)..." class="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none">
+                    <input type="text" id="db-docs-filter" aria-label="Search database documentation" oninput="filterDbDocs(this.value)" placeholder="Search drivers, parameters, examples (e.g. sqlserver, entra, sslmode, mars)..." class="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none">
                     <button type="button" onclick="clearDbDocsFilter()" id="db-docs-clear-filter" class="hidden text-xs text-slate-500 hover:text-white px-1 cursor-pointer">&times;</button>
                 </div>
                 <div class="flex items-center space-x-1 text-[11px] overflow-x-auto custom-scrollbar">
@@ -1099,8 +1106,9 @@ const IndexHTML = `
         </div>
     </div>
     <!-- HTTP CLIENT DOCS MODAL -->
-    <div id="http-docs-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[75]" onclick="if(event.target===this)closeHttpDocsModal()">
-        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-5xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[92vh]">
+    <div id="http-docs-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[75]">
+        <button type="button" aria-label="Close HTTP guide" onclick="closeHttpDocsModal()" class="absolute inset-0 cursor-default"></button>
+        <div class="relative bg-slate-900 border border-slate-800 rounded-xl max-w-5xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[92vh]">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div class="flex items-center space-x-3">
                     <span class="text-2xl">🌐</span>
@@ -1122,7 +1130,7 @@ const IndexHTML = `
             <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
                 <div class="flex items-center space-x-2 flex-1 min-w-[200px]">
                     <span class="text-xs text-slate-500">🔍</span>
-                    <input type="text" id="http-docs-filter" oninput="filterHttpDocs(this.value)" placeholder="Search methods, headers, TLS, proxy, variables, examples..." class="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none">
+                    <input type="text" id="http-docs-filter" aria-label="Search HTTP client documentation" oninput="filterHttpDocs(this.value)" placeholder="Search methods, headers, TLS, proxy, variables, examples..." class="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none">
                     <button type="button" onclick="clearHttpDocsFilter()" id="http-docs-clear-filter" class="hidden text-xs text-slate-500 hover:text-white px-1 cursor-pointer">&times;</button>
                 </div>
                 <div class="flex items-center space-x-1 text-[11px] overflow-x-auto custom-scrollbar">
@@ -1152,8 +1160,9 @@ const IndexHTML = `
         </div>
     </div>
     <!-- COMPONENT DOCS MODAL (assert, file_read, file_save, excel_read, excel_write, json_path, yaml_path, xml_xpath) -->
-    <div id="component-docs-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[75]" onclick="if(event.target===this)closeDocModal()">
-        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-5xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[92vh]">
+    <div id="component-docs-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[75]">
+        <button type="button" aria-label="Close component guide" onclick="closeDocModal()" class="absolute inset-0 cursor-default"></button>
+        <div class="relative bg-slate-900 border border-slate-800 rounded-xl max-w-5xl w-full p-6 shadow-2xl flex flex-col space-y-4 max-h-[92vh]">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div class="flex items-center space-x-3">
                     <span id="component-docs-icon" class="text-2xl">📖</span>
@@ -1175,7 +1184,7 @@ const IndexHTML = `
             <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
                 <div class="flex items-center space-x-2 flex-1 min-w-[200px]">
                     <span class="text-xs text-slate-500">🔍</span>
-                    <input type="text" id="component-docs-filter" oninput="filterComponentDocs(this.value)" placeholder="Search attributes, syntax, variables, examples..." class="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none">
+                    <input type="text" id="component-docs-filter" aria-label="Search component documentation" oninput="filterComponentDocs(this.value)" placeholder="Search attributes, syntax, variables, examples..." class="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none">
                     <button type="button" onclick="clearComponentDocsFilter()" id="component-docs-clear-filter" class="hidden text-xs text-slate-500 hover:text-white px-1 cursor-pointer">&times;</button>
                 </div>
                 <div id="component-docs-nav-bar" class="flex items-center space-x-1 text-[11px] overflow-x-auto custom-scrollbar">
@@ -1320,7 +1329,7 @@ const IndexHTML = `
                 <button onclick="closeComponentPicker()" class="text-slate-400 hover:text-white">&times;</button>
             </div>
             <div class="p-1">
-                <input type="text" id="picker-filter-input" oninput="filterPickerComponents(this.value)" placeholder="Filter components (e.g. assert, sql, http, template)..."
+                <input type="text" id="picker-filter-input" aria-label="Filter components" oninput="filterPickerComponents(this.value)" placeholder="Filter components (e.g. assert, sql, http, template)..."
                        class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500">
             </div>
             <div class="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1" id="picker-components-list"></div>
@@ -1362,7 +1371,7 @@ const IndexHTML = `
             </div>
 
             <div>
-                <input type="text" id="file-browser-filter" oninput="filterBrowseResults(this.value)" placeholder="Filter files in this directory..."
+                <input type="text" id="file-browser-filter" aria-label="Filter files in this directory" oninput="filterBrowseResults(this.value)" placeholder="Filter files in this directory..."
                        class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500">
             </div>
 
@@ -1422,6 +1431,7 @@ const IndexHTML = `
                 }
             });
             if (tab === 'pipeline') {
+                updateXMLPreviewResizer();
                 updatePreview();
                 setTimeout(updateActiveSectionFromScroll, 50);
             }
@@ -1564,19 +1574,20 @@ const IndexHTML = `
             }
 
             items.forEach(c => {
-                const div = document.createElement('div');
-                div.className = 'group bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 p-3 rounded-lg transition-all cursor-pointer flex items-center justify-between';
+                const div = document.createElement('button');
+                div.type = 'button';
+                div.className = 'w-full text-left focus-visible:ring-2 focus-visible:ring-blue-500 group bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 p-3 rounded-lg transition-all cursor-pointer flex items-center justify-between';
                 div.onclick = () => {
                     closeComponentPicker();
                     openAddNodeModal(c.type, c.name, activePickerSection, activePickerParentId);
                 };
-                div.innerHTML = '<div>' +
-                    '<div class="flex items-center space-x-2">' +
+                div.innerHTML = '<span>' +
+                    '<span class="flex items-center space-x-2">' +
                         '<span class="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">&lt;' + c.tag + '&gt; ' + c.name + '</span>' +
                         '<span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">' + (c.category || 'Step') + '</span>' +
-                    '</div>' +
-                    '<p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">' + c.description + '</p>' +
-                '</div>' +
+                    '</span>' +
+                    '<span class="block text-[11px] text-slate-400 mt-0.5 leading-relaxed">' + c.description + '</span>' +
+                '</span>' +
                 '<span class="text-xs text-slate-500 group-hover:text-white transition">Select &rarr;</span>';
                 container.appendChild(div);
             });
@@ -1899,11 +1910,11 @@ const IndexHTML = `
             datalistHtml += '</datalist>';
 
             row.innerHTML = 
-                '<select class="' + selectClass + '" onchange="onCustomAttrKeyChanged(this, \'' + datalistId + '\')">' +
+                '<select aria-label="Attribute name" class="' + selectClass + '" onchange="onCustomAttrKeyChanged(this, \'' + datalistId + '\')">' +
                     optsHtml +
                 '</select>' +
-                '<input type="text" placeholder="attribute_name" value="' + (isCustom ? currentName.replace(/"/g, '&quot;') : '') + '" class="' + inputClass + '">' +
-                '<input type="text" list="' + datalistId + '" placeholder="value" value="' + safeVal + '" class="custom-attr-val flex-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">' +
+                '<input type="text" aria-label="Custom attribute name" placeholder="attribute_name" value="' + (isCustom ? currentName.replace(/"/g, '&quot;') : '') + '" class="' + inputClass + '">' +
+                '<input type="text" aria-label="Attribute value" list="' + datalistId + '" placeholder="value" value="' + safeVal + '" class="custom-attr-val flex-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">' +
                 datalistHtml +
                 '<button type="button" onclick="this.closest(\'.custom-attr-row\').remove()" class="p-1.5 hover:bg-red-950/60 text-slate-400 hover:text-red-400 rounded text-xs" title="Remove attribute">&times;</button>';
 
@@ -1974,14 +1985,14 @@ const IndexHTML = `
                         optionsHtml += '<option value="' + val + '" selected>' + val + ' (custom)</option>';
                     }
                     inputHtml = '<div class="space-y-1">' +
-                        '<select id="db-select-' + f.name + '" onchange="document.getElementById(\'db-input-' + f.name + '\').value = this.value" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">' +
+                        '<select aria-label="Select defined database" id="db-select-' + f.name + '" onchange="document.getElementById(\'db-input-' + f.name + '\').value = this.value" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">' +
                             optionsHtml +
                         '</select>' +
                         '<input type="text" id="db-input-' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder="Or enter database connection name..." oninput="document.getElementById(\'db-select-' + f.name + '\').value = this.value" class="w-full bg-slate-950 border border-slate-700/60 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
                     '</div>';
                 } else if (f.type === 'select') {
                     const opts = (f.options || []).map(o => '<option value="' + o + '" ' + (o === val ? 'selected' : '') + '>' + o + '</option>').join('');
-                    inputHtml = '<select name="attr_' + f.name + '" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">' + opts + '</select>';
+                    inputHtml = '<select id="attr_' + f.name + '" name="attr_' + f.name + '" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">' + opts + '</select>';
                 } else if (f.name === 'connection_string') {
                     inputHtml = '<div class="space-y-1">' +
                         '<input type="text" id="attr_' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder="e.g. sqlserver://... or postgresql://... or ./data.db" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-blue-500">' +
@@ -2071,7 +2082,7 @@ const IndexHTML = `
                         '</div>' +
                     '</div>';
                 } else {
-                    inputHtml = '<input type="text" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">';
+                    inputHtml = '<input type="text" id="attr_' + f.name + '" name="attr_' + f.name + '" value="' + (val || '').replace(/"/g, '&quot;') + '" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-white focus:outline-none focus:border-blue-500">';
                 }
                 let labelExtra = '';
                 if (f.name === 'connection_string') {
@@ -2123,7 +2134,7 @@ const IndexHTML = `
                 } else if ((f.name === 'condition' || f.name === 'var' || f.name === 'equals' || f.name === 'id') && meta.type === 'if') {
                     labelExtra = '<button type="button" onclick="openDocModal(\'if\')" class="text-[11px] text-amber-400 hover:text-amber-300 font-medium underline underline-offset-2 cursor-pointer flex items-center space-x-1" title="View conditional branching, then/else execution, and predicates from docs/if_then_else.md"><span>🔀 If Guide</span></button>';
                 }
-                div.innerHTML = '<div class="flex justify-between items-center"><label class="text-xs font-medium text-slate-300">' + f.label + (f.mandatory ? ' <span class="text-red-400">*</span>' : '') + '</label><div class="flex items-center space-x-2">' + labelExtra + '<span class="text-[10px] text-slate-500">' + (f.description || '') + '</span></div></div>' + inputHtml;
+                div.innerHTML = '<div class="flex justify-between items-center"><label for="' + (f.name === 'db' ? 'db-input-' + f.name : 'attr_' + f.name) + '" class="text-xs font-medium text-slate-300">' + f.label + (f.mandatory ? ' <span class="text-red-400">*</span>' : '') + '</label><div class="flex items-center space-x-2">' + labelExtra + '<span class="text-[10px] text-slate-500">' + (f.description || '') + '</span></div></div>' + inputHtml;
                 container.appendChild(div);
             });
 
@@ -2304,6 +2315,8 @@ const IndexHTML = `
                 collapseXMLPreview(true);
             }
 
+            updateXMLPreviewResizer();
+
             function startResize(e) {
                 if (panel.classList.contains('is-collapsed')) {
                     expandXMLPreview();
@@ -2328,6 +2341,7 @@ const IndexHTML = `
 
                 panel.style.width = newWidth + 'px';
                 lastXMLPreviewWidth = newWidth;
+                updateXMLPreviewResizer();
                 if (widthLabel) {
                     widthLabel.textContent = Math.round(newWidth) + 'px';
                 }
@@ -2366,8 +2380,39 @@ const IndexHTML = `
             });
             document.addEventListener('touchend', stopResize);
 
+            resizer.addEventListener('keydown', (e) => {
+                const maxWidth = Math.max(200, container.getBoundingClientRect().width - 340);
+                let width = panel.offsetWidth;
+                if (e.key === 'ArrowLeft') width += 10;
+                else if (e.key === 'ArrowRight') width -= 10;
+                else if (e.key === 'Home') width = 200;
+                else if (e.key === 'End') width = maxWidth;
+                else return;
+                e.preventDefault();
+                width = Math.max(200, Math.min(width, maxWidth));
+                panel.style.width = width + 'px';
+                lastXMLPreviewWidth = width;
+                localStorage.setItem('flow_builder_preview_width', width);
+                updateXMLPreviewResizer();
+            });
+
+            resizer.addEventListener('click', (e) => {
+                if (e.detail === 0) resetXMLPreviewWidth();
+            });
+
             // Double click to reset to default
             resizer.addEventListener('dblclick', resetXMLPreviewWidth);
+        }
+
+        function updateXMLPreviewResizer() {
+            const resizer = document.getElementById('xml-preview-resizer');
+            const panel = document.getElementById('xml-preview-panel');
+            const value = document.getElementById('xml-preview-resize-value');
+            if (!resizer || !panel || !value) return;
+            const collapsed = panel.classList.contains('is-collapsed');
+            resizer.disabled = collapsed;
+            resizer.setAttribute('aria-hidden', collapsed ? 'true' : 'false');
+            value.textContent = 'Width: ' + Math.round(panel.offsetWidth) + ' pixels';
         }
 
         function resetXMLPreviewWidth() {
@@ -2380,6 +2425,7 @@ const IndexHTML = `
             panel.style.width = defaultWidth + 'px';
             lastXMLPreviewWidth = defaultWidth;
             localStorage.setItem('flow_builder_preview_width', defaultWidth);
+            updateXMLPreviewResizer();
         }
 
         function toggleXMLPreviewCollapse() {
@@ -2418,6 +2464,7 @@ const IndexHTML = `
             }
             if (resizer) resizer.classList.add('pointer-events-none', 'opacity-30');
             localStorage.setItem('flow_builder_preview_collapsed', 'true');
+            updateXMLPreviewResizer();
         }
 
         function expandXMLPreview() {
@@ -2444,6 +2491,7 @@ const IndexHTML = `
             }
             if (resizer) resizer.classList.remove('pointer-events-none', 'opacity-30');
             localStorage.setItem('flow_builder_preview_collapsed', 'false');
+            updateXMLPreviewResizer();
             updatePreview();
         }
 
@@ -2994,24 +3042,24 @@ const IndexHTML = `
             entries.forEach(e => {
                 const safePath = e.path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
                 if (e.is_dir) {
-                    html += '<div onclick="loadDirectory(\'' + safePath + '\')" class="p-2 hover:bg-slate-800/70 rounded cursor-pointer flex items-center justify-between text-xs transition group">' +
-                        '<div class="flex items-center space-x-2 text-amber-300 font-medium truncate">' +
+                    html += '<button type="button" onclick="loadDirectory(\'' + safePath + '\')" class="w-full text-left focus-visible:ring-2 focus-visible:ring-blue-500 p-2 hover:bg-slate-800/70 rounded cursor-pointer flex items-center justify-between text-xs transition group">' +
+                        '<span class="flex items-center space-x-2 text-amber-300 font-medium truncate">' +
                             '<span>📁</span>' +
                             '<span class="group-hover:text-amber-200">' + e.name + '</span>' +
-                        '</div>' +
+                        '</span>' +
                         '<span class="text-[10px] text-slate-500 font-mono">DIR</span>' +
-                    '</div>';
+                    '</button>';
                 } else {
-                    html += '<div onclick="selectFileFromBrowser(\'' + safePath + '\')" class="p-2 hover:bg-blue-600/20 hover:border-blue-500/40 border border-transparent rounded cursor-pointer flex items-center justify-between text-xs transition group">' +
-                        '<div class="flex items-center space-x-2 text-slate-200 font-mono truncate">' +
+                    html += '<button type="button" onclick="selectFileFromBrowser(\'' + safePath + '\')" class="w-full text-left focus-visible:ring-2 focus-visible:ring-blue-500 p-2 hover:bg-blue-600/20 hover:border-blue-500/40 border border-transparent rounded cursor-pointer flex items-center justify-between text-xs transition group">' +
+                        '<span class="flex items-center space-x-2 text-slate-200 font-mono truncate">' +
                             '<span class="text-emerald-400">📄</span>' +
                             '<span class="group-hover:text-cyan-300 font-medium">' + e.name + '</span>' +
-                        '</div>' +
-                        '<div class="flex items-center space-x-3 text-[10px] text-slate-400 font-mono">' +
+                        '</span>' +
+                        '<span class="flex items-center space-x-3 text-[10px] text-slate-400 font-mono">' +
                             '<span>' + formatBytes(e.size) + '</span>' +
-                            '<button type="button" class="px-2 py-0.5 rounded bg-blue-600/70 text-white group-hover:bg-blue-500 text-[10px]">Select</button>' +
-                        '</div>' +
-                    '</div>';
+                            '<span class="px-2 py-0.5 rounded bg-blue-600/70 text-white group-hover:bg-blue-500 text-[10px]">Select</span>' +
+                        '</span>' +
+                    '</button>';
                 }
             });
             html += '</div>';
@@ -3644,9 +3692,13 @@ const IndexHTML = `
         }
 
         function filterDbDocs(query) {
-            const clearBtn = document.getElementById('db-docs-clear-filter');
+            filterDocsSections(query, 'db-docs');
+        }
+
+        function filterDocsSections(query, prefix) {
+            const clearBtn = document.getElementById(prefix + '-clear-filter');
             if (clearBtn) clearBtn.classList.toggle('hidden', !query);
-            const container = document.getElementById('db-docs-body');
+            const container = document.getElementById(prefix + '-body');
             if (!container) return;
 
             query = (query || '').trim().toLowerCase();
@@ -4846,33 +4898,7 @@ const IndexHTML = `
         }
 
         function filterHttpDocs(query) {
-            const clearBtn = document.getElementById('http-docs-clear-filter');
-            if (clearBtn) clearBtn.classList.toggle('hidden', !query);
-            const container = document.getElementById('http-docs-body');
-            if (!container) return;
-
-            query = (query || '').trim().toLowerCase();
-            const sections = container.querySelectorAll('h2');
-            if (!query) {
-                container.querySelectorAll('*').forEach(el => el.classList.remove('hidden'));
-                return;
-            }
-
-            sections.forEach(sec => {
-                let next = sec.nextElementSibling;
-                let hasMatch = sec.textContent.toLowerCase().includes(query);
-                const secElements = [sec];
-                while (next && next.tagName !== 'H2') {
-                    if (next.textContent.toLowerCase().includes(query)) {
-                        hasMatch = true;
-                    }
-                    secElements.push(next);
-                    next = next.nextElementSibling;
-                }
-                secElements.forEach(el => {
-                    el.classList.toggle('hidden', !hasMatch);
-                });
-            });
+            filterDocsSections(query, 'http-docs');
         }
 
         function clearHttpDocsFilter() {
@@ -5200,33 +5226,7 @@ const IndexHTML = `
         }
 
         function filterComponentDocs(query) {
-            const clearBtn = document.getElementById('component-docs-clear-filter');
-            if (clearBtn) clearBtn.classList.toggle('hidden', !query);
-            const container = document.getElementById('component-docs-body');
-            if (!container) return;
-
-            query = (query || '').trim().toLowerCase();
-            const sections = container.querySelectorAll('h2');
-            if (!query) {
-                container.querySelectorAll('*').forEach(el => el.classList.remove('hidden'));
-                return;
-            }
-
-            sections.forEach(sec => {
-                let next = sec.nextElementSibling;
-                let hasMatch = sec.textContent.toLowerCase().includes(query);
-                const secElements = [sec];
-                while (next && next.tagName !== 'H2') {
-                    if (next.textContent.toLowerCase().includes(query)) {
-                        hasMatch = true;
-                    }
-                    secElements.push(next);
-                    next = next.nextElementSibling;
-                }
-                secElements.forEach(el => {
-                    el.classList.toggle('hidden', !hasMatch);
-                });
-            });
+            filterDocsSections(query, 'component-docs');
         }
 
         function clearComponentDocsFilter() {
@@ -5809,11 +5809,12 @@ const IndexHTML = `
                 const selectedClass = isSelected ? 'bg-blue-950/40 border-l-4 border-l-blue-500 ring-1 ring-blue-500/30' : 'hover:bg-slate-800/60 cursor-pointer';
                 const fileBaseName = (run.file_path || '-').split(/[\\\/]/).pop();
 
-                return '<tr onclick="selectLogRun(\'' + escapeHtml(run.run_id) + '\')" class="transition-colors ' + selectedClass + '">' +
+                return '<tr class="relative transition-colors ' + selectedClass + '">' +
                     '<td class="p-2.5 whitespace-nowrap">' +
                         '<span class="px-2 py-0.5 text-[10px] font-bold rounded border uppercase ' + statusClass + '">' + escapeHtml(run.status || 'unknown') + '</span>' +
                     '</td>' +
                     '<td class="p-2.5 font-mono text-xs text-blue-400 font-semibold truncate max-w-[120px]" title="' + escapeHtml(run.run_id) + '">' +
+                        '<button type="button" aria-current="' + isSelected + '" onclick="selectLogRun(\'' + escapeHtml(run.run_id) + '\')" class="absolute inset-0 w-full h-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"><span class="sr-only">Select run ' + escapeHtml(run.run_id) + '</span></button>' +
                         escapeHtml(run.run_id) +
                     '</td>' +
                     '<td class="p-2.5 truncate max-w-[140px]" title="' + escapeHtml(run.file_path || '-') + '">' +
@@ -5837,8 +5838,13 @@ const IndexHTML = `
         }
 
         function selectLogRun(runId) {
+            const focusedRun = document.activeElement && document.activeElement.closest('#log-runs-tbody');
             logState.selectedRunId = runId;
             renderLogRunsTable(logState.filteredRuns);
+            if (focusedRun) {
+                const selectedButton = document.querySelector('#log-runs-tbody button[aria-current="true"]');
+                if (selectedButton) selectedButton.focus();
+            }
 
             const run = logState.runs.find(function(r) { return r.run_id === runId; });
             updateActiveRunSummary(run);
