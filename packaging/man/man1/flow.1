@@ -1,0 +1,406 @@
+.\" Man page for flow(1)
+.\" Generated from COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md and SUMMARY_OF_AVAILABLE_OPTIONS.md
+.TH FLOW 1 "November 2026" "ETL Madness Flow" "User Commands"
+.SH NAME
+flow \- ETL pipeline execution engine, validator, visual builder server, and repository manager
+.SH SYNOPSIS
+.B flow
+.RI [ options ...]
+.SH DESCRIPTION
+.B flow
+(compiled from
+.BR go-flow )
+is the primary executable in the ETL Madness Flow ecosystem.
+It executes XML-defined ETL and data workflow pipelines, runs preflight and schema/AST validations, starts an interactive local HTMX web server for visual pipeline authoring, transforms pipeline definitions via XSLT with auto-generated Mermaid workflow diagrams, and imports or exports pipelines, options profiles, and variable configurations across SQLite and external relational databases.
+.PP
+For the complete XML pipeline language specification (elements, attributes, control flow, database pools, and task types), see
+.BR flow-pipeline (5).
+.SH OPTIONS
+Flags accept single-dash Go flag syntax (for example,
+.B \-file
+or
+.BR \-\-file ).
+Explicit command-line flags always take precedence over defaults loaded via
+.BR \-options .
+.SS Execution Options
+.TP
+.BI \-file " path|uri"
+Path or URI to the XML file containing scripts, databases, and workflow nodes.
+Supports local file paths, HTTP/HTTPS URLs, and
+.B sql://
+or
+.B db://
+database queries.
+Default:
+.IR scripts.xml .
+.TP
+.BI \-options " path|uri"
+Path or URI to an XML CLI options defaults file
+.RB ( <flow_cli_options><options>... ).
+Values in this file set flag defaults without overriding flags explicitly passed on the command line.
+.TP
+.BI \-config " path|uri"
+Optional path or URI to a
+.I CONFIG.xml
+file containing variable and database connection overrides, merged hierarchically with the base pipeline file.
+.TP
+.BI \-format " format"
+Output formatting applied to execution results.
+Supported values:
+.B csv
+(default),
+.BR text ,
+.BR json ,
+.B jsonpretty
+(or
+.BR prettyjson ),
+.B markdown
+(or
+.BR md ,
+.BR table ),
+and
+.BR stream .
+.TP
+.BI \-vars " key=value[,key=value...]"
+Comma-separated runtime variable overrides (for example,
+.BR "\-vars \(dqTargetTable=tbl_prod,Threshold=500\(dq" ).
+Recursively expands
+.B {{var}}
+placeholders up to 3 levels deep.
+.SS Validation Options
+.TP
+.B \-validate
+Validate XML schema (using XSD if
+.B \-xsd
+is specified) and AST semantic structure without executing any pipeline nodes.
+Exits with status
+.B 0
+on success.
+.TP
+.B \-preflight
+Execute preflight validation nodes only
+.RB ( <preflight>
+section), skipping the main pipeline
+.B <flow>
+nodes.
+.TP
+.BI \-xsd " path"
+Path to an XML Schema Definition
+.RI ( .xsd )
+file used to validate the pipeline XML via
+.B xmllint
+prior to parsing.
+.SS Diagnostic & Runtime Options
+.TP
+.B \-node-output
+When logging to a database
+.RB ( log_db ),
+persist each node's execution output
+.RB ( ResultsString
+with automatic credential redaction) to the
+.I node_output
+column on
+.I node.finished
+rows in
+.IR pipeline_events .
+Disabled by default.
+.TP
+.B \-debug
+Enable verbose console logging, including connection string resolution, driver dialect detection, digital signature verification metadata, and sink telemetry.
+.TP
+.BI \-gopath " dir"
+GOPATH directory for dynamic package imports used by the embedded Yaegi Go interpreter engine.
+Defaults to the host
+.B GOPATH
+environment variable.
+.SS Visualization Options
+.TP
+.BI \-xslt " path"
+Path to a custom XSLT stylesheet.
+Transforms pipeline XML while injecting an auto-generated Mermaid workflow diagram and exits immediately after transformation.
+.TP
+.BI \-out " path"
+Output file path for XSLT-transformed XML produced by
+.BR \-xslt .
+.SS Security, Encryption & Signature Options
+.TP
+.B \-encrypted
+Indicate that input files or database resources are AES-256-GCM encrypted and must be decrypted prior to parsing, or instruct
+.B \-export-file
+/
+.B \-import-file
+to encrypt output.
+.TP
+.BI \-secure-key " key"
+Symmetric encryption or decryption key/passphrase.
+Emits a security warning to
+.I stderr
+because command-line arguments are visible in process listings; prefer
+.B \-key-file
+or
+.BR FLOW_SECURE_KEY .
+.TP
+.BI \-key-file " path"
+Path to a protected file containing the symmetric key/passphrase.
+Preferred over
+.B \-secure-key
+to avoid exposing secrets in system process tables.
+.TP
+.B \-verify-signature
+Enforce digital signature verification before decrypting or executing the pipeline.
+.TP
+.BI \-public-key " path"
+Path to a PEM-encoded public key file (RSA, ECDSA, or Ed25519) for digital signature verification.
+.TP
+.BI \-cert " path"
+Path to an X.509 certificate file (PEM or DER format) for PKCS#7/CMS or X.509 RSA/ECDSA signature verification.
+.TP
+.BI \-ca-cert " path"
+Path to a root or intermediate CA certificate file for signature verification certificate chain validation.
+.TP
+.BI \-keyring " path"
+Path to an OpenPGP armored public keyring file for GPG signature verification.
+.TP
+.BI \-signature " path"
+Path to a detached digital signature file
+.RI ( .sig ,
+.IR .asc ,
+or
+.IR .p7s ).
+When omitted, companion files with matching basenames are checked automatically.
+.SS Visual Builder UI Options
+.TP
+.B \-builder
+Start the interactive local HTMX visual pipeline builder web server.
+.TP
+.BI \-builder-port " port"
+TCP port for the visual builder web server.
+Default
+.B 0
+selects an ephemeral dynamic port.
+Can also be configured via
+.B FLOW_BUILDER_PORT
+or
+.BR PORT .
+.TP
+.BI \-builder-db " path"
+SQLite database file path used for visual builder local project storage.
+Default:
+.IR flow_builder.db .
+.TP
+.B \-purge-db
+Purge all pipeline data from the SQLite visual builder database, re-initialize default records, and exit.
+.SS Repository Import & Export Options
+.TP
+.BI \-import-file " path|uri"
+Path or URI to a pipeline, options, or config XML file to import into the SQLite builder database or an external database specified by
+.BR \-dsn .
+.TP
+.BI \-import-name " name"
+Custom record name for the item imported with
+.BR \-import-file .
+Defaults to the source file basename without extension.
+.TP
+.BI \-import-type " type"
+Item type for
+.BR \-import-file :
+.B pipeline
+(default),
+.BR options ,
+or
+.BR config .
+.TP
+.BI \-export-file " path"
+Destination file path to export a pipeline, options, or config file, or
+.B \-
+for standard output
+.RI ( stdout ).
+Files written to disk use
+.B 0600
+permissions.
+.TP
+.BI \-export-name " name"
+Name of the pipeline, options, or config record to export from the database (required when
+.B \-export-file
+is specified).
+.TP
+.BI \-export-type " type"
+Item type for
+.BR \-export-file :
+.B pipeline
+(default),
+.BR options ,
+or
+.BR config .
+.TP
+.BI \-dsn " dsn"
+External database DSN for direct repository import and export (supports
+.BR sqlserver ,
+.BR postgres ,
+.BR mysql ,
+and
+.BR sqlite ).
+.SH OUTPUT FORMATS
+The
+.B \-format
+flag accepts the following values:
+.TP
+.B csv
+(Default) Standard comma-separated table displaying
+.IR ScriptID ,
+.IR ReturnCode ,
+.IR Duration ,
+and
+.IR ResultsString .
+.TP
+.B text
+Human-readable plain-text tabular format.
+.TP
+.B json
+Compact JSON array containing all
+.I ScriptResult
+objects.
+.TP
+.BR jsonpretty ", " prettyjson
+Formatted multi-line JSON with 4-space indentation.
+.TP
+.BR markdown ", " md ", " table
+GitHub Flavored Markdown table.
+.TP
+.B stream
+Real-time console event streaming mode with live node transitions, parent/child execution relationships, and audit sink telemetry.
+.SH RESOURCE URIS
+Arguments that load resources
+.RB ( \-file ,
+.BR \-options ,
+.BR \-config ,
+.BR \-import-file )
+support uniform URI resolution:
+.TP
+.B Local File
+Relative or absolute filesystem path, e.g.,
+.IR ./pipelines/finance.xml .
+.TP
+.B HTTP / HTTPS
+.I http://...
+or
+.IR https://...
+.TP
+.B HTTP Basic Auth
+.I https://Basic%20<base64>@host/path/etl.xml
+.TP
+.B SQL Server Query
+.I sql://sqlserver@<dsn>#<SELECT_QUERY>
+.TP
+.B Generic DB Alias
+.I db://<driver>@<dsn>#<SELECT_QUERY>
+(for example,
+.IR "db://postgres@app_user:pass@db:5432/app#SELECT pipeline_xml FROM flow_pipelines WHERE name='BILLING'" ).
+.SH SECRET RESOLUTION PRECEDENCE
+When encrypting or decrypting resources, passphrases and keys are resolved in the following order:
+.IP 1. 4
+.BI \-key-file " path"
+(safest: reads key directly from a permission-restricted file).
+.IP 2. 4
+.BI \-secure-key " key"
+(emits warning: command-line flags are visible in process listings such as
+.BR ps (1)).
+.IP 3. 4
+XML options profile
+.B <secure-key>
+element (loaded via
+.BR \-options ).
+.IP 4. 4
+.B FLOW_SECURE_KEY
+environment variable.
+.IP 5. 4
+.B SECURE_KEY
+fallback environment variable.
+.SH ENVIRONMENT
+.TP
+.B FLOW_SECURE_KEY
+Primary symmetric passphrase used to decrypt or encrypt scripts, options, and configs.
+.TP
+.B SECURE_KEY
+Secondary fallback symmetric passphrase if
+.B FLOW_SECURE_KEY
+is unset.
+.TP
+.B FLOW_BUILDER_PORT
+Default TCP port for the HTMX visual builder web server when
+.B \-builder-port
+is not passed.
+.TP
+.B PORT
+Generic fallback TCP port for the builder web server.
+.TP
+.B GOPATH
+Go workspace directory used by Yaegi to import packages in interpreted blocks.
+.TP
+.BR USER ", " USERNAME
+Captured for execution audit logs in
+.IR pipeline_runs .
+.TP
+.BR HOSTNAME ", " COMPUTERNAME
+Captured for execution audit logs in
+.IR pipeline_runs .
+.SH FILES
+.TP
+.I /opt/flow/share/xsd/pipeline.xsd
+XML Schema Definition for
+.B <pipeline>
+files.
+.TP
+.I /opt/flow/share/xsd/options.xsd
+XML Schema Definition for
+.B \-options
+CLI profile files.
+.SH EXIT STATUS
+.TP
+.B 0
+Success (pipeline ran successfully, schema/AST valid, signature verified, or import/export completed).
+.TP
+.B 1
+Failure (execution error, validation failure, signature verification failure, missing/invalid decryption key, or database error).
+.SH EXAMPLES
+Execute a pipeline and render results as a Markdown table:
+.PP
+.RS 4
+.nf
+flow \-file ./pipelines/nightly_billing.xml \-format markdown
+.fi
+.RE
+.PP
+Validate XSD schema and semantic AST without executing nodes:
+.PP
+.RS 4
+.nf
+flow \-file ./pipelines/etl.xml \-xsd /opt/flow/share/xsd/pipeline.xsd \-validate
+.fi
+.RE
+.PP
+Execute a signed and encrypted pipeline directly from a SQL repository:
+.PP
+.RS 4
+.nf
+flow \\
+  \-file "sql://sqlserver@db:1433?database=ETL#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name='NIGHTLY_SYNC'" \\
+  \-public-key /etc/flow/release_pub.pem \\
+  \-key-file /etc/flow/master.key
+.fi
+.RE
+.PP
+Start the local visual pipeline builder UI on port 8080:
+.PP
+.RS 4
+.nf
+flow \-builder \-builder-port 8080 \-builder-db ./builder_workspace.db
+.fi
+.RE
+.SH SEE ALSO
+.BR crypto_tool (1),
+.BR db_importer (1),
+.BR flow-pipeline (5)
+.PP
+Full documentation is also available via GNU Info:
+.B info flow

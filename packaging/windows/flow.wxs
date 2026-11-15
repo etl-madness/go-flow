@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- WiX Toolset v4 / v5 / v6 manifest for ETL Madness Flow (.msi) -->
+<!-- Installs isolated under C:\Program Files\ETL Madness\Flow\ with no service -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="ETL Madness Flow"
+           Manufacturer="ETL Madness"
+           Version="$(FlowMsiVersion)"
+           UpgradeCode="{8D4A7E29-6C3F-4B18-9E52-3F71C0A8E412}"
+           ProductCode="$(FlowProductCode)"
+           Scope="perMachine"
+           InstallerVersion="500"
+           Compressed="yes">
+
+    <SummaryInformation Description="ETL Madness Flow pipeline engine, crypto_tool, and db_importer"
+                        Manufacturer="ETL Madness" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="VendorFolder" Name="ETL Madness">
+        <Directory Id="INSTALLFOLDER" Name="Flow">
+          <Directory Id="BinFolder" Name="bin" />
+          <Directory Id="DocsFolder" Name="docs" />
+          <Directory Id="ShareFolder" Name="share">
+            <Directory Id="XsdFolder" Name="xsd" />
+            <Directory Id="ManFolder" Name="man">
+              <Directory Id="Man1Folder" Name="man1" />
+              <Directory Id="Man5Folder" Name="man5" />
+            </Directory>
+          </Directory>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="FlowProductComponents">
+      <Component Id="CmpFlowExe" Directory="BinFolder" Guid="*">
+        <File Id="FilFlowExe" Source="$(StageDir)/bin/flow.exe" KeyPath="yes" />
+        <!-- Part="last" appends to the end of machine PATH so existing binaries are never shadowed -->
+        <Environment Id="EnvFlowPath"
+                     Name="PATH"
+                     Value="[BinFolder]"
+                     Permanent="no"
+                     Part="last"
+                     Action="set"
+                     System="yes" />
+      </Component>
+      <Component Id="CmpCryptoToolExe" Directory="BinFolder" Guid="*">
+        <File Id="FilCryptoToolExe" Source="$(StageDir)/bin/crypto_tool.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpDbImporterExe" Directory="BinFolder" Guid="*">
+        <File Id="FilDbImporterExe" Source="$(StageDir)/bin/db_importer.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpLicense" Directory="INSTALLFOLDER" Guid="*">
+        <File Id="FilLicense" Source="$(StageDir)/LICENSE.txt" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpDocCli" Directory="DocsFolder" Guid="*">
+        <File Id="FilDocCli" Source="$(StageDir)/docs/COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpDocSummary" Directory="DocsFolder" Guid="*">
+        <File Id="FilDocSummary" Source="$(StageDir)/docs/SUMMARY_OF_AVAILABLE_OPTIONS.md" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpXsdPipeline" Directory="XsdFolder" Guid="*">
+        <File Id="FilXsdPipeline" Source="$(StageDir)/share/xsd/pipeline.xsd" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpXsdOptions" Directory="XsdFolder" Guid="*">
+        <File Id="FilXsdOptions" Source="$(StageDir)/share/xsd/options.xsd" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpManFlow1" Directory="Man1Folder" Guid="*">
+        <File Id="FilManFlow1" Source="$(StageDir)/share/man/man1/flow.1" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpManCrypto1" Directory="Man1Folder" Guid="*">
+        <File Id="FilManCrypto1" Source="$(StageDir)/share/man/man1/crypto_tool.1" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpManDbImporter1" Directory="Man1Folder" Guid="*">
+        <File Id="FilManDbImporter1" Source="$(StageDir)/share/man/man1/db_importer.1" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpManPipeline5" Directory="Man5Folder" Guid="*">
+        <File Id="FilManPipeline5" Source="$(StageDir)/share/man/man5/flow-pipeline.5" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="MainFeature" Title="ETL Madness Flow" Level="1">
+      <ComponentGroupRef Id="FlowProductComponents" />
+    </Feature>
+  </Package>
+</Wix>

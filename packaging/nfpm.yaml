@@ -1,0 +1,75 @@
+# Optional nFPM configuration for building .deb, .rpm, and Arch .pkg.tar.zst
+# packages under /opt/flow without requiring native dpkg-deb, rpmbuild, or makepkg.
+name: "go-flow"
+arch: "${NFPM_ARCH}"
+platform: "linux"
+version: "${FLOW_VERSION}"
+release: "${FLOW_RELEASE}"
+section: "utils"
+priority: "optional"
+maintainer: "ETL Madness <maintainers@etl-madness.invalid>"
+description: |
+  ETL Madness Flow pipeline engine, crypto_tool, and db_importer.
+  Installs isolated under /opt/flow (binaries, man pages, GNU Info manual,
+  and XSD schemas) with /etc/profile.d/go-flow.sh PATH/INFOPATH integration.
+homepage: "https://github.com/etl-madness/go-flow"
+license: "MIT"
+
+contents:
+  - src: "${STAGE_BIN_DIR}/flow"
+    dst: "/opt/flow/bin/flow"
+    file_info:
+      mode: 0755
+  - src: "${STAGE_BIN_DIR}/crypto_tool"
+    dst: "/opt/flow/bin/crypto_tool"
+    file_info:
+      mode: 0755
+  - src: "${STAGE_BIN_DIR}/db_importer"
+    dst: "/opt/flow/bin/db_importer"
+    file_info:
+      mode: 0755
+  - src: "${STAGE_DOC_DIR}/man1/flow.1.gz"
+    dst: "/opt/flow/share/man/man1/flow.1.gz"
+    file_info:
+      mode: 0644
+  - src: "${STAGE_DOC_DIR}/man1/crypto_tool.1.gz"
+    dst: "/opt/flow/share/man/man1/crypto_tool.1.gz"
+    file_info:
+      mode: 0644
+  - src: "${STAGE_DOC_DIR}/man1/db_importer.1.gz"
+    dst: "/opt/flow/share/man/man1/db_importer.1.gz"
+    file_info:
+      mode: 0644
+  - src: "${STAGE_DOC_DIR}/man5/flow-pipeline.5.gz"
+    dst: "/opt/flow/share/man/man5/flow-pipeline.5.gz"
+    file_info:
+      mode: 0644
+  - src: "${STAGE_DOC_DIR}/info/flow.info.gz"
+    dst: "/opt/flow/share/info/flow.info.gz"
+    file_info:
+      mode: 0644
+  - src: "${STAGE_DOC_DIR}/info/dir"
+    dst: "/opt/flow/share/info/dir"
+    file_info:
+      mode: 0644
+  - src: "${REPO_ROOT}/xsd/pipeline.xsd"
+    dst: "/opt/flow/share/xsd/pipeline.xsd"
+    file_info:
+      mode: 0644
+  - src: "${REPO_ROOT}/xsd/options.xsd"
+    dst: "/opt/flow/share/xsd/options.xsd"
+    file_info:
+      mode: 0644
+  - src: "${REPO_ROOT}/LICENSE"
+    dst: "/opt/flow/share/licenses/LICENSE"
+    file_info:
+      mode: 0644
+  - src: "${REPO_ROOT}/LICENSE"
+    dst: "/usr/share/licenses/go-flow/LICENSE"
+    file_info:
+      mode: 0644
+  - src: "${REPO_ROOT}/packaging/etc/profile.d/go-flow.sh"
+    dst: "/etc/profile.d/go-flow.sh"
+    type: "config|noreplace"
+    file_info:
+      mode: 0644

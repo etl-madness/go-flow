@@ -1,0 +1,633 @@
+.\" Man page for flow-pipeline(5)
+.\" Generated from SUMMARY_OF_AVAILABLE_OPTIONS.md
+.TH FLOW-PIPELINE 5 "November 2026" "ETL Madness Flow" "File Formats Manual"
+.SH NAME
+flow-pipeline \- XML pipeline specification and element reference for flow(1)
+.SH SYNOPSIS
+.I scripts.xml
+.SH DESCRIPTION
+A Flow pipeline document is an XML file rooted at a
+.B <pipeline>
+element that declares database connections, initial variables, optional preflight checks, and sequential, conditional, looping, transactional, or parallel workflow tasks executed by
+.BR flow (1).
+.PP
+Attribute names on XML elements are case-insensitive and support
+.IR snake_case ,
+.I kebab-case
+.RB ( \- ),
+and dot
+.RB ( . )
+separators.
+Supported attributes and body text allow variable interpolation using
+.B {{VariableName}}
+placeholders.
+.SH TOP-LEVEL STRUCTURE
+A
+.B <pipeline>
+document may contain the following top-level child sections:
+.IP 1. 4
+.B <databases>
+\(em optional collection of named relational SQL and Key-Value database connections.
+.IP 2. 4
+.B <variables>
+\(em optional collection of typed initial pipeline variables.
+.IP 3. 4
+.B <preflight>
+\(em optional container of setup, smoke-test, or connectivity validation nodes executed before
+.B <flow>
+(or standalone when
+.B flow \-preflight
+is passed).
+.IP 4. 4
+.B <flow>
+\(em main execution container whose child nodes execute in document order unless altered by control-flow elements.
+.SH DATABASES (<databases> AND <database>)
+The optional
+.B <databases>
+container accepts an optional
+.I description
+attribute and zero or more
+.B <database>
+elements.
+Each
+.B <database>
+defines a named connection handle and pool configuration:
+.TP
+.B name
+(Mandatory) Unique handle referenced by
+.IR db ,
+.IR database ,
+or
+.I target_db
+on pipeline task nodes.
+.TP
+.B id
+Optional identifier for the database definition.
+.TP
+.BR driver ", " type
+Database driver name.
+Relational SQL drivers:
+.B sqlserver
+(default when omitted),
+.BR postgres ,
+.BR mysql ,
+.BR sqlite ,
+.BR oracle .
+Key-Value drivers:
+.B bbolt
+.RB ( bolt ),
+.BR badger ,
+.B redis
+.RB ( valkey ),
+.BR etcd .
+.TP
+.B connection_string
+(Mandatory) Driver-specific DSN, URL, or file/directory path.
+Supports
+.B {{VariableName}}
+interpolation.
+.TP
+.B workload
+Optional pool tuning profile:
+.B oltp
+(default),
+.BR bulk ,
+.BR analytics ,
+or
+.BR batch .
+Selects workload-tuned pool defaults when individual pool attributes are omitted:
+.RS
+.IP \(bu 3
+.BR oltp " (or omitted): "
+.IR max_open_conns =25,
+.IR max_idle_conns =10,
+.IR conn_max_lifetime =5m,
+.IR conn_max_idle_time =2m.
+.IP \(bu 3
+.BR bulk ": "
+.IR max_open_conns =50,
+.IR max_idle_conns =25,
+.IR conn_max_lifetime =30m,
+.IR conn_max_idle_time =10m.
+.IP \(bu 3
+.BR analytics ": "
+.IR max_open_conns =15,
+.IR max_idle_conns =8,
+.IR conn_max_lifetime =30m,
+.IR conn_max_idle_time =10m.
+.IP \(bu 3
+.BR batch ": "
+.IR max_open_conns =20,
+.IR max_idle_conns =10,
+.IR conn_max_lifetime =15m,
+.IR conn_max_idle_time =5m.
+.RE
+.TP
+.B max_open_conns
+Maximum simultaneous open connections in the pool.
+.TP
+.B max_idle_conns
+Maximum idle connections retained in the pool (clamped to
+.IR max_open_conns ).
+.TP
+.BR conn_max_lifetime_seconds ", " conn_max_lifetime
+Maximum duration a connection may be reused before recycling (accepts Go durations like
+.B 5m
+or integer seconds).
+.TP
+.BR conn_max_idle_time_seconds ", " conn_max_idle_time
+Maximum duration an idle connection remains in the pool before closing (accepts Go durations like
+.B 2m
+or integer seconds).
+.TP
+.B description
+Human-readable description of the database connection.
+.SH VARIABLES (<variables> AND <variable>)
+The optional
+.B <variables>
+container holds zero or more
+.B <variable>
+elements:
+.TP
+.B name
+(Mandatory) Variable name used for retrieval and
+.B {{VariableName}}
+interpolation.
+.TP
+.B value
+(Mandatory) Initial variable value parsed according to
+.IR type .
+.TP
+.B type
+Data type:
+.B string
+(default),
+.BR int " / " integer ,
+.BR bool " / " boolean ,
+.BR float " / " double " / " float64 ,
+.BR datetime ,
+or
+.BR date .
+.TP
+.BR id ", " description
+Optional identifier and human-readable description.
+.SH CONTROL FLOW AND LOGICAL GROUPING
+The following control-flow elements are permitted inside
+.B <preflight>
+and
+.BR <flow> :
+.SS <foreach>
+Executes nested child steps once per row returned by a SQL driver query.
+Sets
+.B LOOP_INDEX
+to the zero-based row index on each iteration and exposes returned columns as pipeline variables in original, lowercase, and uppercase forms.
+.IP \(bu 3
+Attributes:
+.B db
+/
+.B database
+(mandatory),
+.IR id ,
+.B language
+/
+.B lang
+(default
+.BR sql ),
+.B var
+/
+.B variable
+(takes precedence over inline SQL text when non-empty), inline SQL query before child elements.
+.SS <group>
+Organizes nested steps into a sequential block with optional conditional execution, database transaction wrapping, or dedicated connection pinning.
+.IP \(bu 3
+Identity & timeout:
+.IR id " / " name ,
+.IR timeout
+(e.g.,
+.BR 30s ,
+.BR 5m ),
+.IR description .
+.IP \(bu 3
+Condition attributes:
+.IR var " / " if_var ,
+.IR equals " / " val " / " value " / " if_val " / " if_equals ,
+.IR condition " / " cond .
+.IP \(bu 3
+Database transaction & session attributes:
+.B transaction
+/
+.B tx
+(boolean, default
+.BR false ;
+rolls back on child failure, commits on completion),
+.B session
+/
+.B pin_connection
+/
+.B pin_conn
+/
+.B sticky
+(boolean, default
+.BR false ;
+pins a single
+.I *sql.Conn
+so session-scoped temporary tables like
+.B #Temp
+or
+.B CREATE TEMP TABLE
+persist across child steps and nested transactional groups),
+.B db
+/
+.B database
+(mandatory when
+.I transaction
+or
+.I session
+is
+.BR true ).
+.SS <while>
+Repeatedly executes nested steps while a condition evaluates to true, setting
+.B WHILE_INDEX
+to the zero-based iteration index.
+.IP \(bu 3
+Attributes:
+.IR id ,
+.IR var " / " if_var ,
+.IR equals " / " val " / " value " / " if_val " / " if_equals ,
+.IR condition " / " cond ,
+.B max_iterations
+/
+.B max_loops
+(default
+.B 1000
+to prevent unbounded loops).
+.SS <if>, <then>, <else>
+Conditionally executes
+.B <then>
+(or direct inline child nodes) when the condition passes, or
+.B <else>
+when the condition fails.
+.IP \(bu 3
+Attributes on
+.BR <if> :
+.IR id ,
+.IR var " / " if_var ,
+.IR equals " / " val " / " value " / " if_val " / " if_equals ,
+.IR condition " / " cond ,
+.IR description .
+.SS <parallel>
+Executes nested child steps concurrently across a worker goroutine pool.
+Branch variable states are isolated during execution and merged upon completion with automatic collision namespacing
+.RB ( WORKER_<id>_<key> ).
+Context cancellation propagates across branches on error.
+.IP \(bu 3
+Attributes:
+.B max_threads
+/
+.B threads
+/
+.B concurrency
+(default
+.B 0
+/ unbounded: runs all child branches concurrently).
+.SH PIPELINE TASK ELEMENTS
+All task elements below may appear under
+.BR <flow> ,
+.BR <preflight> ,
+or nested inside control-flow blocks.
+Most data-producing steps store their output in
+.B LAST_OUTPUT
+in addition to any configured output variable.
+.SS <template> and <template_html>
+Render Go templates using current pipeline variables.
+.B <template>
+uses
+.I text/template
+ while
+.B <template_html>
+uses
+.I html/template
+with automatic HTML escaping against XSS.
+.IP \(bu 3
+Attributes:
+.B id
+(mandatory),
+.IR name ,
+.I file
+(mutually exclusive with inline template body),
+.IR engine ,
+.IR output_var " / " var ,
+.I mode
+.RB ( summary
+returns brief status; unset returns rendered text).
+.SS <sql>
+Executes a SQL statement against a configured database connection.
+.IP \(bu 3
+Attributes:
+.B db
+/
+.B database
+(mandatory),
+.IR id ,
+.IR var " / " variable
+(SQL source variable; overrides inline body when non-empty),
+.IR output_var " / " out_var " / " output_variable ,
+and inline SQL statement body.
+.SS <sql_bulk>
+Streams rows returned by a source SQL query into a destination table.
+Uses native TDS
+.B CopyIn
+for SQL Server and prepared multi-row batched
+.B INSERT
+statements for PostgreSQL, MySQL, Oracle, and SQLite (automatically capping batch size to dialect parameter limits: 65,535 for PostgreSQL/MySQL, 32,767 for Oracle, 32,766 for SQLite).
+.IP \(bu 3
+Attributes:
+.B db
+/
+.B database
+(mandatory source connection),
+.B target_table
+(mandatory destination table; supports
+.B {{var}}
+placeholders),
+.IR target_db " / " target_database
+(defaults to source
+.IR db ),
+.IR batch_size ,
+.IR var " / " variable ,
+.IR output_var " / " out_var
+(receives copied row count),
+SQL Server bulk options
+.B tablock
+(default
+.BR true ),
+.B check_constraints
+(default
+.BR false ),
+.B fire_triggers
+(default
+.BR false ),
+.B keep_nulls
+(default
+.BR false ),
+and inline source SQL query.
+.SS <kv>
+Executes atomic Key-Value operations against
+.BR bbolt ,
+.BR badger ,
+.BR redis ,
+or
+.BR etcd .
+.IP \(bu 3
+Attributes:
+.B db
+/
+.B database
+(mandatory),
+.IR id ,
+.B bucket
+(bucket or key prefix; default
+.BR default ),
+.B op
+.RB ( get ,
+.BR put " / " set ,
+.BR delete " / " del ,
+.BR scan " / " list ),
+.IR key ,
+.IR value ,
+.IR var " / " variable ,
+.IR output_var " / " out_var " / " output_variable ,
+or inline DSL command text (for example,
+.B "set user:101 Alice"
+or
+.BR "get user:101" ).
+.SS <kv_bulk>
+Streams rows from a relational SQL query (projected column 1 = key, column 2 = value) into a Key-Value store in batches.
+.IP \(bu 3
+Attributes:
+.B db
+/
+.B database
+(mandatory SQL source),
+.B target_db
+/
+.B target_database
+(mandatory KV target),
+.B target_bucket
+/
+.B bucket
+(mandatory),
+.B batch_size
+(default
+.BR 10000 ),
+.IR var " / " variable ,
+.IR output_var " / " out_var ,
+and inline SQL query.
+.SS <assert>
+Evaluates a pipeline variable against an expected value and triggers failure handling when unmet.
+.IP \(bu 3
+Attributes:
+.B var
+(mandatory),
+.IR equals " / " value ,
+.IR operator ,
+.IR message ,
+.B on_failure
+.RB ( halt
+[default],
+.BR warn ,
+or
+.BR continue ),
+.IR fail_var ,
+.B fail_val
+(default
+.BR true ),
+.IR id ,
+.IR description ,
+and optional nested
+.B <on_failure>
+child nodes executed prior to halting or continuing.
+.SS <file_read> and <file_save>
+Read local file contents into a variable or write variable/inline text to a local file (creating parent directories automatically).
+.IP \(bu 3
+.BR <file_read> :
+path via
+.IR file " / " path " / " filename ;
+output variable via
+.IR var " / " variable " / " output_var " / " output_variable " / " out_var ;
+optional
+.IR id .
+.IP \(bu 3
+.BR <file_save> :
+destination via
+.IR file " / " path " / " filename ;
+payload via
+.IR var " / " variable
+or inline body (with
+.B {{var}}
+interpolation);
+.B append
+(boolean, default
+.B false
+overwrites); optional
+.IR id .
+.SS <excel_write> and <excel_read>
+Create/update or read
+.I .xlsx
+Excel workbooks.
+.IP \(bu 3
+.BR <excel_write> :
+.B file
+(mandatory
+.I .xlsx
+path),
+.B sheet
+(default
+.BR Sheet1 ),
+.B db
+and inline SQL query (writes column headers to row 1 and query rows beneath), optional
+.IR id .
+.IP \(bu 3
+.BR <excel_read> :
+.B file
+(mandatory
+.I .xlsx
+path),
+.I sheet
+(defaults to first worksheet),
+.B header
+(default
+.BR true ;
+uses first row as JSON object keys),
+.IR output_var " / " var
+(receives JSON array of row objects), optional
+.IR id .
+.SS <json_path>, <yaml_path>, and <xml_xpath>
+Extract values or nodes from structured documents in files or variables.
+.IP \(bu 3
+.BR <json_path> :
+source via
+.I file
+or
+.IR var ;
+query via
+.IR path " / " jsonpath
+or inline body;
+.B mode
+.RB ( value
+[default],
+.BR json ,
+.BR json_array );
+destination via
+.IR output_var " / " out_var .
+.IP \(bu 3
+.BR <yaml_path> :
+source via
+.I file
+or
+.IR var ;
+query via
+.IR path " / " yamlpath
+or inline body;
+.B mode
+.RB ( value
+[default],
+.BR json ,
+.BR json_array ,
+.BR yaml );
+destination via
+.IR output_var " / " out_var .
+.IP \(bu 3
+.BR <xml_xpath> :
+source via
+.I file
+or
+.IR var ;
+query via
+.I xpath
+or inline body;
+.B mode
+.RB ( text
+[default],
+.BR xml ,
+.BR json_array );
+mandatory
+.BR output_var .
+.SS <http_client>
+Sends an HTTP/HTTPS request with variable interpolation and stores the response body and status code.
+.IP \(bu 3
+Core attributes:
+.B uri
+/
+.B url
+(mandatory),
+.B method
+(default
+.BR GET ),
+.I data
+or inline payload,
+.I headers
+(comma-, semicolon-, or newline-separated
+.I "Name: Value"
+pairs),
+.IR content_type ,
+response body variable
+.IR var " / " variable " / " output_var " / " output_variable " / " out_var ,
+status code variable
+.IR status_code_var " / " status_code_variable " / " status_var " / " status_variable .
+.IP \(bu 3
+Transport, redirect & TLS attributes:
+.IR timeout ,
+.IR follow_redirects ,
+.IR max_redirects ,
+.IR cookie_jar ,
+.IR proxy ,
+.IR tls_insecure_skip_verify ,
+.IR tls_handshake_timeout ,
+.IR tls_server_name ,
+.IR tls_min_version ,
+.IR tls_max_version ,
+.IR disable_keep_alives ,
+.IR disable_compression ,
+.IR max_idle_conns ,
+.I max_idle_conns_per_host
+(default
+.BR 10 ),
+.IR max_conns_per_host ,
+.IR idle_conn_timeout ,
+.IR response_header_timeout ,
+.IR expect_continue_timeout ,
+.IR max_response_header_bytes ,
+.IR write_buffer_size ,
+.IR read_buffer_size ,
+.IR force_attempt_http2 .
+.SH EXAMPLE
+.nf
+<pipeline>
+  <databases>
+    <database name="analytics_db" driver="postgres" workload="analytics"
+      connection_string="host=localhost port=5432 user=postgres password={{DB_PASSWORD}} dbname=analytics sslmode=disable" />
+  </databases>
+  <variables>
+    <variable name="BatchDate" type="string" value="2026-10-10" />
+  </variables>
+  <preflight>
+    <sql id="ping" db="analytics_db" output_var="OK">SELECT 'ready'</sql>
+    <assert var="OK" equals="ready" on_failure="halt" />
+  </preflight>
+  <flow>
+    <group id="daily_load" db="analytics_db" session="true" transaction="true">
+      <sql id="extract" db="analytics_db" output_var="ROW_CNT">
+        SELECT COUNT(*) FROM events WHERE event_date = '{{BatchDate}}'
+      </sql>
+    </group>
+  </flow>
+</pipeline>
+.fi
+.SH SEE ALSO
+.BR flow (1),
+.BR crypto_tool (1),
+.BR db_importer (1)
+.PP
+Full documentation is also available via GNU Info:
+.B info flow

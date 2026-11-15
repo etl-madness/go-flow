@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- WiX v3 (candle/light) and Linux msitools (wixl) manifest for ETL Madness Flow (.msi) -->
+<!-- Installs isolated under C:\Program Files\ETL Madness\Flow\ with no service -->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="$(var.FlowProductCode)"
+           Name="ETL Madness Flow"
+           Language="1033"
+           Version="$(var.FlowMsiVersion)"
+           Manufacturer="ETL Madness"
+           UpgradeCode="{8D4A7E29-6C3F-4B18-9E52-3F71C0A8E412}">
+
+    <Package InstallerVersion="500"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Description="ETL Madness Flow pipeline engine, crypto_tool, and db_importer"
+             Manufacturer="ETL Madness" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <Media Id="1" Cabinet="goflow.cab" EmbedCab="yes" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="VendorFolder" Name="ETL Madness">
+          <Directory Id="INSTALLFOLDER" Name="Flow">
+            <Directory Id="BinFolder" Name="bin" />
+            <Directory Id="DocsFolder" Name="docs" />
+            <Directory Id="ShareFolder" Name="share">
+              <Directory Id="XsdFolder" Name="xsd" />
+              <Directory Id="ManFolder" Name="man">
+                <Directory Id="Man1Folder" Name="man1" />
+                <Directory Id="Man5Folder" Name="man5" />
+              </Directory>
+            </Directory>
+          </Directory>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="BinFolder">
+      <Component Id="CmpFlowExe" Guid="*">
+        <File Id="FilFlowExe" Source="$(var.StageDir)/bin/flow.exe" KeyPath="yes" />
+        <Environment Id="EnvFlowPath"
+                     Name="PATH"
+                     Value="[BinFolder]"
+                     Permanent="no"
+                     Part="last"
+                     Action="set"
+                     System="yes" />
+      </Component>
+      <Component Id="CmpCryptoToolExe" Guid="*">
+        <File Id="FilCryptoToolExe" Source="$(var.StageDir)/bin/crypto_tool.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpDbImporterExe" Guid="*">
+        <File Id="FilDbImporterExe" Source="$(var.StageDir)/bin/db_importer.exe" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="CmpLicense" Guid="*">
+        <File Id="FilLicense" Source="$(var.StageDir)/LICENSE.txt" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="DocsFolder">
+      <Component Id="CmpDocCli" Guid="*">
+        <File Id="FilDocCli" Source="$(var.StageDir)/docs/COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpDocSummary" Guid="*">
+        <File Id="FilDocSummary" Source="$(var.StageDir)/docs/SUMMARY_OF_AVAILABLE_OPTIONS.md" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="XsdFolder">
+      <Component Id="CmpXsdPipeline" Guid="*">
+        <File Id="FilXsdPipeline" Source="$(var.StageDir)/share/xsd/pipeline.xsd" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpXsdOptions" Guid="*">
+        <File Id="FilXsdOptions" Source="$(var.StageDir)/share/xsd/options.xsd" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="Man1Folder">
+      <Component Id="CmpManFlow1" Guid="*">
+        <File Id="FilManFlow1" Source="$(var.StageDir)/share/man/man1/flow.1" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpManCrypto1" Guid="*">
+        <File Id="FilManCrypto1" Source="$(var.StageDir)/share/man/man1/crypto_tool.1" KeyPath="yes" />
+      </Component>
+      <Component Id="CmpManDbImporter1" Guid="*">
+        <File Id="FilManDbImporter1" Source="$(var.StageDir)/share/man/man1/db_importer.1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="Man5Folder">
+      <Component Id="CmpManPipeline5" Guid="*">
+        <File Id="FilManPipeline5" Source="$(var.StageDir)/share/man/man5/flow-pipeline.5" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="MainFeature" Title="ETL Madness Flow" Level="1">
+      <ComponentRef Id="CmpFlowExe" />
+      <ComponentRef Id="CmpCryptoToolExe" />
+      <ComponentRef Id="CmpDbImporterExe" />
+      <ComponentRef Id="CmpLicense" />
+      <ComponentRef Id="CmpDocCli" />
+      <ComponentRef Id="CmpDocSummary" />
+      <ComponentRef Id="CmpXsdPipeline" />
+      <ComponentRef Id="CmpXsdOptions" />
+      <ComponentRef Id="CmpManFlow1" />
+      <ComponentRef Id="CmpManCrypto1" />
+      <ComponentRef Id="CmpManDbImporter1" />
+      <ComponentRef Id="CmpManPipeline5" />
+    </Feature>
+  </Product>
+</Wix>

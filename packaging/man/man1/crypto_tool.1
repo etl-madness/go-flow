@@ -1,0 +1,237 @@
+.\" Man page for crypto_tool(1)
+.\" Generated from COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md
+.TH CRYPTO_TOOL 1 "November 2026" "ETL Madness Flow" "User Commands"
+.SH NAME
+crypto_tool \- AES-256-GCM encryption, digital signature, and keypair utility for Flow
+.SH SYNOPSIS
+.B crypto_tool
+.RI [ options ...]
+.SH DESCRIPTION
+.B crypto_tool
+is a standalone, zero-dependency cryptographic command-line utility for the ETL Madness Flow ecosystem.
+It provides authenticated AES-256-GCM symmetric encryption and decryption, digital signature creation and verification across OpenSSL (RSA, ECDSA, Ed25519), OpenPGP, and PKCS#7/CMS formats, unified signed envelopes
+.RB ( FLOWSIGNED:v1:... ),
+and asymmetric keypair and self-signed X.509 certificate generation.
+.SH OPTIONS
+.SS Operation & I/O Options
+.TP
+.BI \-action " op"
+Cryptographic operation to perform:
+.B encrypt
+(default),
+.BR decrypt ,
+.BR gen-key ,
+.BR sign ,
+.BR verify ,
+or
+.BR gen-keypair .
+.TP
+.B \-gen-key
+Shortcut flag equivalent to
+.BR "\-action gen-key" .
+Generates a 256-bit cryptographically secure symmetric key.
+.TP
+.BI \-in " path"
+Input file path.
+Use
+.B \-
+or omit to read from standard input
+.RI ( stdin ).
+.TP
+.BI \-out " path"
+Output file path.
+Use
+.B \-
+or omit to write to standard output
+.RI ( stdout ).
+Output files containing secret keys are written with
+.B 0600
+permissions.
+.SS Symmetric Encryption & Decryption Options
+.TP
+.BI \-secure-key " key" "\fR, \fP\-key " key
+Passphrase or raw key for AES-256-GCM encryption or decryption.
+Emits a security warning to
+.I stderr
+because command-line flags are visible in system process listings; falls back to
+.B FLOW_SECURE_KEY
+or
+.BR SECURE_KEY .
+.TP
+.BI \-key-file " path"
+Path to a file containing the symmetric encryption/decryption key or passphrase.
+Preferred over
+.B \-secure-key
+to avoid exposing secrets in process tables.
+.TP
+.B \-binary
+Output raw binary ciphertext or raw ASN.1 signature bytes instead of the default text-safe armored envelope
+.RB ( FLOWENC:v1:...
+or
+.BR FLOWSIG:v1:... ).
+.SS Digital Signing Options
+.TP
+.BI \-sig-type " format"
+Digital signature format for
+.BR "\-action sign" :
+.B openssl
+(default; RSA, ECDSA, or Ed25519),
+.B pgp
+(OpenPGP), or
+.B pkcs7
+(CMS / PKCS#7).
+.TP
+.BI \-private-key " path" "\fR, \fP\-priv " path
+Private key file path (PEM or OpenPGP format) used to generate digital signatures.
+.TP
+.BI \-passphrase " str"
+Passphrase for decrypting password-protected private keys (PKCS#1, PKCS#8, or OpenPGP).
+.TP
+.BI \-cert " path"
+X.509 certificate file path (PEM or DER format).
+Required when creating PKCS#7 signatures
+.RB ( "\-sig-type pkcs7" )
+and supported for certificate-based verification.
+.TP
+.B \-wrap
+Wrap both the digital signature and input payload into a single self-contained
+.B FLOWSIGNED:v1:...
+envelope, eliminating the need for detached signature files.
+.SS Signature Verification Options
+.TP
+.BI \-signature " path" "\fR, \fP\-sig " path
+Detached signature file path for
+.BR "\-action verify" .
+When omitted, companion files
+.IR <in>.sig ,
+.IR <in>.asc ,
+or
+.I <in>.p7s
+are checked automatically.
+.TP
+.BI \-public-key " path" "\fR, \fP\-pub " path
+Public key file path (PEM or OpenPGP format) for signature verification.
+.TP
+.BI \-ca-cert " path"
+Root or intermediate CA certificate file path used to validate certificate chains during PKCS#7 or X.509 verification.
+.TP
+.BI \-keyring " path"
+OpenPGP armored public keyring file path for OpenPGP/GPG signature verification.
+.SS Keypair & Certificate Generation Options
+.TP
+.BI \-keypair-type " type"
+Asymmetric keypair algorithm for
+.BR "\-action gen-keypair" :
+.B rsa
+(default),
+.B ecdsa
+(P-256),
+.BR ed25519 ,
+or
+.B pgp
+(aliases:
+.BR gpg ,
+.BR openpgp ).
+.TP
+.BI \-bits " n"
+Bit length for RSA keypair generation (for example,
+.BR 2048 ,
+.BR 3072 ,
+or
+.BR 4096 ).
+Default:
+.BR 2048 .
+.TP
+.BI \-out-priv " path"
+Output file path for the generated private key (restricted to
+.B 0600
+permissions).
+Default:
+.IR private_key.pem .
+.TP
+.BI \-out-pub " path"
+Output file path for the generated public key (written with
+.B 0644
+permissions).
+Default:
+.IR public_key.pem .
+.TP
+.BI \-out-cert " path"
+Optional output path to generate a self-signed X.509 certificate valid for 365 days during keypair generation.
+.TP
+.BI \-cn " name"
+Common Name
+.RB ( CN )
+embedded in the generated X.509 certificate or OpenPGP user identity.
+Default:
+.IR "Flow Code Signer" .
+.SH SECRET RESOLUTION PRECEDENCE
+Symmetric keys and passphrases are resolved in the following order:
+.IP 1. 4
+.BI \-key-file " path"
+.IP 2. 4
+.BI \-secure-key " key"
+(or
+.BR \-key )
+.IP 3. 4
+.B FLOW_SECURE_KEY
+environment variable
+.IP 4. 4
+.B SECURE_KEY
+environment variable
+.SH ENVIRONMENT
+.TP
+.B FLOW_SECURE_KEY
+Primary symmetric passphrase or key for AES-256-GCM encryption/decryption.
+.TP
+.B SECURE_KEY
+Fallback symmetric passphrase or key if
+.B FLOW_SECURE_KEY
+is unset.
+.SH EXIT STATUS
+.TP
+.B 0
+Success (operation or signature verification succeeded).
+.TP
+.B 1
+Failure (invalid arguments, missing key, decryption authentication failure, or signature verification failure).
+.SH EXAMPLES
+Generate a 256-bit symmetric key, encrypt an XML pipeline, and decrypt it:
+.PP
+.RS 4
+.nf
+crypto_tool \-gen-key \-out master.key
+crypto_tool \-action encrypt \-in pipeline.xml \-out pipeline.xml.enc \-key-file master.key
+crypto_tool \-action decrypt \-in pipeline.xml.enc \-out pipeline.xml \-key-file master.key
+.fi
+.RE
+.PP
+Generate an RSA keypair with a self-signed X.509 certificate:
+.PP
+.RS 4
+.nf
+crypto_tool \-action gen-keypair \-keypair-type rsa \-bits 2048 \\
+  \-out-priv release_priv.pem \-out-pub release_pub.pem \-out-cert release_cert.pem \\
+  \-cn "Production Code Signer"
+.fi
+.RE
+.PP
+Create and verify a unified
+.B FLOWSIGNED:v1:...
+package (encrypt-then-sign):
+.PP
+.RS 4
+.nf
+crypto_tool \-action sign \-in pipeline.xml.enc \-out pipeline.xml.signed \\
+  \-private-key release_priv.pem \-wrap
+crypto_tool \-action verify \-in pipeline.xml.signed \\
+  \-public-key release_pub.pem \-out verified_pipeline.xml.enc
+.fi
+.RE
+.SH SEE ALSO
+.BR flow (1),
+.BR db_importer (1),
+.BR flow-pipeline (5)
+.PP
+Full documentation is also available via GNU Info:
+.B info crypto_tool

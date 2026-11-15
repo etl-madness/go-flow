@@ -1,0 +1,646 @@
+This is flow.info, produced from flow.texi.
+
+This manual is for ETL Madness Flow ('flow', 'crypto_tool', and
+'db_importer').
+
+Copyright (C) 2026 ETL Madness.  Licensed under the MIT License.
+
+INFO-DIR-SECTION Data Processing and Utilities
+START-INFO-DIR-ENTRY
+* flow: (flow)Invoking flow.            ETL pipeline engine, validator, and visual builder.
+* crypto_tool: (flow)Invoking crypto_tool.  AES-256-GCM encryption, signing, and keygen tool.
+* db_importer: (flow)Invoking db_importer.  SQL Server XML repository importer and exporter.
+* flow-pipeline: (flow)Pipeline XML Reference.  Flow XML pipeline specification.
+END-INFO-DIR-ENTRY
+
+File: flow.info,  Node: Top,  Next: Architecture and Standards,  Prev: (dir),  Up: (dir)
+
+ETL Madness Flow
+****************
+
+This manual documents the ETL Madness Flow command-line utilities
+('flow', 'crypto_tool', and 'db_importer') and the '<pipeline>' XML
+workflow specification.
+
+* Menu:
+
+* Architecture and Standards::  Ecosystem overview, secret precedence, URIs, and exit codes.
+* Invoking flow::               Core pipeline engine, validator, builder UI, and repository CLI.
+* Invoking crypto_tool::        Encryption, digital signatures, and keypair generation.
+* Invoking db_importer::        SQL Server XML repository import and export utility.
+* Enterprise Recipes::          End-to-end encrypt-then-sign and options profile workflows.
+* Pipeline XML Reference::      Complete '<pipeline>' XML elements and attributes.
+
+File: flow.info,  Node: Architecture and Standards,  Next: Invoking flow,  Prev: Top,  Up: Top
+
+1 Architecture and Shared Standards
+***********************************
+
+The ETL Madness Flow ecosystem consists of three command-line utilities:
+
+  1. 'flow': Primary pipeline execution engine, preflight validator,
+     XML/AST schema verifier, HTMX visual builder web server,
+     XSLT/Mermaid transformer, and database import/export manager.
+
+  2. 'crypto_tool': Standalone cryptographic utility for AES-256-GCM
+     encryption/decryption, digital signature signing/verification
+     (OpenSSL, OpenPGP, PKCS#7/CMS), and asymmetric keypair generation.
+
+  3. 'db_importer': Dedicated CLI utility to import and export XML
+     pipelines, options profiles, and configs in SQL Server repositories
+     ('dbo.flow_*_content') with UTF-8/UTF-16 auto-detection and at-rest
+     encryption.
+
+1.1 Shared Secret Resolution Precedence
+=======================================
+
+When encryption or decryption operations are performed, passphrases and
+cryptographic keys are resolved in the following precedence order:
+
+  1. Key File ('-key-file PATH') -- Safest: reads the key directly from
+     a permission-restricted file.
+  2. Command-Line Flag ('-secure-key' or '-key') -- Emits a warning to
+     'stderr' because command-line flags are visible in system process
+     listings (such as 'ps aux').
+  3. XML Options Profile ('<secure-key>' via '-options') -- Supported by
+     'flow'.
+  4. 'FLOW_SECURE_KEY' -- Primary environment variable.
+  5. 'SECURE_KEY' -- Fallback environment variable.
+
+1.2 Supported Resource URIs
+===========================
+
+Arguments in 'flow' that load resources ('-file', '-options', '-config',
+'-import-file') support uniform URI resolution:
+
+Local File
+     Standard relative or absolute path, e.g. './pipelines/finance.xml'.
+HTTP / HTTPS
+     'http://...' or 'https://...'
+HTTP Basic Auth
+     'https://Basic%20<base64>@host/path/etl.xml'
+SQL Server Query
+     'sql://sqlserver@<dsn>#<SELECT_QUERY>'
+Generic DB Alias
+     'db://<driver>@<dsn>#<SELECT_QUERY>'
+
+1.3 Common Exit Codes
+=====================
+
+All three utilities exit with '0' on success and '1' on failure
+(execution error, validation error, signature verification failure,
+missing/invalid decryption key, or database connection error).
+
+File: flow.info,  Node: Invoking flow,  Next: Invoking crypto_tool,  Prev: Architecture and Standards,  Up: Top
+
+2 Invoking 'flow'
+*****************
+
+Synopsis:
+
+     flow [options...]
+
+2.1 'flow' Command-Line Options
+===============================
+
+'-file PATH|URI'
+     Path or URI to XML file containing scripts, databases, and workflow
+     nodes.  Default: 'scripts.xml'.
+
+'-options PATH|URI'
+     Path or URI to an XML CLI options defaults file
+     ('<flow_cli_options><options>...').  Explicit CLI flags override
+     values defined in '-options'.
+
+'-config PATH|URI'
+     Optional path or URI to a 'CONFIG.xml' file containing variable and
+     database connection overrides merged with the base pipeline file.
+
+'-format FORMAT'
+     Output formatting for execution results: 'csv' (default), 'text',
+     'json', 'jsonpretty' ('prettyjson'), 'markdown' ('md', 'table'), or
+     'stream'.
+
+'-vars KEY=VALUE[,...]'
+     Comma-separated runtime variable overrides.  Recursively expands
+     '{{var}}' placeholders up to 3 levels deep.
+
+'-validate'
+     Validate XML schema (XSD if '-xsd' is set) and AST semantic
+     structure without executing pipeline nodes.
+
+'-preflight'
+     Execute only '<preflight>' validation nodes, skipping '<flow>'.
+
+'-xsd PATH'
+     Path to an '.xsd' schema file validated via 'xmllint' prior to
+     parsing.
+
+'-node-output'
+     When logging to a database ('log_db'), persist redacted
+     'ResultsString' values to 'pipeline_events.node_output' on
+     'node.finished' rows.  Default: 'false'.
+
+'-debug'
+     Enable verbose console logging (connection resolution, dialect
+     detection, signature metadata, and sink telemetry).
+
+'-gopath DIR'
+     GOPATH directory for dynamic package imports in the Yaegi Go
+     interpreter.  Defaults to 'GOPATH'.
+
+'-xslt PATH'
+     Transform pipeline XML using a custom XSLT stylesheet with an
+     auto-generated Mermaid workflow diagram, then exit.
+
+'-out PATH'
+     Output file path for XSLT-transformed XML produced by '-xslt'.
+
+'-encrypted'
+     Decrypt AES-256-GCM encrypted inputs prior to parsing, or encrypt
+     items written by '-export-file' / '-import-file'.
+
+'-secure-key KEY'
+     Symmetric encryption/decryption passphrase or key (warns on
+     'stderr').
+
+'-key-file PATH'
+     Path to file containing the symmetric key/passphrase.
+
+'-verify-signature'
+     Enforce digital signature verification before decrypting or
+     executing.
+
+'-public-key PATH'
+     PEM public key file (RSA, ECDSA, Ed25519) for signature
+     verification.
+
+'-cert PATH'
+     X.509 certificate file (PEM or DER) for PKCS#7/CMS or X.509
+     verification.
+
+'-ca-cert PATH'
+     Root or intermediate CA certificate file for chain validation.
+
+'-keyring PATH'
+     OpenPGP armored public keyring file for GPG verification.
+
+'-signature PATH'
+     Detached digital signature file ('.sig', '.asc', '.p7s').
+     Companion files with matching basenames are checked automatically
+     when omitted.
+
+'-builder'
+     Start the local HTMX visual pipeline builder web server.
+
+'-builder-port PORT'
+     TCP port for the builder web server (default '0' selects an
+     ephemeral port; falls back to 'FLOW_BUILDER_PORT' or 'PORT').
+
+'-builder-db PATH'
+     SQLite database path for visual builder local storage.  Default:
+     'flow_builder.db'.
+
+'-purge-db'
+     Purge all data from the SQLite visual builder database,
+     re-initialize defaults, and exit.
+
+'-import-file PATH|URI'
+     Import a pipeline, options, or config XML file into the SQLite
+     builder DB or external DB ('-dsn').
+
+'-import-name NAME'
+     Custom record name for '-import-file' (defaults to file basename).
+
+'-import-type TYPE'
+     Item type for '-import-file': 'pipeline' (default), 'options', or
+     'config'.
+
+'-export-file PATH'
+     Destination path to export a record (or '-' for 'stdout').  Disk
+     files are written with '0600' permissions.
+
+'-export-name NAME'
+     Name of the record to export (required with '-export-file').
+
+'-export-type TYPE'
+     Item type for '-export-file': 'pipeline' (default), 'options', or
+     'config'.
+
+'-dsn DSN'
+     External database DSN for repository import/export ('sqlserver',
+     'postgres', 'mysql', 'sqlite').
+
+2.2 'flow' Environment Variables
+================================
+
+   * 'FLOW_SECURE_KEY', 'SECURE_KEY': Symmetric passphrase.
+   * 'FLOW_BUILDER_PORT', 'PORT': Default TCP port for '-builder'.
+   * 'GOPATH': Go workspace directory for Yaegi package imports.
+   * 'USER' / 'USERNAME', 'HOSTNAME' / 'COMPUTERNAME': Captured in
+     'pipeline_runs' audit logs.
+
+File: flow.info,  Node: Invoking crypto_tool,  Next: Invoking db_importer,  Prev: Invoking flow,  Up: Top
+
+3 Invoking 'crypto_tool'
+************************
+
+Synopsis:
+
+     crypto_tool [options...]
+
+'crypto_tool' performs AES-256-GCM authenticated encryption, digital
+signing, signature verification, and asymmetric keypair generation.
+
+3.1 'crypto_tool' Command-Line Options
+======================================
+
+'-action OP'
+     Operation: 'encrypt' (default), 'decrypt', 'gen-key', 'sign',
+     'verify', or 'gen-keypair'.
+
+'-gen-key'
+     Shortcut for '-action gen-key'; generates a 256-bit symmetric key.
+
+'-in PATH'
+     Input file path (use '-' or omit for 'stdin').
+
+'-out PATH'
+     Output file path (use '-' or omit for 'stdout'; secret outputs use
+     mode '0600').
+
+'-secure-key KEY, -key KEY'
+     Passphrase or raw symmetric key (warns on 'stderr'; falls back to
+     'FLOW_SECURE_KEY' or 'SECURE_KEY').
+
+'-key-file PATH'
+     Path to file containing the symmetric key/passphrase.
+
+'-binary'
+     Emit raw binary ciphertext or ASN.1 signature bytes instead of
+     text-armored 'FLOWENC:v1:...' or 'FLOWSIG:v1:...' envelopes.
+
+'-sig-type FORMAT'
+     Signature format for '-action sign': 'openssl' (default; RSA,
+     ECDSA, Ed25519), 'pgp' (OpenPGP), or 'pkcs7' (CMS / PKCS#7).
+
+'-private-key PATH, -priv PATH'
+     Private key file path (PEM or OpenPGP) for signing.
+
+'-passphrase STR'
+     Passphrase to decrypt password-protected private keys.
+
+'-cert PATH'
+     X.509 certificate path (PEM or DER).  Required for '-sig-type
+     pkcs7' and supported for verification.
+
+'-wrap'
+     Bundle signature and payload into a unified 'FLOWSIGNED:v1:...'
+     envelope.
+
+'-signature PATH, -sig PATH'
+     Detached signature path for '-action verify' (auto-checks
+     '<in>.sig', '<in>.asc', '<in>.p7s' when omitted).
+
+'-public-key PATH, -pub PATH'
+     Public key path (PEM or OpenPGP) for verification.
+
+'-ca-cert PATH'
+     Root or intermediate CA certificate path for chain verification.
+
+'-keyring PATH'
+     OpenPGP armored public keyring path.
+
+'-keypair-type TYPE'
+     Algorithm for '-action gen-keypair': 'rsa' (default), 'ecdsa'
+     (P-256), 'ed25519', or 'pgp' ('gpg', 'openpgp').
+
+'-bits N'
+     RSA modulus bit length (default '2048').
+
+'-out-priv PATH'
+     Output path for generated private key (mode '0600'; default
+     'private_key.pem').
+
+'-out-pub PATH'
+     Output path for generated public key (mode '0644'; default
+     'public_key.pem').
+
+'-out-cert PATH'
+     Optional output path for a 365-day self-signed X.509 certificate.
+
+'-cn NAME'
+     Common Name ('CN') or OpenPGP identity (default 'Flow Code
+     Signer').
+
+File: flow.info,  Node: Invoking db_importer,  Next: Enterprise Recipes,  Prev: Invoking crypto_tool,  Up: Top
+
+4 Invoking 'db_importer'
+************************
+
+Synopsis:
+
+     db_importer [options...]
+
+'db_importer' imports and exports XML pipelines, CLI options profiles,
+and variable configurations in Microsoft SQL Server
+('dbo.flow_*_content') using atomic 'MERGE INTO' upserts and automatic
+UTF-8 / UTF-16LE / UTF-16BE BOM translation.
+
+4.1 'db_importer' Command-Line Options
+======================================
+
+'-action OP'
+     Database operation: 'import' (default) or 'export'.
+
+'-export'
+     Shortcut boolean flag for '-action export'.
+
+'-dsn CONN_STRING'
+     SQL Server connection string (URL or ADO/ODBC format).
+
+'-file PATH'
+     Input XML path (import) or output path (export).  Use '-' or empty
+     string for 'stdin' / 'stdout'.  Disk exports use '0600'
+     permissions.
+
+'-name KEY'
+     Logical record identifier ('Name' column) in the target table.
+
+'-table TARGET'
+     Target table mapping:
+        * 'pipeline' (default) -> 'dbo.flow_pipeline_content'
+          ('PipelineXML')
+        * 'options' -> 'dbo.flow_options_content' ('OptionsXML')
+        * 'config' -> 'dbo.flow_config_content' ('ConfigXML')
+
+'-desc TEXT'
+     Description stored in the 'Description' column during import.
+
+'-encrypted'
+     Encrypt XML into 'FLOWENC:v1:...' before import, or decrypt on
+     export.
+
+'-secure-key KEY'
+     Symmetric passphrase/key (warns on 'stderr'; falls back to
+     'FLOW_SECURE_KEY' or 'SECURE_KEY').
+
+'-key-file PATH'
+     Protected file containing the symmetric passphrase/key.
+
+File: flow.info,  Node: Enterprise Recipes,  Next: Pipeline XML Reference,  Prev: Invoking db_importer,  Up: Top
+
+5 End-to-End Enterprise Recipes
+*******************************
+
+5.1 Production CI/CD Release (Encrypt-then-Sign)
+================================================
+
+     # 1. Encrypt the pipeline XML
+     crypto_tool -action encrypt -in pipeline.xml -out pipeline.xml.enc -key-file prod.key
+
+     # 2. Sign the encrypted package into a unified FLOWSIGNED envelope
+     crypto_tool -action sign -in pipeline.xml.enc -out pipeline.xml.signed \
+       -private-key release_priv.pem -wrap
+
+     # 3. Import into SQL Server repository
+     db_importer -dsn "sqlserver://sa:Password@db:1433?database=ETL" \
+       -table pipeline -name "NIGHTLY_SYNC" -file pipeline.xml.signed
+
+     # 4. Execute on production host (verifies signature before decrypting)
+     flow \
+       -file "sql://sqlserver@db:1433?database=ETL#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name='NIGHTLY_SYNC'" \
+       -public-key /etc/flow/release_pub.pem \
+       -key-file /etc/flow/prod.key
+
+5.2 Options Profile Overrides ('-options')
+==========================================
+
+     <?xml version="1.0" encoding="UTF-8"?>
+     <flow_cli_options>
+         <options>
+             <format>markdown</format>
+             <debug>true</debug>
+             <verify-signature>true</verify-signature>
+             <public-key>/etc/flow/keys/release_pub.pem</public-key>
+             <encrypted>true</encrypted>
+         </options>
+     </flow_cli_options>
+
+Run 'flow' with the profile (any explicit CLI flag overrides the XML
+profile):
+
+     flow -options /etc/flow/prod_options.xml -file /srv/flow/job.xml -key-file /etc/flow/master.key
+
+File: flow.info,  Node: Pipeline XML Reference,  Prev: Enterprise Recipes,  Up: Top
+
+6 '<pipeline>' XML Reference
+****************************
+
+The '<pipeline>' element is the root container of a Flow workflow
+document.  Attribute names are case-insensitive and accept 'snake_case',
+'kebab-case', and dot ('.') separators.  String values support
+'{{VariableName}}' interpolation.
+
+* Menu:
+
+* Databases and Pools::         '<databases>' and '<database>'.
+* Variables Section::           '<variables>' and '<variable>'.
+* Preflight and Flow::          '<preflight>' and '<flow>'.
+* Control Flow Elements::       '<foreach>', '<group>', '<while>', '<if>', '<parallel>'.
+* Task Elements::               Templates, SQL, KV, Assertions, File/Excel I/O, Path queries, HTTP.
+
+File: flow.info,  Node: Databases and Pools,  Next: Variables Section,  Prev: Pipeline XML Reference,  Up: Pipeline XML Reference
+
+6.1 '<databases>' and '<database>'
+==================================
+
+'<databases>' is an optional container of '<database>' connection
+definitions:
+
+'name'
+     (Mandatory) Unique handle referenced by 'db', 'database', or
+     'target_db'.
+'driver / type'
+     Relational SQL ('sqlserver' [default], 'postgres', 'mysql',
+     'sqlite', 'oracle') or Key-Value ('bbolt'/'bolt', 'badger',
+     'redis'/'valkey', 'etcd').
+'connection_string'
+     (Mandatory) Driver DSN, URL, or path (supports '{{VariableName}}').
+'workload'
+     Pool tuning profile:
+        * 'oltp' (default): 'max_open_conns=25', 'max_idle_conns=10',
+          'conn_max_lifetime=5m', 'conn_max_idle_time=2m'.
+        * 'bulk': '50' / '25' / '30m' / '10m'.
+        * 'analytics': '15' / '8' / '30m' / '10m'.
+        * 'batch': '20' / '10' / '15m' / '5m'.
+'max_open_conns, max_idle_conns'
+     Explicit pool size overrides ('max_idle_conns' is clamped to
+     'max_open_conns').
+'conn_max_lifetime_seconds / conn_max_lifetime'
+     Connection reuse lifetime (duration string like '5m' or seconds).
+'conn_max_idle_time_seconds / conn_max_idle_time'
+     Idle connection timeout before closing (duration string like '2m'
+     or seconds).
+'id, description'
+     Optional identifier and human-readable description.
+
+File: flow.info,  Node: Variables Section,  Next: Preflight and Flow,  Prev: Databases and Pools,  Up: Pipeline XML Reference
+
+6.2 '<variables>' and '<variable>'
+==================================
+
+'<variables>' declares initial typed variables via '<variable>':
+
+'name'
+     (Mandatory) Variable identifier for '{{VariableName}}'
+     interpolation.
+'value'
+     (Mandatory) Initial value parsed according to 'type'.
+'type'
+     'string' (default), 'int'/'integer', 'bool'/'boolean',
+     'float'/'double'/'float64', 'datetime', or 'date'.
+'id, description'
+     Optional metadata attributes.
+
+File: flow.info,  Node: Preflight and Flow,  Next: Control Flow Elements,  Prev: Variables Section,  Up: Pipeline XML Reference
+
+6.3 '<preflight>' and '<flow>'
+==============================
+
+   * '<preflight>': Optional setup, smoke-test, and connectivity
+     validation container appearing once before '<flow>'.  Executed
+     standalone via 'flow -preflight'.
+   * '<flow>': Main execution container.  Child steps run sequentially
+     in document order unless wrapped in '<parallel>', '<foreach>', or
+     '<while>'.
+
+File: flow.info,  Node: Control Flow Elements,  Next: Task Elements,  Prev: Preflight and Flow,  Up: Pipeline XML Reference
+
+6.4 Control Flow and Logical Grouping
+=====================================
+
+'<foreach>'
+     Runs nested child steps once per row returned by a SQL driver query
+     on 'db'/'database' (inline SQL or 'var'/'variable').  Exposes
+     columns in original, lowercase, and uppercase names, and sets
+     'LOOP_INDEX' (zero-based) on each iteration.
+
+'<group>'
+     Sequential block supporting conditional execution ('var'/'if_var',
+     'equals'/'val'/'value'/'if_val'/'if_equals', 'condition'/'cond'),
+     database transactions ('transaction="true"' or 'tx="true"' on
+     'db'), pinned database sessions ('session="true"',
+     'pin_connection', 'pin_conn', 'sticky' to retain '#Temp' / 'CREATE
+     TEMP TABLE' objects across steps), and context deadlines
+     ('timeout', e.g. '30s', '5m').
+
+'<while>'
+     Repeats nested child steps while its condition holds, up to
+     'max_iterations'/'max_loops' (default '1000').  Sets 'WHILE_INDEX'
+     on each iteration.
+
+'<if>, <then>, <else>'
+     Evaluates condition attributes on '<if>'; runs '<then>' (or direct
+     inline child nodes) when true and '<else>' when false.
+
+'<parallel>'
+     Runs nested child nodes concurrently across a goroutine pool
+     controlled by 'max_threads'/'threads'/'concurrency' (default '0' =
+     unbounded).  Thread-isolated variable snapshots merge safely on
+     completion with collision namespacing ('WORKER_<id>_<key>').
+
+File: flow.info,  Node: Task Elements,  Prev: Control Flow Elements,  Up: Pipeline XML Reference
+
+6.5 Pipeline Task Elements
+==========================
+
+Most data-producing steps write to 'LAST_OUTPUT' as well as any
+specified output variable.
+
+'<template> / <template_html>'
+     Render Go 'text/template' or XSS-safe 'html/template' from 'file'
+     or inline body.  Attributes: 'id' (mandatory), 'name', 'file',
+     'engine', 'output_var'/'var', 'mode' ('summary' or rendered text).
+
+'<sql>'
+     Execute SQL on 'db'/'database' from 'var'/'variable' or inline
+     body; store result in 'output_var'/'out_var'/'output_variable'.
+
+'<sql_bulk>'
+     Stream rows from 'db'/'database' into 'target_table' on
+     'target_db'/'target_database' (defaults to source 'db').  Uses
+     native TDS 'CopyIn' for SQL Server ('tablock', 'check_constraints',
+     'fire_triggers', 'keep_nulls') and prepared multi-row batched
+     'INSERT' statements for PostgreSQL, MySQL, Oracle, and SQLite.
+     Optional 'batch_size' and 'output_var'/'out_var'.
+
+'<kv>'
+     Atomic Key-Value operations ('get', 'put'/'set', 'delete'/'del',
+     'scan'/'list') against 'db' in 'bucket' (default 'default') via
+     attributes ('op', 'key', 'value') or inline DSL text.
+
+'<kv_bulk>'
+     Stream SQL query rows (col 1 = key, col 2 = value) from 'db' into
+     KV 'target_db' and 'target_bucket'/'bucket' in batches
+     ('batch_size' default '10000').
+
+'<assert>'
+     Check 'var' against 'equals'/'value'.  On failure, optionally set
+     'fail_var' to 'fail_val' (default 'true'), run nested
+     '<on_failure>' steps, and apply 'on_failure' ('halt' [default],
+     'warn', or 'continue').
+
+'<file_read> / <file_save>'
+     Read 'file'/'path'/'filename' into 'var'/'output_var', or write
+     'var'/inline body to disk ('append="true"' appends; parent
+     directories are created automatically).
+
+'<excel_write> / <excel_read>'
+     Create/update 'file' ('.xlsx', 'sheet' default 'Sheet1') from SQL
+     on 'db', or read a worksheet ('header="true"' default) as a JSON
+     array into 'output_var'/'var'.
+
+'<json_path> / <yaml_path> / <xml_xpath>'
+     Extract data from 'file' or 'var' into 'output_var'/'out_var':
+        * '<json_path>': 'path'/'jsonpath'; 'mode' = 'value' (default),
+          'json', 'json_array'.
+        * '<yaml_path>': 'path'/'yamlpath'; 'mode' = 'value' (default),
+          'json', 'json_array', 'yaml'.
+        * '<xml_xpath>': 'xpath'; 'mode' = 'text' (default), 'xml',
+          'json_array'.
+
+'<http_client>'
+     Execute HTTP requests against 'uri'/'url' ('method' default 'GET',
+     'data'/inline body, 'headers', 'content_type').  Stores body in
+     'var'/'output_var' and status code in
+     'status_code_var'/'status_var'.  Supports 'timeout',
+     'follow_redirects', 'max_redirects', 'cookie_jar', 'proxy', TLS
+     options ('tls_insecure_skip_verify', 'tls_handshake_timeout',
+     'tls_server_name', 'tls_min_version', 'tls_max_version'), and
+     transport pool tuning ('max_idle_conns', 'max_idle_conns_per_host'
+     [default '10'], 'max_conns_per_host', 'idle_conn_timeout',
+     'response_header_timeout', 'expect_continue_timeout',
+     'max_response_header_bytes', 'write_buffer_size',
+     'read_buffer_size', 'force_attempt_http2').
+
+Tag Table:
+Node: Top641
+Node: Architecture and Standards1474
+Node: Invoking flow3795
+Node: Invoking crypto_tool8361
+Node: Invoking db_importer11022
+Node: Enterprise Recipes12642
+Node: Pipeline XML Reference14369
+Node: Databases and Pools15138
+Node: Variables Section16551
+Node: Preflight and Flow17147
+Node: Control Flow Elements17671
+Node: Task Elements19206
+
+End Tag Table
+
+
+Local Variables:
+coding: utf-8
+End:

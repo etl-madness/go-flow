@@ -1,0 +1,44 @@
+# Maintainer: ETL Madness <maintainers@etl-madness.invalid>
+pkgname=go-flow
+pkgver=__PKGVER__
+pkgrel=__PKGREL__
+pkgdesc="ETL Madness Flow pipeline engine, crypto_tool, and db_importer (installed in /opt/flow)"
+arch=('__CARCH__')
+url="https://github.com/etl-madness/go-flow"
+license=('MIT')
+options=('!debug' '!strip')
+backup=('etc/profile.d/go-flow.sh')
+source=("go-flow-${pkgver}-staged.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+    install -dm0755 "${pkgdir}/opt/flow/bin"
+    install -m0755 "${srcdir}/bin/flow" "${pkgdir}/opt/flow/bin/flow"
+    install -m0755 "${srcdir}/bin/crypto_tool" "${pkgdir}/opt/flow/bin/crypto_tool"
+    install -m0755 "${srcdir}/bin/db_importer" "${pkgdir}/opt/flow/bin/db_importer"
+
+    install -dm0755 "${pkgdir}/opt/flow/share/man/man1"
+    install -m0644 "${srcdir}/doc/man1/flow.1.gz" "${pkgdir}/opt/flow/share/man/man1/flow.1.gz"
+    install -m0644 "${srcdir}/doc/man1/crypto_tool.1.gz" "${pkgdir}/opt/flow/share/man/man1/crypto_tool.1.gz"
+    install -m0644 "${srcdir}/doc/man1/db_importer.1.gz" "${pkgdir}/opt/flow/share/man/man1/db_importer.1.gz"
+
+    install -dm0755 "${pkgdir}/opt/flow/share/man/man5"
+    install -m0644 "${srcdir}/doc/man5/flow-pipeline.5.gz" "${pkgdir}/opt/flow/share/man/man5/flow-pipeline.5.gz"
+
+    install -dm0755 "${pkgdir}/opt/flow/share/info"
+    install -m0644 "${srcdir}/doc/info/flow.info.gz" "${pkgdir}/opt/flow/share/info/flow.info.gz"
+    install -m0644 "${srcdir}/doc/info/dir" "${pkgdir}/opt/flow/share/info/dir"
+
+    install -dm0755 "${pkgdir}/opt/flow/share/xsd"
+    install -m0644 "${srcdir}/xsd/pipeline.xsd" "${pkgdir}/opt/flow/share/xsd/pipeline.xsd"
+    install -m0644 "${srcdir}/xsd/options.xsd" "${pkgdir}/opt/flow/share/xsd/options.xsd"
+
+    install -dm0755 "${pkgdir}/opt/flow/share/licenses"
+    install -m0644 "${srcdir}/LICENSE" "${pkgdir}/opt/flow/share/licenses/LICENSE"
+
+    install -dm0755 "${pkgdir}/usr/share/licenses/${pkgname}"
+    install -m0644 "${srcdir}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+
+    install -dm0755 "${pkgdir}/etc/profile.d"
+    install -m0644 "${srcdir}/profile.d/go-flow.sh" "${pkgdir}/etc/profile.d/go-flow.sh"
+}
