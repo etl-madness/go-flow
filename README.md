@@ -171,6 +171,37 @@ For database-backed encrypted execution and offline encryption tooling, see [doc
 
 ---
 
+## Unix Packaging & Installation (`/opt/flow`)
+
+Build scripts, package manifests, `man` pages, and GNU `info` documentation for Unix platforms are located in [packaging/](packaging/README.md).
+
+All packages compile `go-flow` as `flow` alongside `crypto_tool` and `db_importer` (`CGO_ENABLED=0`), use the non-colliding package name **`go-flow`**, install isolated under **`/opt/flow`** so existing binaries in `/usr/bin` or `/usr/local/bin` are never overwritten, and include **no background service**:
+
+| Target Platform | Package Format | Build Script | Install Command |
+| --- | --- | --- | --- |
+| **Debian / Ubuntu** | `.deb` | `sh ./packaging/scripts/build-deb.sh [amd64\|arm64]` | `sudo dpkg -i packaging/dist/go-flow_*.deb` |
+| **RHEL / Fedora / SUSE / openSUSE** | `.rpm` | `sh ./packaging/scripts/build-rpm.sh [amd64\|arm64]` | `sudo dnf install ./packaging/dist/go-flow-*.rpm` *(or `zypper install`)* |
+| **Arch Linux** | `.pkg.tar.zst` | `sh ./packaging/scripts/build-arch.sh [amd64\|arm64]` | `sudo pacman -U packaging/dist/go-flow-*.pkg.tar.zst` |
+| **macOS** | `.pkg` | `sh ./packaging/scripts/build-macos-pkg.sh [arm64\|amd64\|universal]` | `sudo installer -pkg packaging/dist/go-flow-*.pkg -target /` |
+| **FreeBSD** | `.pkg` | `sh ./packaging/scripts/build-freebsd-pkg.sh [amd64\|arm64]` | `sudo pkg add packaging/dist/go-flow-*.pkg` |
+
+To automatically build native package(s) for the current Unix host into `packaging/dist/`:
+
+```sh
+sh ./packaging/scripts/build-all.sh host
+```
+
+### Installed Layout & Documentation
+
+* **Binaries:** `/opt/flow/bin/{flow,crypto_tool,db_importer}`
+* **Manuals & Schemas:** `/opt/flow/share/man/man{1,5}/`, `/opt/flow/share/info/{flow.info.gz,dir}`, `/opt/flow/share/xsd/{pipeline,options}.xsd`
+* **Automatic `PATH` / `MANPATH` / `INFOPATH` Integration:** Appends `/opt/flow/bin` via `/etc/profile.d/go-flow.sh` (Linux), `/private/etc/paths.d/go-flow` & `/private/etc/manpaths.d/go-flow` (macOS), or `/usr/local/etc/profile.d/go-flow.sh` & `/usr/local/etc/man.d/go-flow.conf` (FreeBSD).
+* **Offline Manuals:** Run `man flow`, `man crypto_tool`, `man db_importer`, `man 5 flow-pipeline`, or `info flow`.
+
+See [packaging/README.md](packaging/README.md) for full build options, environment variables, and code-signing configuration.
+
+---
+
 ## Pipeline Structure Example (`scripts.xml`)
 
 ```xml
@@ -261,6 +292,7 @@ For database-backed encrypted execution and offline encryption tooling, see [doc
 | `-xsd` | `string` | `""` | Optional XSD schema file path for XML structure validation. |
 | `-xslt` | `string` | `""` | Optional XSLT stylesheet path for pipeline XML transformation. |
 | `-out` | `string` | `""` | Output file path for transformed XML when using XSLT. |
+| `-node-output` | `bool` | `false` | Persists redacted per-node output (`ResultsString`) to `pipeline_events.node_output` when `log_db` is configured. |
 | `-debug` | `bool` | `false` | Enables verbose console logging. |
 | `-gopath` | `string` | `$GOPATH` | GOPATH directory for dynamic Go interpreter imports. |
 

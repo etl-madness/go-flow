@@ -1,0 +1,23 @@
+name: "go-flow"
+version: "__VERSION__"
+origin: "misc/go-flow"
+comment: "ETL Madness Flow pipeline engine, crypto_tool, and db_importer (/opt/flow)"
+arch: "__ABI__"
+abi: "__ABI__"
+www: "https://github.com/etl-madness/go-flow"
+maintainer: "maintainers@etl-madness.invalid"
+prefix: "/opt/flow"
+licenselogic: "single"
+licenses: [
+    "MIT"
+]
+flatsize: __FLATSIZE__
+desc: <<EOD
+ETL Madness Flow is an XML-driven ETL and data workflow ecosystem installed
+isolated under /opt/flow so its binaries never replace existing packages:
+- /opt/flow/bin/flow: Core pipeline execution engine, preflight/AST validator,
+  HTMX visual builder server, XSLT/Mermaid diagram generator, and repo CLI.
+- /opt/flow/bin/crypto_tool: Standalone AES-256-GCM encryption/decryption,
+  digital signing (OpenSSL, OpenPGP, PKCS#7/CMS), verification, and keygen.
+- /opt/flow/bin/db_importer: SQL Server XML importer/exporter.
+EOD

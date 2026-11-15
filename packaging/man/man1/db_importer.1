@@ -1,0 +1,209 @@
+.\" Man page for db_importer(1)
+.\" Generated from COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md
+.TH DB_IMPORTER 1 "November 2026" "ETL Madness Flow" "User Commands"
+.SH NAME
+db_importer \- SQL Server XML pipeline, options, and config importer and exporter
+.SH SYNOPSIS
+.B db_importer
+.RI [ options ...]
+.SH DESCRIPTION
+.B db_importer
+is a dedicated command-line utility for migrating XML pipelines, CLI options profiles, and variable configurations into and out of Microsoft SQL Server repository tables
+.RB ( dbo.flow_*_content ).
+It performs idempotent upserts via SQL Server
+.B MERGE INTO
+statements, automatically detects and translates UTF-8 and UTF-16 (LE/BE) byte-order marks, and supports transparent AES-256-GCM encryption at rest
+.RB ( FLOWENC:v1:... ).
+.SH OPTIONS
+.TP
+.BI \-action " op"
+Database operation to execute:
+.B import
+(default; upserts record into target table) or
+.B export
+(extracts record from target table).
+.TP
+.B \-export
+Shortcut boolean flag equivalent to
+.BR "\-action export" .
+.TP
+.BI \-dsn " conn_string"
+Connection string for the SQL Server instance (URL format
+.I sqlserver://user:pass@host:1433?database=DB
+or ADO/ODBC format).
+.TP
+.BI \-file " path"
+Input XML file path when importing, or destination path when exporting.
+Use
+.B \-
+or pass an empty string to read from
+.I stdin
+(import) or write to
+.I stdout
+(export).
+Exported files written to disk are restricted to
+.B 0600
+permissions.
+Default:
+.IR github_ai_credit_usage.xml .
+.TP
+.BI \-name " key"
+Unique logical record identifier in the target database table
+.RI ( Name
+column) used for upsert matching and export queries.
+Default:
+.IR github_ai_credit_usage .
+.TP
+.BI \-table " target"
+Logical target table mapping:
+.B pipeline
+(default),
+.BR options ,
+or
+.BR config .
+See
+.B TARGET TABLE MAPPINGS
+below.
+.TP
+.BI \-desc " text"
+Descriptive metadata stored in the
+.I Description
+column during imports.
+Default:
+.IR "Imported via Go importer" .
+.TP
+.B \-encrypted
+On import: encrypts XML payload into an armored
+.B FLOWENC:v1:...
+envelope before upserting into SQL Server.
+On export: decrypts encrypted database payloads before writing to disk or
+.IR stdout .
+(Encrypted database records are also auto-detected on export.)
+.TP
+.BI \-secure-key " key"
+Passphrase or key for AES-256-GCM encryption/decryption.
+Emits a security warning to
+.I stderr
+because command-line arguments are exposed in process listings; falls back to
+.B FLOW_SECURE_KEY
+or
+.BR SECURE_KEY .
+.TP
+.BI \-key-file " path"
+Path to a protected file containing the encryption/decryption key or passphrase.
+Preferred over
+.BR \-secure-key .
+.SH TARGET TABLE MAPPINGS
+The
+.B \-table
+flag maps to the following SQL Server repository tables and columns:
+.TP
+.B pipeline
+Table:
+.I dbo.flow_pipeline_content
+\(em XML column:
+.I PipelineXML
+.RB ( NVARCHAR(MAX) ),
+key column:
+.I Name
+.RB ( VARCHAR(120) ).
+.TP
+.B options
+Table:
+.I dbo.flow_options_content
+\(em XML column:
+.I OptionsXML
+.RB ( NVARCHAR(MAX) ),
+key column:
+.I Name
+.RB ( VARCHAR(120) ).
+.TP
+.B config
+Table:
+.I dbo.flow_config_content
+\(em XML column:
+.I ConfigXML
+.RB ( NVARCHAR(MAX) ),
+key column:
+.I Name
+.RB ( VARCHAR(120) ).
+.SH ENCODING & SECURITY
+.IP \(bu 3
+.B BOM & UTF-16 Auto-Detection:
+Automatically detects and decodes UTF-8 BOM
+.RB ( "0xEF 0xBB 0xBF" ),
+UTF-16 Little Endian BOM
+.RB ( "0xFF 0xFE" ),
+and UTF-16 Big Endian BOM
+.RB ( "0xFE 0xFF" ).
+.IP \(bu 3
+.B Idempotent Upsert:
+Imports execute an atomic
+.B MERGE INTO
+statement; existing records matching
+.I Name
+are updated in place.
+.IP \(bu 3
+.B Hardened File Permissions:
+Exported files written to disk are created with mode
+.B 0600
+(owner read/write only).
+.SH ENVIRONMENT
+.TP
+.B FLOW_SECURE_KEY
+Primary symmetric passphrase or key for AES-256-GCM encryption/decryption.
+.TP
+.B SECURE_KEY
+Fallback symmetric passphrase or key if
+.B FLOW_SECURE_KEY
+is unset.
+.SH EXIT STATUS
+.TP
+.B 0
+Success (record imported or exported cleanly).
+.TP
+.B 1
+Failure (connection error, record not found on export, missing/invalid key, or I/O error).
+.SH EXAMPLES
+Import an XML pipeline into SQL Server:
+.PP
+.RS 4
+.nf
+db_importer \\
+  \-dsn "sqlserver://sa:Password123!@localhost:1433?database=ETL&trustServerCertificate=true" \\
+  \-table pipeline \\
+  \-name "github_billing" \\
+  \-file ./pipelines/github_billing.xml \\
+  \-desc "Production GitHub Billing Workflow"
+.fi
+.RE
+.PP
+Import an options profile encrypted at rest:
+.PP
+.RS 4
+.nf
+db_importer \\
+  \-dsn "sqlserver://sa:Password123!@localhost:1433?database=ETL&trustServerCertificate=true" \\
+  \-table options \\
+  \-name "OPTIONS_FINANCE" \\
+  \-file ./options/finance_options.xml \\
+  \-encrypted \\
+  \-key-file /etc/flow/master.key
+.fi
+.RE
+.PP
+Export a pipeline to standard output and format with
+.BR xmllint (1):
+.PP
+.RS 4
+.nf
+db_importer \-export \-dsn "$FLOW_DSN" \-table pipeline \-name "github_billing" \-file \- | xmllint \-\-format \-
+.fi
+.RE
+.SH SEE ALSO
+.BR flow (1),
+.BR crypto_tool (1),
+.BR flow-pipeline (5)
+.PP
+Full documentation is also available via GNU Info:
+.B info db_importer
