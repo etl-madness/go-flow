@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/etl-madness/flow"
+	"github.com/etl-madness/flow/flowcrypto"
 	"github.com/etl-madness/go-flow/builder"
-	"github.com/etl-madness/go-flow/pkg/flowcrypto"
 	"github.com/traefik/yaegi/interp"
 )
 

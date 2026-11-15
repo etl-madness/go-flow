@@ -12,7 +12,7 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"github.com/etl-madness/go-flow/pkg/flowcrypto"
+	"github.com/etl-madness/flow/flowcrypto"
 	_ "github.com/microsoft/go-mssqldb"
 )
 

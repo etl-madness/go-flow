@@ -193,7 +193,7 @@ sequenceDiagram
     actor User as User / Scheduler
     participant UI as flowUI (Blazor Studio)
     participant API as go-flowAPI (REST / SSE)
-    participant Crypto as go-flow/pkg/flowcrypto
+    participant Crypto as flow/flowcrypto
     participant Engine as flow (Registry & Executor)
     participant DB as Metadata & Target DBs
 

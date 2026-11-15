@@ -144,19 +144,194 @@ See [winget/README.md](winget/README.md) for local `winget install --manifest` t
 
 ---
 
+## Installing & Uninstalling Packages by OS / Format
+
+### 1. Debian / Ubuntu (`.deb`)
+
+```sh
+# Install (pass ./ so apt resolves the local file)
+sudo apt install ./packaging/dist/go-flow_1.2.1-1_amd64.deb
+# Or directly with dpkg:
+sudo dpkg -i ./packaging/dist/go-flow_1.2.1-1_amd64.deb
+
+# Activate PATH & INFOPATH in the current shell (new login shells load this automatically)
+. /etc/profile.d/go-flow.sh
+
+# Verify
+/opt/flow/bin/flow -help
+man flow
+
+# Uninstall (use 'purge' to also remove /etc/profile.d/go-flow.sh)
+sudo apt purge go-flow
+```
+
+### 2. RHEL / Fedora / Rocky / AlmaLinux (`.rpm`)
+
+```sh
+# Install or upgrade
+sudo dnf install ./packaging/dist/go-flow-1.2.1-1.x86_64.rpm
+# Or directly with rpm:
+sudo rpm -Uvh ./packaging/dist/go-flow-1.2.1-1.x86_64.rpm
+
+# Activate PATH & INFOPATH in the current shell
+. /etc/profile.d/go-flow.sh
+
+# Verify
+flow -help
+man flow
+
+# Uninstall
+sudo dnf remove go-flow
+```
+
+### 3. SUSE Linux Enterprise (SLES) & openSUSE (`.rpm`)
+
+```sh
+# Install (use --allow-unsigned-rpm if the RPM is not GPG-signed)
+sudo zypper --no-gpg-checks install ./packaging/dist/go-flow-1.2.1-1.x86_64.rpm
+
+# Activate PATH & INFOPATH in the current shell
+. /etc/profile.d/go-flow.sh
+
+# Verify
+flow -help
+man flow
+
+# Uninstall
+sudo zypper remove go-flow
+```
+
+### 4. Arch Linux / Manjaro (`.pkg.tar.zst`)
+
+```sh
+# Install or upgrade local package archive
+sudo pacman -U ./packaging/dist/go-flow-1.2.1-1-x86_64.pkg.tar.zst
+
+# Activate PATH & INFOPATH in the current shell
+. /etc/profile.d/go-flow.sh
+
+# Verify
+flow -help
+man flow
+
+# Uninstall
+sudo pacman -Rns go-flow
+```
+
+### 5. macOS (`.pkg`)
+
+**Graphical Install:** Double-click `go-flow-<version>-darwin-universal.pkg` (or `arm64`/`amd64`) and follow the macOS Installer prompts.
+
+**Command-Line Install:**
+```sh
+# Install system-wide under /opt/flow
+sudo installer -pkg ./packaging/dist/go-flow-1.2.1-darwin-universal.pkg -target /
+
+# Refresh PATH and MANPATH in the current terminal (new terminals load paths.d automatically)
+eval "$(/usr/libexec/path_helper -s)"
+
+# Verify
+flow -help
+man flow
+
+# Uninstall (macOS installer has no built-in uninstall subcommand)
+sudo rm -rf /opt/flow \
+            /private/etc/paths.d/go-flow \
+            /private/etc/manpaths.d/go-flow
+sudo pkgutil --forget com.etlmadness.go-flow
+```
+
+### 6. FreeBSD (`.pkg`)
+
+```sh
+# Install local package (add -f to force reinstall of the same version)
+sudo pkg add ./packaging/dist/go-flow-1.2.1-freebsd-amd64.pkg
+
+# Activate PATH & INFOPATH in the current shell
+. /usr/local/etc/profile.d/go-flow.sh
+
+# Verify
+flow -help
+man flow
+
+# Uninstall
+sudo pkg delete go-flow
+```
+
+### 7. Windows — WinGet (`.zip` Portable & `.msi` Machine Scope)
+
+**From WinGet Repository (once published):**
+```powershell
+# Default user-scope install (portable .zip; no Administrator prompt required)
+winget install --id ETLMadness.GoFlow
+
+# Machine-wide install into C:\Program Files\ETL Madness\Flow\ (WiX .msi; requires Administrator)
+winget install --id ETLMadness.GoFlow --scope machine --installer-type wix
+
+# Uninstall
+winget uninstall --id ETLMadness.GoFlow
+```
+
+**From Local Generated Manifest (`packaging/dist/winget/...`):**
+```powershell
+# One-time Administrator setting to allow local manifest directories:
+winget settings --enable LocalManifestFiles
+
+# Install from the local manifest folder
+winget install --manifest .\packaging\dist\winget\e\ETLMadness\GoFlow\1.2.1\
+```
+
+### 8. Windows — Standalone `.msi` (`msiexec`)
+
+**Graphical Install:** Double-click `go-flow-<version>-windows-amd64.msi`.
+
+**Command-Line / Silent Install (Administrator PowerShell or `cmd.exe`):**
+```powershell
+# Silent machine-wide install into C:\Program Files\ETL Madness\Flow\
+msiexec /i .\packaging\dist\go-flow-1.2.1-windows-amd64.msi /qn /norestart
+
+# Open a new terminal so the updated PATH takes effect, then verify:
+flow -help
+crypto_tool -help
+db_importer -help
+
+# Silent uninstall
+msiexec /x .\packaging\dist\go-flow-1.2.1-windows-amd64.msi /qn /norestart
+```
+
+### 9. Windows — Standalone Portable `.zip` (Manual without WinGet)
+
+```powershell
+# Extract to a user directory
+$dest = "$env:LOCALAPPDATA\Programs\Flow"
+Expand-Archive -Path .\packaging\dist\go-flow-1.2.1-windows-amd64.zip -DestinationPath $dest -Force
+
+# Append bin\ to the end of User PATH if not already present
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if (($userPath -split ';') -notcontains "$dest\bin") {
+    [Environment]::SetEnvironmentVariable("Path", "$($userPath.TrimEnd(';'));$dest\bin", "User")
+}
+
+# Uninstall: remove $dest and delete "$dest\bin" from User PATH
+```
+
+---
+
 ## Viewing Documentation After Installation
 
 Open a new login shell (so `/opt/flow/bin` and `INFOPATH` are active) or invoke directly:
 
 ```sh
-# Manual pages
+# Unix Manual pages
 man flow
 man crypto_tool
 man db_importer
 man 5 flow-pipeline
 
-# GNU Info pages
+# Unix GNU Info pages
 info flow
 info crypto_tool
 info db_importer
 ```
+
+On Windows, reference guides are installed to `C:\Program Files\ETL Madness\Flow\docs\` (`.msi`) or `%LOCALAPPDATA%\Microsoft\WinGet\Packages\ETLMadness.GoFlow_...\docs\` (`.zip`).

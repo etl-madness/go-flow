@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/etl-madness/go-flow/pkg/flowcrypto"
+	"github.com/etl-madness/flow/flowcrypto"
 )
 
 func TestLoadResourceSecureWithEncryptedFile(t *testing.T) {
@@ -387,7 +387,3 @@ func TestLoadResourceBlocksCloudMetadata(t *testing.T) {
 		t.Fatalf("expected prohibition message, got: %v", err)
 	}
 }
-
-
-
-

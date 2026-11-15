@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/etl-madness/go-flow/pkg/flowcrypto"
+	"github.com/etl-madness/flow/flowcrypto"
 )
 
 func resolveSecureKey(cliKey string) string {
