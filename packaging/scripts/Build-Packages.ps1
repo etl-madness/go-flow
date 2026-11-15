@@ -14,7 +14,7 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet("stage-all", "linux", "darwin", "freebsd", "deb", "rpm", "arch", "archlinux")]
+    [ValidateSet("stage-all", "linux", "darwin", "freebsd", "windows", "winget", "msi", "zip", "deb", "rpm", "arch", "archlinux")]
     [string]$Target = "stage-all",
 
     [ValidateSet("amd64", "arm64")]
@@ -122,6 +122,10 @@ switch ($Target) {
     }
     "freebsd" {
         Build-GoBinaries -GoOS "freebsd" -GoArch $Arch -OutDir (Join-Path $BuildRoot "stage\freebsd-$Arch\bin")
+    }
+    { $_ -in @("windows", "winget", "msi", "zip") } {
+        $winFmt = if ($_ -in @("msi", "zip")) { $_ } else { "all" }
+        & (Join-Path $ScriptsDir "Build-Windows.ps1") -Format $winFmt -Arch $Arch -Version $Version
     }
     { $_ -in @("deb", "rpm", "arch", "archlinux") } {
         $packager = if ($_ -in @("arch", "archlinux")) { "archlinux" } else { $_ }
