@@ -177,15 +177,17 @@ Build scripts, package manifests, `man` pages, GNU `info` documentation, WiX `.m
 
 All packages compile `go-flow` as `flow` (`flow.exe` on Windows) alongside `crypto_tool` and `db_importer` (`CGO_ENABLED=0`), use non-colliding package identifiers (**`go-flow`** on Unix, **`ETLMadness.GoFlow`** on WinGet), install into isolated directories so existing commands are never overwritten, and include **no background service**:
 
-| Target Platform | Package Format | Build Script | Install Command |
-| --- | --- | --- | --- |
-| **Debian / Ubuntu** | `.deb` | `sh ./packaging/scripts/build-deb.sh [amd64\|arm64]` | `sudo dpkg -i packaging/dist/go-flow_*.deb` |
-| **RHEL / Fedora / SUSE / openSUSE** | `.rpm` | `sh ./packaging/scripts/build-rpm.sh [amd64\|arm64]` | `sudo dnf install ./packaging/dist/go-flow-*.rpm` *(or `zypper install`)* |
-| **Arch Linux** | `.pkg.tar.zst` | `sh ./packaging/scripts/build-arch.sh [amd64\|arm64]` | `sudo pacman -U packaging/dist/go-flow-*.pkg.tar.zst` |
-| **macOS** | `.pkg` | `sh ./packaging/scripts/build-macos-pkg.sh [arm64\|amd64\|universal]` | `sudo installer -pkg packaging/dist/go-flow-*.pkg -target /` |
-| **FreeBSD** | `.pkg` | `sh ./packaging/scripts/build-freebsd-pkg.sh [amd64\|arm64]` | `sudo pkg add packaging/dist/go-flow-*.pkg` |
-| **Windows (WinGet Portable)** | `.zip` + WinGet YAML | `.\packaging\scripts\Build-Windows.ps1 -Format zip` | `winget install --manifest packaging\dist\winget\e\ETLMadness\GoFlow\<ver>\` |
-| **Windows (Enterprise MSI)** | `.msi` + WinGet YAML | `.\packaging\scripts\Build-Windows.ps1 -Format all` | `msiexec /i packaging\dist\go-flow-*-windows-amd64.msi` *(or `winget install --scope machine`)* |
+| Target Platform | Package Format | Build Script | Install Command | Uninstall Command |
+| --- | --- | --- | --- | --- |
+| **Debian / Ubuntu** | `.deb` | `sh ./packaging/scripts/build-deb.sh [amd64\|arm64]` | `sudo apt install ./packaging/dist/go-flow_*.deb` | `sudo apt purge go-flow` |
+| **RHEL / Fedora / Rocky / Alma** | `.rpm` | `sh ./packaging/scripts/build-rpm.sh [amd64\|arm64]` | `sudo dnf install ./packaging/dist/go-flow-*.rpm` | `sudo dnf remove go-flow` |
+| **SUSE / openSUSE** | `.rpm` | `sh ./packaging/scripts/build-rpm.sh [amd64\|arm64]` | `sudo zypper --no-gpg-checks install ./packaging/dist/go-flow-*.rpm` | `sudo zypper remove go-flow` |
+| **Arch Linux / Manjaro** | `.pkg.tar.zst` | `sh ./packaging/scripts/build-arch.sh [amd64\|arm64]` | `sudo pacman -U ./packaging/dist/go-flow-*.pkg.tar.zst` | `sudo pacman -Rns go-flow` |
+| **macOS** | `.pkg` | `sh ./packaging/scripts/build-macos-pkg.sh [arm64\|amd64\|universal]` | `sudo installer -pkg ./packaging/dist/go-flow-*.pkg -target /` | See [macOS uninstall](packaging/README.md#5-macos-pkg) |
+| **FreeBSD** | `.pkg` | `sh ./packaging/scripts/build-freebsd-pkg.sh [amd64\|arm64]` | `sudo pkg add ./packaging/dist/go-flow-*.pkg` | `sudo pkg delete go-flow` |
+| **Windows (WinGet)** | `.zip` / `.msi` + YAML | `.\packaging\scripts\Build-Windows.ps1 -Format all` | `winget install --id ETLMadness.GoFlow` *(or `--manifest <dir>`)* | `winget uninstall --id ETLMadness.GoFlow` |
+| **Windows (Standalone MSI)** | `.msi` | `.\packaging\scripts\Build-Windows.ps1 -Format msi` | `msiexec /i .\packaging\dist\go-flow-*-windows-amd64.msi /qn` | `msiexec /x .\packaging\dist\go-flow-*-windows-amd64.msi /qn` |
+| **Windows (Portable ZIP)** | `.zip` | `.\packaging\scripts\Build-Windows.ps1 -Format zip` | `Expand-Archive .\packaging\dist\go-flow-*-windows-amd64.zip -DestinationPath C:\Tools\Flow` | Remove extracted folder |
 
 To automatically build native package(s) for the current Unix host into `packaging/dist/`:
 
@@ -198,7 +200,7 @@ sh ./packaging/scripts/build-all.sh host
 * **Unix (`/opt/flow`):** Binaries in `/opt/flow/bin/{flow,crypto_tool,db_importer}`, manuals & schemas in `/opt/flow/share/{man,info,xsd}`, with `PATH`/`MANPATH`/`INFOPATH` appended via `/etc/profile.d/go-flow.sh` (Linux), `/private/etc/paths.d/go-flow` & `/private/etc/manpaths.d/go-flow` (macOS), or `/usr/local/etc/profile.d/go-flow.sh` & `/usr/local/etc/man.d/go-flow.conf` (FreeBSD). Run `man flow`, `man crypto_tool`, `man db_importer`, `man 5 flow-pipeline`, or `info flow`.
 * **Windows (`.msi` & WinGet `.zip`):** `.msi` installs into `C:\Program Files\ETL Madness\Flow\` (`bin\`, `docs\`, `share\xsd\`) and appends `bin\` to the end of `PATH` (`Part="last"`). Portable `.zip` installs into `%LOCALAPPDATA%\Microsoft\WinGet\Packages\ETLMadness.GoFlow_...` and links `flow`, `crypto_tool`, and `db_importer` via WinGet Links without admin privileges.
 
-See [packaging/README.md](packaging/README.md) and [packaging/winget/README.md](packaging/winget/README.md) for full build options, WiX setup, and code-signing configuration.
+See [packaging/README.md](packaging/README.md#installing--uninstalling-packages-by-os--format) and [packaging/winget/README.md](packaging/winget/README.md) for step-by-step installation, shell `PATH` activation, upgrade/uninstall commands, WiX setup, and code-signing configuration.
 
 ---
 

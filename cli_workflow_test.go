@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/etl-madness/go-flow/pkg/flowcrypto"
+	"github.com/etl-madness/flow/flowcrypto"
 )
 
 func runFlowCLI(t *testing.T, args ...string) {

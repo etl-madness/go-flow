@@ -20,7 +20,7 @@ import (
 	_ "github.com/sijms/go-ora/v2"
 	_ "modernc.org/sqlite"
 
-	"github.com/etl-madness/go-flow/pkg/flowcrypto"
+	"github.com/etl-madness/flow/flowcrypto"
 )
 
 func resourceSourceLabel(source string) string {
