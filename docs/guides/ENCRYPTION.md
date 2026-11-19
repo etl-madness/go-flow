@@ -124,13 +124,13 @@ flow.exe -file pipeline.xml.enc -encrypted -secure-key "MySecretPassphrase123!"
 ### Running Encrypted Pipelines from a Database
 ```bash
 flow.exe -encrypted -secure-key "MySecretPassphrase123!" \
-         -file "sql://sqlserver@localhost:1433?database=master#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name = 'daily_customer_sync'"
+         -file "sql://sqlserver@localhost:1433?database=master#table=dbo.flow_pipeline_content&name=daily_customer_sync"
 ```
 
 ### Running Encrypted Options from a Database
 ```bash
 flow.exe -encrypted -secure-key "MySecretPassphrase123!" \
-         -options "sql://sqlserver@localhost:1433?database=master#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name = 'PROD_OPTIONS'"
+         -options "sql://sqlserver@localhost:1433?database=master#table=dbo.flow_options_content&name=PROD_OPTIONS"
 ```
 
 ### Auto-Detection

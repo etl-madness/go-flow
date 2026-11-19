@@ -588,7 +588,7 @@ For dedicated details, driver characteristics, and DSL syntax, refer to the [Key
 Flow supports loading pipelines, options, and configuration overrides directly from database tables using standard SQL URIs:
 
 ```text
-sql://<driver>@<dsn>#SELECT ...
+sql://<driver>@<dsn>#table=<schema.table>&column=<xml_col>[&key_col=<col>&key=<val>]
 ```
 
 ### Encrypted Storage at Rest
@@ -603,7 +603,7 @@ At runtime, specify the `-encrypted` flag and provide the decryption key via `-s
 
 ```bash
 flow.exe -encrypted -secure-key "MySecretPassphrase123!" \
-         -file "sql://sqlserver@localhost:1433?database=master#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name = 'production_daily_etl'"
+         -file "sql://sqlserver@localhost:1433?database=master#table=dbo.flow_pipeline_content&name=production_daily_etl"
 ```
 
 If the stored record begins with `FLOWENC:v1:`, Flow will automatically detect and decrypt the payload before parsing and execution.

@@ -188,7 +188,7 @@ flow.exe -file pipeline.xml -public-key pub.pem
 Verifies the digital signature on the encrypted package, decrypts with AES-256-GCM, and runs the workflow:
 ```bash
 flow.exe \
-  -file "sql://sqlserver@localhost:1433?database=ETLFlow#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name='ProductionBilling'" \
+  -file "sql://sqlserver@localhost:1433?database=ETLFlow#table=dbo.flow_pipeline_content&name=ProductionBilling" \
   -verify-signature \
   -public-key /etc/flow/signer_pub.pem \
   -encrypted \

@@ -1,5 +1,33 @@
 # Release Notes
 
+## Release Notes (v1.2.2) - Parameterized SQL Resource URIs, Multi-Platform Packaging & Quality Hardening
+
+### Overview
+
+Version `1.2.2` hardens database-backed `sql://` and `db://` resource loading against SQL injection, introduces native cross-platform OS packaging and system manuals, consolidates cryptographic verification onto `flow/flowcrypto`, and expands automated test coverage across the repository:
+
+1. **Parameterized SQL Resource URI Lookups (`resource_loader.go` — Security Hardening)**:
+   - Replaced raw `#<SQL_QUERY>` execution in `loadFromDatabase` with structured URL-query-style lookup fragments matching `go-flowAPI v1.3.2`:
+     ```text
+     sql://<driver>@<dsn>#table=<schema.table>[&column=<xml_col>][&key_col=<col>&key=<val> | &name=<val> | &id=<val>]
+     ```
+   - Validates every SQL identifier (`schema`, `table`, `column`/`col`, `key_col`) against `^[A-Za-z_][A-Za-z0-9_]{0,127}$` and reconstructs identifier tokens strictly from a compile-time constant ASCII alphabet so zero user-tainted bytes enter SQL text.
+   - Automatically defaults `column` for standard repository tables (`flow_pipeline_content` → `PipelineXML`, `flow_options_content` → `OptionsXML`, `flow_config_content` → `ConfigXML`) and supports concise `&name=<val>` (`WHERE Name = <param>`) and `&id=<val>` (`WHERE ID = <param>`) shorthands.
+   - Binds all filter values exclusively via dialect-specific query parameters (`@p1` for SQL Server/Azure SQL, `$1` for PostgreSQL, `:1` for Oracle, `?` for MySQL/SQLite) while preserving credential masking in error messages.
+
+2. **Cross-Platform Native Packaging & Manuals (`packaging/`, `README.md`)**:
+   - Added packaging build scripts, manifests, and installation instructions across Debian/Ubuntu (`.deb`), RHEL/Fedora/SUSE (`.rpm`), Arch Linux (`.pkg.tar.zst`), macOS (`.pkg`), FreeBSD (`.pkg`), and Windows (`.msi`, `.zip`, and WinGet manifests).
+   - Added Unix `man` pages (`flow(1)`, `crypto_tool(1)`, `db_importer(1)`, `flow-pipeline(5)`) and GNU Texinfo documentation (`flow.texi` / `flow.info`).
+
+3. **`flow/flowcrypto` Consolidation**:
+   - Removed the legacy in-tree `pkg/flowcrypto` duplicate in favor of the canonical `github.com/etl-madness/flow/flowcrypto` package across `flow`, `crypto_tool`, `db_importer`, and tests.
+
+4. **Builder, Documentation & Test Coverage Enhancements**:
+   - Added Mermaid diagram sanitization (`docs/sanitize_mermaid.js`), sticky `<group>` canvas UX improvements, and redacted credential hygiene across offline documentation bundles.
+   - Expanded automated test coverage (`81%+`) across CLI flags/workflows, Builder endpoints & canvas rendering, `crypto_tool` OpenSSL/PGP workflows, `db_importer` encoding, and `bqBilling`.
+
+---
+
 ## Release Notes (v1.1.27) - `flowcrypto` Package Relocation
 
 ### Overview

@@ -68,8 +68,8 @@ Arguments in `flow.exe` that load resources (`-file`, `-options`, `-config`, `-i
 | **Local File** | Standard relative or absolute path | `-file ".\pipelines\finance.xml"` |
 | **HTTP / HTTPS** | `http://...` or `https://...` | `-file "https://internal.repo/pipelines/etl.xml"` |
 | **HTTP Basic Auth** | `https://Basic%20<base64>@host/...` | `-file "https://Basic%20dXNlcjpwYXNz@internal.repo/etl.xml"` |
-| **SQL Server Query** | `sql://sqlserver@<dsn>#<SELECT_QUERY>` | `-options "sql://sqlserver@localhost:1433?database=ETL#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name='PROD'"` |
-| **Generic DB Alias** | `db://<driver>@<dsn>#<SELECT_QUERY>` | `-file "db://postgres@app_user:pass@db:5432/app#SELECT pipeline_xml FROM flow_pipelines WHERE name='BILLING'"` |
+| **SQL Server Lookup** | `sql://sqlserver@<dsn>#table=<schema.table>[&name=<val>]` | `-options "sql://sqlserver@localhost:1433?database=ETL#table=dbo.flow_options_content&name=PROD"` |
+| **Generic DB Alias** | `db://<driver>@<dsn>#table=<schema.table>&column=<col>&key_col=<col>&key=<val>` | `-file "db://postgres@postgres://{{PG_USER}}:{{PG_PASSWORD}}@db:5432/app#table=flow_pipelines&column=pipeline_xml&key_col=name&key=BILLING"` |
 
 ### Common Exit Codes
 
@@ -258,11 +258,11 @@ crypto_tool [options...]
 .\flow.exe -file ".\pipelines\etl.xml" -preflight
 ```
 
-#### Running Directly from a SQL Database Query
+#### Running Directly from a SQL Database Repository
 ```powershell
 .\flow.exe `
-  -file "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=ETL&trustServerCertificate=true#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name='BILLING_JOB'" `
-  -options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=ETL&trustServerCertificate=true#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name='PROD_OPTIONS'" `
+  -file "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=ETL&trustServerCertificate=true#table=dbo.flow_pipeline_content&name=BILLING_JOB" `
+  -options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=ETL&trustServerCertificate=true#table=dbo.flow_options_content&name=PROD_OPTIONS" `
   -key-file "C:\secrets\flow_master.key"
 ```
 
@@ -413,7 +413,7 @@ db_importer -dsn "sqlserver://sa:Password@db:1433?database=ETL" -table pipeline 
 # 4. Execute on production server (verifies signature first, then decrypts)
 export FLOW_SECURE_KEY="YourSecurePassphrase"
 flow.exe \
-  -file "sql://sqlserver@db:1433?database=ETL#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name='NIGHTLY_SYNC'" \
+  -file "sql://sqlserver@db:1433?database=ETL#table=dbo.flow_pipeline_content&name=NIGHTLY_SYNC" \
   -public-key "/etc/flow/release_pub.pem"
 ```
 

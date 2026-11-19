@@ -32,11 +32,11 @@ packaging/dist/winget/e/ETLMadness/GoFlow/<version>/
 .\packaging\scripts\Build-Windows.ps1 -Format all -Arch amd64
 
 # 2. Validate WinGet manifest schema & rules
-winget validate --manifest .\packaging\dist\winget\e\ETLMadness\GoFlow\1.2.1\
+winget validate --manifest .\packaging\dist\winget\e\ETLMadness\GoFlow\1.2.2\
 
 # 3. Enable local manifest installs (one-time admin setting) & test install
 winget settings --enable LocalManifestFiles
-winget install --manifest .\packaging\dist\winget\e\ETLMadness\GoFlow\1.2.1\
+winget install --manifest .\packaging\dist\winget\e\ETLMadness\GoFlow\1.2.2\
 ```
 
 ---

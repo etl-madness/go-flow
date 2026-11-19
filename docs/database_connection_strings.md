@@ -725,19 +725,19 @@ When a database element is named `log_db`, `go-flow` automatically directs all p
 `go-flow` can fetch pipeline XML definitions dynamically from a database repository using the `sql://` source prefix:
 
 ```text
-sql://<driver>@<connection_string>#<SQL_SELECT_QUERY>
+sql://<driver>@<connection_string>#table=<schema.table>&column=<xml_col>[&key_col=<col>&key=<val>]
 ```
 
 #### Examples:
 ```powershell
 # From PostgreSQL
-.\flow.exe -source "sql://postgres@postgresql://$([uri]::EscapeDataString($env:PG_USER)):$([uri]::EscapeDataString($env:PG_PASSWORD))@localhost:5432/pipelines?sslmode=disable#SELECT xml_content FROM pipeline_catalog WHERE pipeline_name = 'daily_sales'"
+.\flow.exe -source "sql://postgres@postgresql://$([uri]::EscapeDataString($env:PG_USER)):$([uri]::EscapeDataString($env:PG_PASSWORD))@localhost:5432/pipelines?sslmode=disable#table=pipeline_catalog&column=xml_content&key_col=pipeline_name&key=daily_sales"
 
 # From SQL Server
-.\flow.exe -source "sql://sqlserver@sqlserver://sa:SecretPass!@localhost:1433?database=master&encrypt=disable#SELECT definition_xml FROM dbo.etl_scripts WHERE id = 42"
+.\flow.exe -source "sql://sqlserver@sqlserver://sa:SecretPass!@localhost:1433?database=master&encrypt=disable#table=dbo.etl_scripts&column=definition_xml&id=42"
 
 # From SQLite
-.\flow.exe -source "sql://sqlite@file:./repos/scripts.db?mode=ro#SELECT xml_body FROM registry WHERE name = 'extract_orders'"
+.\flow.exe -source "sql://sqlite@file:./repos/scripts.db?mode=ro#table=registry&column=xml_body&name=extract_orders"
 ```
 
 ---

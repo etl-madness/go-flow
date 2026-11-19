@@ -150,9 +150,9 @@ See [winget/README.md](winget/README.md) for local `winget install --manifest` t
 
 ```sh
 # Install (pass ./ so apt resolves the local file)
-sudo apt install ./packaging/dist/go-flow_1.2.1-1_amd64.deb
+sudo apt install ./packaging/dist/go-flow_1.2.2-1_amd64.deb
 # Or directly with dpkg:
-sudo dpkg -i ./packaging/dist/go-flow_1.2.1-1_amd64.deb
+sudo dpkg -i ./packaging/dist/go-flow_1.2.2-1_amd64.deb
 
 # Activate PATH & INFOPATH in the current shell (new login shells load this automatically)
 . /etc/profile.d/go-flow.sh
@@ -169,9 +169,9 @@ sudo apt purge go-flow
 
 ```sh
 # Install or upgrade
-sudo dnf install ./packaging/dist/go-flow-1.2.1-1.x86_64.rpm
+sudo dnf install ./packaging/dist/go-flow-1.2.2-1.x86_64.rpm
 # Or directly with rpm:
-sudo rpm -Uvh ./packaging/dist/go-flow-1.2.1-1.x86_64.rpm
+sudo rpm -Uvh ./packaging/dist/go-flow-1.2.2-1.x86_64.rpm
 
 # Activate PATH & INFOPATH in the current shell
 . /etc/profile.d/go-flow.sh
@@ -188,7 +188,7 @@ sudo dnf remove go-flow
 
 ```sh
 # Install (use --allow-unsigned-rpm if the RPM is not GPG-signed)
-sudo zypper --no-gpg-checks install ./packaging/dist/go-flow-1.2.1-1.x86_64.rpm
+sudo zypper --no-gpg-checks install ./packaging/dist/go-flow-1.2.2-1.x86_64.rpm
 
 # Activate PATH & INFOPATH in the current shell
 . /etc/profile.d/go-flow.sh
@@ -205,7 +205,7 @@ sudo zypper remove go-flow
 
 ```sh
 # Install or upgrade local package archive
-sudo pacman -U ./packaging/dist/go-flow-1.2.1-1-x86_64.pkg.tar.zst
+sudo pacman -U ./packaging/dist/go-flow-1.2.2-1-x86_64.pkg.tar.zst
 
 # Activate PATH & INFOPATH in the current shell
 . /etc/profile.d/go-flow.sh
@@ -225,7 +225,7 @@ sudo pacman -Rns go-flow
 **Command-Line Install:**
 ```sh
 # Install system-wide under /opt/flow
-sudo installer -pkg ./packaging/dist/go-flow-1.2.1-darwin-universal.pkg -target /
+sudo installer -pkg ./packaging/dist/go-flow-1.2.2-darwin-universal.pkg -target /
 
 # Refresh PATH and MANPATH in the current terminal (new terminals load paths.d automatically)
 eval "$(/usr/libexec/path_helper -s)"
@@ -245,7 +245,7 @@ sudo pkgutil --forget com.etlmadness.go-flow
 
 ```sh
 # Install local package (add -f to force reinstall of the same version)
-sudo pkg add ./packaging/dist/go-flow-1.2.1-freebsd-amd64.pkg
+sudo pkg add ./packaging/dist/go-flow-1.2.2-freebsd-amd64.pkg
 
 # Activate PATH & INFOPATH in the current shell
 . /usr/local/etc/profile.d/go-flow.sh
@@ -278,7 +278,7 @@ winget uninstall --id ETLMadness.GoFlow
 winget settings --enable LocalManifestFiles
 
 # Install from the local manifest folder
-winget install --manifest .\packaging\dist\winget\e\ETLMadness\GoFlow\1.2.1\
+winget install --manifest .\packaging\dist\winget\e\ETLMadness\GoFlow\1.2.2\
 ```
 
 ### 8. Windows — Standalone `.msi` (`msiexec`)
@@ -288,7 +288,7 @@ winget install --manifest .\packaging\dist\winget\e\ETLMadness\GoFlow\1.2.1\
 **Command-Line / Silent Install (Administrator PowerShell or `cmd.exe`):**
 ```powershell
 # Silent machine-wide install into C:\Program Files\ETL Madness\Flow\
-msiexec /i .\packaging\dist\go-flow-1.2.1-windows-amd64.msi /qn /norestart
+msiexec /i .\packaging\dist\go-flow-1.2.2-windows-amd64.msi /qn /norestart
 
 # Open a new terminal so the updated PATH takes effect, then verify:
 flow -help
@@ -296,7 +296,7 @@ crypto_tool -help
 db_importer -help
 
 # Silent uninstall
-msiexec /x .\packaging\dist\go-flow-1.2.1-windows-amd64.msi /qn /norestart
+msiexec /x .\packaging\dist\go-flow-1.2.2-windows-amd64.msi /qn /norestart
 ```
 
 ### 9. Windows — Standalone Portable `.zip` (Manual without WinGet)
@@ -304,7 +304,7 @@ msiexec /x .\packaging\dist\go-flow-1.2.1-windows-amd64.msi /qn /norestart
 ```powershell
 # Extract to a user directory
 $dest = "$env:LOCALAPPDATA\Programs\Flow"
-Expand-Archive -Path .\packaging\dist\go-flow-1.2.1-windows-amd64.zip -DestinationPath $dest -Force
+Expand-Archive -Path .\packaging\dist\go-flow-1.2.2-windows-amd64.zip -DestinationPath $dest -Force
 
 # Append bin\ to the end of User PATH if not already present
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
