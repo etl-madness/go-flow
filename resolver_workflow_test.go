@@ -67,17 +67,30 @@ func TestLoadResourceFromSQLite(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	if _, err := db.Exec(`CREATE TABLE resources (content TEXT); INSERT INTO resources VALUES ('<pipeline/>'), ('')`); err != nil {
+	if _, err := db.Exec(`CREATE TABLE resources (name TEXT, content TEXT); INSERT INTO resources VALUES ('p1', '<pipeline/>'), ('empty', ''); CREATE TABLE flow_pipeline_content (ID INTEGER, Name TEXT, PipelineXML TEXT); INSERT INTO flow_pipeline_content VALUES (7, 'std_pipe', '<std/>')`); err != nil {
 		t.Fatal(err)
 	}
 	base := "sql://sqlite3@" + filepath.ToSlash(path) + "#"
-	data, err := loadFromDatabase(context.Background(), base+"SELECT content FROM resources LIMIT 1")
+	data, err := loadFromDatabase(context.Background(), base+"table=resources&column=content")
 	if err != nil || string(data) != "<pipeline/>" {
 		t.Fatalf("resource = %q, %v", data, err)
 	}
-	for _, query := range []string{"SELECT content FROM resources WHERE content = ''", "SELECT content FROM nonexistent"} {
-		if _, err := loadFromDatabase(context.Background(), base+query); err == nil {
-			t.Errorf("expected error for %q", query)
+	byName, err := loadFromDatabase(context.Background(), base+"table=flow_pipeline_content&name=std_pipe")
+	if err != nil || string(byName) != "<std/>" {
+		t.Fatalf("byName = %q, %v", byName, err)
+	}
+	byID, err := loadFromDatabase(context.Background(), base+"table=flow_pipeline_content&id=7")
+	if err != nil || string(byID) != "<std/>" {
+		t.Fatalf("byID = %q, %v", byID, err)
+	}
+	for _, frag := range []string{
+		"table=resources&column=content&key_col=name&key=empty",
+		"table=nonexistent&column=content",
+		"SELECT content FROM resources LIMIT 1",
+		"table=resources;DROP TABLE resources&column=content",
+	} {
+		if _, err := loadFromDatabase(context.Background(), base+frag); err == nil {
+			t.Errorf("expected error for %q", frag)
 		}
 	}
 }

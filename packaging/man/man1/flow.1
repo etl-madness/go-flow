@@ -1,6 +1,6 @@
 .\" Man page for flow(1)
 .\" Generated from COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md and SUMMARY_OF_AVAILABLE_OPTIONS.md
-.TH FLOW 1 "November 2026" "ETL Madness Flow" "User Commands"
+.TH FLOW 1 "November 2026" "ETL Madness Flow 1.2.2" "User Commands"
 .SH NAME
 flow \- ETL pipeline execution engine, validator, visual builder server, and repository manager
 .SH SYNOPSIS
@@ -289,13 +289,13 @@ or
 .B HTTP Basic Auth
 .I https://Basic%20<base64>@host/path/etl.xml
 .TP
-.B SQL Server Query
-.I sql://sqlserver@<dsn>#<SELECT_QUERY>
+.B SQL Server Lookup
+.I sql://sqlserver@<dsn>#table=<schema.table>[&column=<xml_col>][&name=<val>|&id=<val>]
 .TP
 .B Generic DB Alias
-.I db://<driver>@<dsn>#<SELECT_QUERY>
+.I db://<driver>@<dsn>#table=<schema.table>&column=<xml_col>&key_col=<col>&key=<val>
 (for example,
-.IR "db://postgres@app_user:pass@db:5432/app#SELECT pipeline_xml FROM flow_pipelines WHERE name='BILLING'" ).
+.IR "db://postgres@{{PG_USER}}:{{PG_PASSWORD}}@db:5432/app#table=flow_pipelines&column=pipeline_xml&key_col=name&key=BILLING" ).
 .SH SECRET RESOLUTION PRECEDENCE
 When encrypting or decrypting resources, passphrases and keys are resolved in the following order:
 .IP 1. 4
@@ -384,7 +384,7 @@ Execute a signed and encrypted pipeline directly from a SQL repository:
 .RS 4
 .nf
 flow \\
-  \-file "sql://sqlserver@db:1433?database=ETL#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name='NIGHTLY_SYNC'" \\
+  \-file "sql://sqlserver@db:1433?database=ETL#table=dbo.flow_pipeline_content&name=NIGHTLY_SYNC" \\
   \-public-key /etc/flow/release_pub.pem \\
   \-key-file /etc/flow/master.key
 .fi

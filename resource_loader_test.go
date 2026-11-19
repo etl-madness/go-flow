@@ -340,10 +340,71 @@ func TestLoadFromDatabaseCredentialMasking(t *testing.T) {
 	}
 
 	// 2. Malformed connection spec URI
-	badConnSpec := "sql://nospec#SELECT 1"
+	badConnSpec := "sql://nospec#table=flow_pipeline_content&name=x"
 	_, err = LoadResource(ctx, badConnSpec)
 	if err == nil {
 		t.Fatal("expected error for malformed conn spec, got nil")
+	}
+
+	// 3. Raw SQL fragment rejected without leaking credentials
+	rawSQLURI := "sql://postgres@postgres://dbuser:SecretDatabasePassword@localhost:5432/proddb#SELECT 1"
+	_, err = LoadResource(ctx, rawSQLURI)
+	if err == nil {
+		t.Fatal("expected error for raw SQL fragment, got nil")
+	}
+	if strings.Contains(err.Error(), "SecretDatabasePassword") {
+		t.Fatalf("error message leaked DB password: %s", err.Error())
+	}
+}
+
+func TestBuildSQLResourceQuery(t *testing.T) {
+	validCases := []struct {
+		fragment  string
+		driver    string
+		wantQuery string
+		wantArg   string
+		hasArg    bool
+	}{
+		{"table=dbo.flow_pipeline_content&name=daily_etl", "sqlserver", "SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name = @p1", "daily_etl", true},
+		{"table=flow_options_content&key=opt_global", "postgres", "SELECT OptionsXML FROM flow_options_content WHERE Name = $1", "opt_global", true},
+		{"table=dbo.flow_config_content&id=42", "oracle", "SELECT ConfigXML FROM dbo.flow_config_content WHERE ID = :1", "42", true},
+		{"table=custom_catalog&col=xml_body&key_col=slug&key=sales_job", "sqlite", "SELECT xml_body FROM custom_catalog WHERE slug = ?", "sales_job", true},
+		{"table=single_row_store&column=payload", "mysql", "SELECT payload FROM single_row_store", "", false},
+	}
+	for _, tc := range validCases {
+		q, args, err := buildSQLResourceQuery(tc.fragment, tc.driver)
+		if err != nil {
+			t.Fatalf("fragment %q (%s) unexpected error: %v", tc.fragment, tc.driver, err)
+		}
+		if q != tc.wantQuery {
+			t.Fatalf("fragment %q: got query %q, want %q", tc.fragment, q, tc.wantQuery)
+		}
+		if tc.hasArg && (len(args) != 1 || args[0] != tc.wantArg) {
+			t.Fatalf("fragment %q: got args %v, want [%q]", tc.fragment, args, tc.wantArg)
+		}
+		if !tc.hasArg && len(args) != 0 {
+			t.Fatalf("fragment %q: expected no args, got %v", tc.fragment, args)
+		}
+	}
+
+	for _, frag := range []string{
+		"",
+		"SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name='x'",
+		"table=bad;drop&column=xml",
+		"table=flow_pipeline_content&table=dup&name=x",
+		"table=1bad&column=xml",
+		"table=bad-schema.tbl&column=xml",
+		"table=dbo.bad-tbl&column=xml",
+		"table=a.b.c&column=xml",
+		"table=custom_tbl",
+		"table=custom_tbl&column=a&col=b",
+		"table=flow_pipeline_content&key=a&name=b",
+		"table=flow_pipeline_content&key_col=Name",
+		"table=flow_pipeline_content&key_col=bad-col&key=x",
+	} {
+		if _, _, err := buildSQLResourceQuery(frag, "sqlite"); err == nil {
+			t.Fatalf("expected error for invalid fragment %q", frag)
+		}
 	}
 }
 

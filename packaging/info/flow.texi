@@ -105,10 +105,10 @@ Standard relative or absolute path, e.g., @file{./pipelines/finance.xml}.
 @code{http://...} or @code{https://...}
 @item HTTP Basic Auth
 @code{https://Basic%20<base64>@@host/path/etl.xml}
-@item SQL Server Query
-@code{sql://sqlserver@@<dsn>#<SELECT_QUERY>}
+@item SQL Server Lookup
+@code{sql://sqlserver@@<dsn>#table=<schema.table>[&column=<xml_col>][&name=<val>|&id=<val>]}
 @item Generic DB Alias
-@code{db://<driver>@@<dsn>#<SELECT_QUERY>}
+@code{db://<driver>@@<dsn>#table=<schema.table>&column=<xml_col>&key_col=<col>&key=<val>}
 @end table
 
 @section Common Exit Codes
@@ -433,7 +433,7 @@ db_importer -dsn "sqlserver://sa:Password@@db:1433?database=ETL" \
 
 # 4. Execute on production host (verifies signature before decrypting)
 flow \
-  -file "sql://sqlserver@@db:1433?database=ETL#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name='NIGHTLY_SYNC'" \
+  -file "sql://sqlserver@@db:1433?database=ETL#table=dbo.flow_pipeline_content&name=NIGHTLY_SYNC" \
   -public-key /etc/flow/release_pub.pem \
   -key-file /etc/flow/prod.key
 @end example

@@ -63,7 +63,7 @@ go run mssql_importer.go -dsn "sqlserver://sa:Password123!@localhost:1433?databa
 To run the flow from the database using the imported options, use the following command:
 
 ```shell
-flow.exe -options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT OptionsXML from dbo.flow_options_content where Name = 'OPTIONS_GITHUB_AI_CREDIT_USAGE'" 
+flow.exe -options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#table=dbo.flow_options_content&name=OPTIONS_GITHUB_AI_CREDIT_USAGE"
 ```
 
 ## Encrypted Import & Export
@@ -98,5 +98,5 @@ go run mssql_importer.go -action export -dsn "sqlserver://sa:Password123!@localh
 
 ### Run Encrypted from Database with go-flow
 ```shell
-flow.exe -encrypted -key-file "/path/to/secret.key" -options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT OptionsXML from dbo.flow_options_content where Name = 'OPTIONS_GITHUB_AI_CREDIT_USAGE'"
+flow.exe -encrypted -key-file "/path/to/secret.key" -options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#table=dbo.flow_options_content&name=OPTIONS_GITHUB_AI_CREDIT_USAGE"
 ```

@@ -40,26 +40,26 @@ Authorization: Basic dXNlcjpwYXNz
 
 ### SQL / database DSN
 
-The SQL URI format is:
+The SQL URI format uses validated table/column identifiers and bound query parameters:
 
 ```text
-sql://<driver>@<dsn>#<SELECT ...>
+sql://<driver>@<dsn>#table=<schema.table>&column=<xml_col>[&key_col=<col>&key=<val>]
 ```
 
 Examples:
 
 ```powershell
-.\flow.exe --file "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT XmlContent FROM dbo.flow_pipeline WHERE Name = 'PIPELINE_MAIN'"
+.\flow.exe --file "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#table=dbo.flow_pipeline&column=XmlContent&name=PIPELINE_MAIN"
 
-.\flow.exe --options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name = 'OPTIONS_PROD'"
+.\flow.exe --options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#table=dbo.flow_options_content&name=OPTIONS_PROD"
 
-.\flow.exe --config "sql://postgres@postgres://$([uri]::EscapeDataString($env:PG_USER)):$([uri]::EscapeDataString($env:PG_PASSWORD))@prod-db:5432/appdb?sslmode=require#SELECT config_xml FROM flow_config WHERE name = 'PROD'"
+.\flow.exe --config "sql://postgres@postgres://$([uri]::EscapeDataString($env:PG_USER)):$([uri]::EscapeDataString($env:PG_PASSWORD))@prod-db:5432/appdb?sslmode=require#table=flow_config&column=config_xml&key_col=name&key=PROD"
 ```
 
 SQL Server with Windows integrated security / trusted connection:
 
 ```powershell
-.\flow.exe --options "sql://sqlserver@sqlserver://sqlserver.example.com:1433?database=MYDB&integrated+security=true&trustServerCertificate=true#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name = 'OPTIONS_GITHUB_AI_CREDIT_USAGE'"
+.\flow.exe --options "sql://sqlserver@sqlserver://sqlserver.example.com:1433?database=MYDB&integrated+security=true&trustServerCertificate=true#table=dbo.flow_options_content&name=OPTIONS_GITHUB_AI_CREDIT_USAGE"
 ```
 
 This pattern is useful when the SQL Server instance is running on a named host and you want to authenticate using a trusted Windows login instead of a username/password in the DSN itself.
@@ -69,18 +69,18 @@ This pattern is useful when the SQL Server instance is running on a named host a
 The repository also supports a `db://` alias form:
 
 ```powershell
-.\flow.exe --file "db://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT XmlContent FROM dbo.flow_pipeline WHERE Name = 'PIPELINE_MAIN'"
+.\flow.exe --file "db://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#table=dbo.flow_pipeline&column=XmlContent&name=PIPELINE_MAIN"
 
-.\flow.exe --options "db://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name = 'OPTIONS_GLOBAL'"
+.\flow.exe --options "db://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#table=dbo.flow_options_content&name=OPTIONS_GLOBAL"
 ```
 
 ## Example with all three in one command
 
 ```powershell
 .\flow.exe `
-  --file "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT XmlContent FROM dbo.flow_pipeline WHERE Name = 'PIPELINE_MAIN'" `
+  --file "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#table=dbo.flow_pipeline&column=XmlContent&name=PIPELINE_MAIN" `
   --config "https://example.com/config/prod.xml" `
-  --options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name = 'OPTIONS_PROD'" `
+  --options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#table=dbo.flow_options_content&name=OPTIONS_PROD" `
   --debug
 ```
 
@@ -95,5 +95,5 @@ The repository also supports a `db://` alias form:
 ## Typical production usage
 
 ```powershell
-.\flow.exe --file "sql://sqlserver@sqlserver://sqlprod:1433?database=ETL&encrypt=true&trustServerCertificate=true#SELECT XmlContent FROM dbo.flow_pipeline WHERE Name = 'PIPELINE_FINANCE'" --config "sql://sqlserver@sqlserver://sqlprod:1433?database=ETL&encrypt=true&trustServerCertificate=true#SELECT ConfigXML FROM dbo.flow_config WHERE Name = 'PROD'" --options "sql://sqlserver@sqlserver://sqlprod:1433?database=ETL&encrypt=true&trustServerCertificate=true#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name = 'OPTIONS_FINANCE'"
+.\flow.exe --file "sql://sqlserver@sqlserver://sqlprod:1433?database=ETL&encrypt=true&trustServerCertificate=true#table=dbo.flow_pipeline&column=XmlContent&name=PIPELINE_FINANCE" --config "sql://sqlserver@sqlserver://sqlprod:1433?database=ETL&encrypt=true&trustServerCertificate=true#table=dbo.flow_config&column=ConfigXML&name=PROD" --options "sql://sqlserver@sqlserver://sqlprod:1433?database=ETL&encrypt=true&trustServerCertificate=true#table=dbo.flow_options_content&name=OPTIONS_FINANCE"
 ```

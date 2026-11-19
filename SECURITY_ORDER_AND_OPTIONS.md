@@ -359,7 +359,7 @@ flow.exe -dsn "sqlserver://sa:Password@localhost:1433?database=ETL" \
 
 # 2. Execute directly from SQL Server URI:
 flow.exe \
-  -file "sql://sqlserver@localhost:1433?database=ETL#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name='NightlyBillingJob'" \
+  -file "sql://sqlserver@localhost:1433?database=ETL#table=dbo.flow_pipeline_content&name=NightlyBillingJob" \
   -public-key release_pub.pem \
   -secure-key "$KEY"
 ```

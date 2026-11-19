@@ -50,7 +50,7 @@ Go-Flow uses `xmllint` under the hood. It normalizes UTF-16 bytes into standard 
 When storing XML pipelines directly in a relational database, queries return string data over the database driver protocol:
 
 ```shell
-flow.exe -file "sql://sqlserver@localhost:1433?database=analytics&integrated+security=true#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name='copilot_usage'"
+flow.exe -file "sql://sqlserver@localhost:1433?database=analytics&integrated+security=true#table=dbo.flow_pipeline_content&name=copilot_usage"
 ```
 
 ### Supported Table Layout

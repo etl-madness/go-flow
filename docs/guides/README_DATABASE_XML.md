@@ -2,19 +2,19 @@
 
 This project can load pipeline XML, config XML, and CLI option XML content directly from a database instead of a local file path.
 
-The runtime supports SQL-backed resources using the format:
+The runtime supports SQL-backed resources using parameterized lookup fragments:
 
 ```text
-sql://<driver>@<dsn>#SELECT ...
+sql://<driver>@<dsn>#table=<schema.table>&column=<xml_col>[&key_col=<col>&key=<val>]
 ```
 
 or:
 
 ```text
-db://<driver>@<dsn>#SELECT ...
+db://<driver>@<dsn>#table=<schema.table>[&name=<val> | &id=<val>]
 ```
 
-The loader accepts a SQL query that returns the XML document as a single value. This makes it possible to store each artifact in a database table and execute the pipeline by reference.
+SQL identifiers (`table`, `column`/`col`, `key_col`) are strictly validated against `[A-Za-z_][A-Za-z0-9_]*`, and lookup values (`key`, `name`, `id`) are always passed as dialect-specific bound query parameters. For the standard `flow_pipeline_content`, `flow_options_content`, and `flow_config_content` tables, `column` defaults automatically to `PipelineXML`, `OptionsXML`, and `ConfigXML`.
 
 ---
 
@@ -29,9 +29,9 @@ The application resolves XML inputs from the database in the same way it resolve
 Examples:
 
 ```shell
-flow.exe -file "sql://sqlserver@sqlserver://localhost:1433?database=example_db&integrated+security=true&trustServerCertificate=true#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name = 'MY_PIPELINE'"
-flow.exe -config "sql://sqlserver@sqlserver://localhost:1433?database=example_db&integrated+security=true&trustServerCertificate=true#SELECT ConfigXML FROM dbo.flow_config_content WHERE Name = 'CONFIG_DEV'"
-flow.exe -options "sql://sqlserver@sqlserver://localhost:1433?database=example_db&integrated+security=true&trustServerCertificate=true#SELECT OptionsXML FROM dbo.flow_options_content WHERE Name = 'OPTIONS_DEV'"
+flow.exe -file "sql://sqlserver@sqlserver://localhost:1433?database=example_db&integrated+security=true&trustServerCertificate=true#table=dbo.flow_pipeline_content&name=MY_PIPELINE"
+flow.exe -config "sql://sqlserver@sqlserver://localhost:1433?database=example_db&integrated+security=true&trustServerCertificate=true#table=dbo.flow_config_content&name=CONFIG_DEV"
+flow.exe -options "sql://sqlserver@sqlserver://localhost:1433?database=example_db&integrated+security=true&trustServerCertificate=true#table=dbo.flow_options_content&name=OPTIONS_DEV"
 ```
 
 The loader also accepts `mssql`, `postgresql`, and `sqlite3` aliases and normalizes them internally to the proper Go SQL driver names.
@@ -132,8 +132,8 @@ Example option file:
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <options>
-  <file>sql://sqlserver@sqlserver://localhost:1433?database=example_db&amp;integrated+security=true&amp;trustServerCertificate=true#SELECT PipelineXML from dbo.flow_pipeline_content where Name = 'github_ai_credit_usage'</file>
-  <config>sql://sqlserver@sqlserver://localhost:1433?database=example_db&amp;integrated+security=true&amp;trustServerCertificate=true#SELECT ConfigXML from dbo.flow_config_content where Name = 'CONFIG_DEV_GITHUB'</config>
+  <file>sql://sqlserver@sqlserver://localhost:1433?database=example_db&amp;integrated+security=true&amp;trustServerCertificate=true#table=dbo.flow_pipeline_content&amp;name=github_ai_credit_usage</file>
+  <config>sql://sqlserver@sqlserver://localhost:1433?database=example_db&amp;integrated+security=true&amp;trustServerCertificate=true#table=dbo.flow_config_content&amp;name=CONFIG_DEV_GITHUB</config>
   <vars>Environment=dev,RunID=nightly</vars>
 </options>
 ```
@@ -147,22 +147,22 @@ This allows a single database-stored options document to bootstrap the pipeline,
 ### Run the pipeline XML from a database row
 
 ```shell
-flow.exe -file "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT PipelineXML from dbo.flow_pipeline_content where Name = 'github_ai_credit_usage'"
+flow.exe -file "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#table=dbo.flow_pipeline_content&name=github_ai_credit_usage"
 ```
 
 ### Run with a database-backed config override
 
 ```shell
 flow.exe \
-  -file "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT PipelineXML from dbo.flow_pipeline_content where Name = 'github_ai_credit_usage'" \
-  -config "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT ConfigXML from dbo.flow_config_content where Name = 'CONFIG_DEV_GITHUB'"
+  -file "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#table=dbo.flow_pipeline_content&name=github_ai_credit_usage" \
+  -config "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#table=dbo.flow_config_content&name=CONFIG_DEV_GITHUB"
 ```
 
 ### Run with a database-backed options document
 
 ```shell
 flow.exe \
-  -options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#SELECT OptionsXML from dbo.flow_options_content where Name = 'OPTIONS_GITHUB_AI_CREDIT_USAGE'"
+  -options "sql://sqlserver@sqlserver://sa:Password123!@localhost:1433?database=master&trustServerCertificate=true#table=dbo.flow_options_content&name=OPTIONS_GITHUB_AI_CREDIT_USAGE"
 ```
 
 The `-options` path itself can point to a database row; the XML inside that options document can in turn point at database-stored pipeline and config content.
@@ -203,7 +203,7 @@ Run `flow.exe` specifying the `-encrypted` flag and `-secure-key` (or setting th
 
 ```bash
 flow.exe -encrypted -secure-key "MySecretPassphrase123!" \
-         -file "sql://sqlserver@localhost:1433?database=master#SELECT PipelineXML FROM dbo.flow_pipeline_content WHERE Name = 'production_daily_etl'"
+         -file "sql://sqlserver@localhost:1433?database=master#table=dbo.flow_pipeline_content&name=production_daily_etl"
 ```
 
 For full encryption architecture, PBKDF2 parameters, and offline utilities, see [ENCRYPTION.md](ENCRYPTION.md).

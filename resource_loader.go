@@ -53,7 +53,7 @@ type SecurityOptions struct {
 }
 
 // LoadResource resolves paths from filesystem, SQL databases, or HTTP endpoints.
-// Format for SQL URIs: sql://<driver>@<dsn>#<SQL_QUERY>
+// Format for SQL URIs: sql://<driver>@<dsn>#table=<schema.table>&column=<xml_col>[&key_col=<col>&key=<val>]
 func LoadResource(ctx context.Context, source string) ([]byte, error) {
 	return LoadResourceSecure(ctx, source, false, "")
 }
@@ -204,16 +204,191 @@ func LoadResourceVerified(ctx context.Context, source string, opts SecurityOptio
 
 const maxHTTPResourceBytes = 50 * 1024 * 1024 // 50MB maximum allowable resource size
 
+const sqlResourceIdentChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+
+type sqlFilterCandidate struct {
+	param      string
+	defaultCol string
+}
+
+var sqlResourceFilterCandidates = []sqlFilterCandidate{
+	{"key", "Name"},
+	{"name", "Name"},
+	{"id", "ID"},
+}
+
+// sanitizeSQLResourceIdent validates a single SQL identifier against ^[A-Za-z_][A-Za-z0-9_]{0,127}$
+// and reconstructs it strictly from constant alphabet characters so no user-tainted bytes enter SQL text.
+func sanitizeSQLResourceIdent(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if len(trimmed) == 0 || len(trimmed) > 128 {
+		return "", fmt.Errorf("invalid SQL identifier %q", raw)
+	}
+	buf := make([]byte, len(trimmed))
+	for i := 0; i < len(trimmed); i++ {
+		ch := trimmed[i]
+		idx := strings.IndexByte(sqlResourceIdentChars, ch)
+		if idx < 0 || (i == 0 && ch >= '0' && ch <= '9') {
+			return "", fmt.Errorf("invalid SQL identifier %q", raw)
+		}
+		buf[i] = sqlResourceIdentChars[idx]
+	}
+	return string(buf), nil
+}
+
+// sanitizeSQLResourceTable validates a SQL table reference ("<table>" or "<schema>.<table>").
+func sanitizeSQLResourceTable(raw string) (string, string, error) {
+	parts := strings.Split(strings.TrimSpace(raw), ".")
+	if len(parts) == 1 {
+		tbl, err := sanitizeSQLResourceIdent(parts[0])
+		if err != nil {
+			return "", "", fmt.Errorf("invalid SQL table %q: %w", raw, err)
+		}
+		return tbl, tbl, nil
+	}
+	if len(parts) == 2 {
+		schema, err := sanitizeSQLResourceIdent(parts[0])
+		if err != nil {
+			return "", "", fmt.Errorf("invalid SQL schema in %q: %w", raw, err)
+		}
+		tbl, err := sanitizeSQLResourceIdent(parts[1])
+		if err != nil {
+			return "", "", fmt.Errorf("invalid SQL table in %q: %w", raw, err)
+		}
+		return schema + "." + tbl, tbl, nil
+	}
+	return "", "", fmt.Errorf("invalid SQL table %q (expected <table> or <schema>.<table>)", raw)
+}
+
+func defaultSQLResourceColumn(baseTable string) string {
+	switch strings.ToLower(baseTable) {
+	case "flow_pipeline_content":
+		return "PipelineXML"
+	case "flow_options_content":
+		return "OptionsXML"
+	case "flow_config_content":
+		return "ConfigXML"
+	default:
+		return ""
+	}
+}
+
+func resolveSQLResourceColumn(params url.Values, baseTable string) (string, error) {
+	_, hasColumn := params["column"]
+	_, hasCol := params["col"]
+	if hasColumn && hasCol {
+		return "", fmt.Errorf("specify either column or col, not both")
+	}
+	rawCol := params.Get("column")
+	if hasCol {
+		rawCol = params.Get("col")
+	}
+	if strings.TrimSpace(rawCol) == "" {
+		if def := defaultSQLResourceColumn(baseTable); def != "" {
+			return def, nil
+		}
+		return "", fmt.Errorf("missing column parameter for table %q", baseTable)
+	}
+	return sanitizeSQLResourceIdent(rawCol)
+}
+
+func resolveSQLResourceFilter(params url.Values) (string, string, bool, error) {
+	defaultKeyCol := ""
+	filterVal := ""
+	hasFilter := false
+	for _, c := range sqlResourceFilterCandidates {
+		if _, ok := params[c.param]; ok {
+			if hasFilter {
+				return "", "", false, fmt.Errorf("specify at most one of key, name, or id")
+			}
+			hasFilter = true
+			defaultKeyCol = c.defaultCol
+			filterVal = params.Get(c.param)
+		}
+	}
+	rawKeyCol := strings.TrimSpace(params.Get("key_col"))
+	if !hasFilter {
+		if rawKeyCol != "" {
+			return "", "", false, fmt.Errorf("key_col requires key, name, or id")
+		}
+		return "", "", false, nil
+	}
+	if rawKeyCol == "" {
+		return defaultKeyCol, filterVal, true, nil
+	}
+	safeKeyCol, err := sanitizeSQLResourceIdent(rawKeyCol)
+	return safeKeyCol, filterVal, err == nil, err
+}
+
+func validateSQLResourceParams(params url.Values) error {
+	for k, vals := range params {
+		switch k {
+		case "table", "column", "col", "key_col", "key", "name", "id":
+			if len(vals) != 1 {
+				return fmt.Errorf("duplicate SQL lookup parameter %q", k)
+			}
+		default:
+			return fmt.Errorf("unsupported SQL lookup parameter %q (expected #table=<schema.table>&column=<xml_col>[&key_col=<col>&key=<val>])", k)
+		}
+	}
+	return nil
+}
+
+func sqlResourceFirstPlaceholder(driver string) string {
+	switch strings.ToLower(driver) {
+	case "postgres", "postgresql":
+		return "$1"
+	case "sqlserver", "mssql", "azuresql":
+		return "@p1"
+	case "oracle":
+		return ":1"
+	default:
+		return "?"
+	}
+}
+
+// buildSQLResourceQuery parses a structured URL-query fragment (#table=<schema.table>&column=<xml_col>[&key_col=<col>&key=<val>])
+// into a parameterized SELECT statement using strictly validated SQL identifiers and bound filter parameters.
+func buildSQLResourceQuery(fragment, driver string) (string, []any, error) {
+	trimmed := strings.TrimSpace(fragment)
+	if trimmed == "" {
+		return "", nil, fmt.Errorf("empty SQL lookup fragment; expected #table=<schema.table>&column=<xml_col>[&key_col=<col>&key=<val>]")
+	}
+	params, err := url.ParseQuery(trimmed)
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid SQL lookup fragment: %w", err)
+	}
+	if err := validateSQLResourceParams(params); err != nil {
+		return "", nil, err
+	}
+	safeTable, baseTable, err := sanitizeSQLResourceTable(params.Get("table"))
+	if err != nil {
+		return "", nil, err
+	}
+	safeCol, err := resolveSQLResourceColumn(params, baseTable)
+	if err != nil {
+		return "", nil, err
+	}
+	keyCol, filterVal, hasFilter, err := resolveSQLResourceFilter(params)
+	if err != nil {
+		return "", nil, err
+	}
+	if !hasFilter {
+		return "SELECT " + safeCol + " FROM " + safeTable, nil, nil
+	}
+	return "SELECT " + safeCol + " FROM " + safeTable + " WHERE " + keyCol + " = " + sqlResourceFirstPlaceholder(driver), []any{filterVal}, nil
+}
+
 func loadFromDatabase(ctx context.Context, uri string) ([]byte, error) {
 	raw := strings.TrimPrefix(strings.TrimPrefix(uri, "sql://"), "db://")
 
 	parts := strings.SplitN(raw, "#", 2)
 	if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
-		return nil, fmt.Errorf("invalid DB URI syntax; missing SQL query fragment after '#': %s", maskSensitiveSourceForDB(uri, false))
+		return nil, fmt.Errorf("invalid DB URI syntax; missing lookup fragment after '#': %s", maskSensitiveSourceForDB(uri, false))
 	}
 
 	connSpec := parts[0]
-	query := parts[1]
+	fragment := parts[1]
 
 	driverAndDSN := strings.SplitN(connSpec, "@", 2)
 	if len(driverAndDSN) < 2 {
@@ -233,11 +408,18 @@ func loadFromDatabase(ctx context.Context, uri string) ([]byte, error) {
 		driver = "sqlite"
 	case "azuread":
 		driver = "azuresql"
+	case "ora":
+		driver = "oracle"
 	}
 
 	lowerDSN := strings.ToLower(dsn)
 	if (driver == "sqlserver" || driver == "mssql") && (strings.Contains(lowerDSN, "fedauth=") || strings.Contains(lowerDSN, "activedirectory")) {
 		driver = "azuresql"
+	}
+
+	sqlQuery, args, err := buildSQLResourceQuery(fragment, driver)
+	if err != nil {
+		return nil, err
 	}
 
 	db, err := sql.Open(driver, dsn)
@@ -250,7 +432,7 @@ func loadFromDatabase(ctx context.Context, uri string) ([]byte, error) {
 	defer cancel()
 
 	var content []byte
-	err = db.QueryRowContext(execCtx, query).Scan(&content)
+	err = db.QueryRowContext(execCtx, sqlQuery, args...).Scan(&content)
 	if err != nil {
 		return nil, fmt.Errorf("failed scanning XML content from database (%s): %w", driver, err)
 	}
