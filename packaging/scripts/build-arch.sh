@@ -47,6 +47,7 @@ cp "${PACKAGING_DIR}/etc/profile.d/go-flow.sh" "${STAGE_SRC}/profile.d/go-flow.s
 
 build_with_nfpm() {
     REPO_ROOT="$REPO_ROOT" \
+    PKG_NAME="$PKG_NAME" \
     STAGE_BIN_DIR="${STAGE_SRC}/bin" \
     STAGE_DOC_DIR="${STAGE_SRC}/doc" \
     NFPM_ARCH="$GOARCH_TARGET" \

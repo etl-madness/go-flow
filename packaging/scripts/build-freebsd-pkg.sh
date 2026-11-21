@@ -16,7 +16,9 @@ if ! command -v pkg >/dev/null 2>&1; then
     exit 1
 fi
 
-FLOW_VERSION=$(resolve_version)
+RAW_VERSION=$(resolve_version)
+# FreeBSD pkg-version(8) treats '-' as revision separator; normalize pre-releases.
+FLOW_VERSION=$(printf '%s' "$RAW_VERSION" | tr '-' '.')
 GOARCH_TARGET=$(normalize_goarch "${GOARCH:-${1:-}}")
 FREEBSD_MAJOR="${FREEBSD_MAJOR:-14}"
 
@@ -93,8 +95,8 @@ cat > "$PLIST_FILE" <<'EOF'
 /opt/flow/share/xsd/pipeline.xsd
 /opt/flow/share/xsd/options.xsd
 /opt/flow/share/licenses/LICENSE
-/usr/local/etc/profile.d/go-flow.sh
-/usr/local/etc/man.d/go-flow.conf
+@config /usr/local/etc/profile.d/go-flow.sh
+@config /usr/local/etc/man.d/go-flow.conf
 EOF
 
 PKG_TMP_OUT="${WORK_DIR}/pkg-out"

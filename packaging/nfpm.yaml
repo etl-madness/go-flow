@@ -1,6 +1,6 @@
 # Optional nFPM configuration for building .deb, .rpm, and Arch .pkg.tar.zst
 # packages under /opt/flow without requiring native dpkg-deb, rpmbuild, or makepkg.
-name: "go-flow"
+name: "${PKG_NAME}"
 arch: "${NFPM_ARCH}"
 platform: "linux"
 version: "${FLOW_VERSION}"
@@ -65,7 +65,11 @@ contents:
     file_info:
       mode: 0644
   - src: "${REPO_ROOT}/LICENSE"
-    dst: "/usr/share/licenses/go-flow/LICENSE"
+    dst: "/usr/share/doc/${PKG_NAME}/copyright"
+    file_info:
+      mode: 0644
+  - src: "${REPO_ROOT}/LICENSE"
+    dst: "/usr/share/licenses/${PKG_NAME}/LICENSE"
     file_info:
       mode: 0644
   - src: "${REPO_ROOT}/packaging/etc/profile.d/go-flow.sh"

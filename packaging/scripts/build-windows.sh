@@ -13,6 +13,7 @@ FLOW_VERSION=$(resolve_version)
 GOARCH_TARGET=$(normalize_goarch "${GOARCH:-${1:-amd64}}")
 WIN_FORMAT="${WIN_FORMAT:-all}"
 RELEASE_BASE_URL="${RELEASE_BASE_URL:-https://github.com/etl-madness/go-flow/releases/download/v${FLOW_VERSION}}"
+RELEASE_BASE_URL="${RELEASE_BASE_URL%/}"
 UPGRADE_CODE="{8D4A7E29-6C3F-4B18-9E52-3F71C0A8E412}"
 
 case "$GOARCH_TARGET" in
