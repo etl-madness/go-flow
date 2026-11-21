@@ -1,6 +1,7 @@
 *.sh text eol=lf
 *.spec text eol=lf
 *.tmpl text eol=lf
+DESCR text eol=lf
 *.wxs text eol=lf
 PKGBUILD* text eol=lf
 *.yaml text eol=lf

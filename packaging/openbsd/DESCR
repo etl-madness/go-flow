@@ -1,0 +1,18 @@
+ETL Madness Flow is a zero-dependency XML-driven ETL and data workflow
+orchestration suite installed isolated under /opt/flow so its binaries
+never overwrite or conflict with base or /usr/local packages:
+
+  - /opt/flow/bin/flow: Core pipeline execution engine, preflight/AST
+    validator, HTMX visual builder UI, XSLT/Mermaid diagram generator,
+    and repository manager.
+  - /opt/flow/bin/crypto_tool: Standalone AES-256-GCM encryption and
+    decryption, digital signing (OpenSSL, OpenPGP, PKCS#7/CMS),
+    signature verification, and keypair generation utility.
+  - /opt/flow/bin/db_importer: SQL Server XML pipeline, options, and
+    config repository importer and exporter.
+
+To add /opt/flow/bin, manual pages, and GNU Info pages to your login
+shell on OpenBSD, source /etc/profile.d/go-flow.sh from /etc/profile or
+~/.profile:
+
+    [ -f /etc/profile.d/go-flow.sh ] && . /etc/profile.d/go-flow.sh
