@@ -2,7 +2,6 @@
 @c %**start of header
 @setfilename flow.info
 @settitle ETL Madness Flow Manual
-@documentencoding UTF-8
 @c %**end of header
 
 @dircategory Data Processing and Utilities
@@ -130,16 +129,16 @@ flow [options...]
 @section @command{flow} Command-Line Options
 
 @table @option
-@item -file @var{path|uri}
+@item -file @var{path}|@var{uri}
 Path or URI to the XML file containing scripts, databases, and workflow nodes.
 Default: @file{scripts.xml}.
 
-@item -options @var{path|uri}
+@item -options @var{path}|@var{uri}
 Path or URI to an XML CLI options defaults file
 (@code{<flow_cli_options><options>...}). Explicit CLI flags override values
 defined in @option{-options}.
 
-@item -config @var{path|uri}
+@item -config @var{path}|@var{uri}
 Optional path or URI to a @file{CONFIG.xml} file containing variable and
 database connection overrides merged with the base pipeline file.
 
@@ -148,7 +147,7 @@ Output format for execution results: @code{csv} (default), @code{text},
 @code{json}, @code{jsonpretty} (@code{prettyjson}), @code{markdown}
 (@code{md}, @code{table}), or @code{stream}.
 
-@item -vars @var{key=value[,...]}
+@item -vars @var{key}=@var{value}[,...]
 Comma-separated runtime variable overrides. Recursively expands @code{@{@{var@}@}}
 placeholders up to 3 levels deep.
 
@@ -227,7 +226,7 @@ SQLite database path for visual builder local storage. Default:
 Purge all data from the SQLite visual builder database, re-initialize
 defaults, and exit.
 
-@item -import-file @var{path|uri}
+@item -import-file @var{path}|@var{uri}
 Import a pipeline, options, or config XML file into the SQLite builder DB
 or external DB (@option{-dsn}).
 

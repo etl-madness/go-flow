@@ -87,7 +87,7 @@ chmod 0644 \
     "${STAGE_DIR}/opt/flow/share/licenses/LICENSE" \
     "${STAGE_DIR}/opt/flow/share/examples/go-flow.sh"
 
-sed "s/__FULLPKGNAME__/${FULLPKGNAME}/g" "${PACKAGING_DIR}/openbsd/PLIST.tmpl" > "$PLIST_FILE"
+cp "${PACKAGING_DIR}/openbsd/PLIST.tmpl" "$PLIST_FILE"
 
 log_info "Building OpenBSD package (${OBSD_ARCH})..."
 "$PKG_CREATE_BIN" \
