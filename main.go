@@ -24,19 +24,24 @@ import (
 	"github.com/traefik/yaegi/interp"
 )
 
-const (
-	// Table names for pipeline events and runs in the database.
-	// if resident schema needs to be other than default schema, set it here.
-	// eg if the schema is "custom_schema", you could set:
-	// pipeline_events = "custom_schema.pipeline_events"
-	// pipeline_runs = "custom_schema.pipeline_runs"
-	// --------------------------------------------------------------
-	// note: if you change the schema, make sure to update all references
-	// to these tables the SQL create table statements.
-
-	pipeline_events = builder.TablePipelineEvents
-	pipeline_runs   = builder.TablePipelineRuns
+var (
+	// Active database schema and table configuration (defaults from github.com/etl-madness/flow,
+	// overridable at build time via -ldflags or at runtime via -tables-config / FLOW_TABLES_CONFIG).
+	activeTableConfig = flow.DefaultTableConfig()
+	pipeline_events   = activeTableConfig.Qualify(activeTableConfig.PipelineEvents)
+	pipeline_runs     = activeTableConfig.Qualify(activeTableConfig.PipelineRuns)
 )
+
+func applyFlowTableConfig(cfg flow.TableConfig) error {
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	activeTableConfig = cfg
+	pipeline_events = cfg.Qualify(cfg.PipelineEvents)
+	pipeline_runs = cfg.Qualify(cfg.PipelineRuns)
+	builder.SetTelemetryTables(pipeline_runs, pipeline_events)
+	return nil
+}
 
 func runtimeIdentity() (string, string) {
 	userName := ""
@@ -141,17 +146,13 @@ func exportFromDatabase(dsn, itemType, name string) (string, error) {
 	var table, col string
 	switch strings.ToLower(strings.TrimSpace(itemType)) {
 	case "options":
-		table, col = "dbo.flow_options_content", "OptionsXML"
+		table, col = activeTableConfig.Resolve(driver, activeTableConfig.OptionsContent), "OptionsXML"
 	case "config":
-		table, col = "dbo.flow_config_content", "ConfigXML"
+		table, col = activeTableConfig.Resolve(driver, activeTableConfig.ConfigContent), "ConfigXML"
 	case "pipeline", "":
-		table, col = "dbo.flow_pipeline_content", "PipelineXML"
+		table, col = activeTableConfig.Resolve(driver, activeTableConfig.PipelineContent), "PipelineXML"
 	default:
 		return "", fmt.Errorf("unsupported item type %q: expected pipeline, options, or config", itemType)
-	}
-
-	if driver != "sqlserver" {
-		table = strings.TrimPrefix(table, "dbo.")
 	}
 
 	query := fmt.Sprintf("SELECT %s FROM %s WHERE Name = @p1", col, table)
@@ -183,15 +184,11 @@ func importToDatabase(dsn, itemType, name, desc, content string) error {
 	var table, col string
 	switch strings.ToLower(strings.TrimSpace(itemType)) {
 	case "options":
-		table, col = "dbo.flow_options_content", "OptionsXML"
+		table, col = activeTableConfig.Resolve(driver, activeTableConfig.OptionsContent), "OptionsXML"
 	case "config":
-		table, col = "dbo.flow_config_content", "ConfigXML"
+		table, col = activeTableConfig.Resolve(driver, activeTableConfig.ConfigContent), "ConfigXML"
 	default:
-		table, col = "dbo.flow_pipeline_content", "PipelineXML"
-	}
-
-	if driver != "sqlserver" {
-		table = strings.TrimPrefix(table, "dbo.")
+		table, col = activeTableConfig.Resolve(driver, activeTableConfig.PipelineContent), "PipelineXML"
 	}
 
 	var query string
@@ -267,7 +264,31 @@ func main() {
 	xsltPath := flag.String("xslt", "", "Path to custom XSLT stylesheet (optional)")
 	outFile := flag.String("out", "", "Path to output file for transformed XML (optional)")
 	nodeOutputFlag := flag.Bool("node-output", false, "Log node execution output to node_output column in database pipeline_events table")
+	tablesConfigFlag := flag.String("tables-config", "", "Optional path to JSON/YAML database schema & table name mapping file (or FLOW_TABLES_CONFIG)")
+	printDDLFlag := flag.String("print-ddl", "", "Print CREATE TABLE DDL for the given dialect (sqlserver, postgres, mysql, sqlite, oracle) using the active table configuration, then exit")
 	flag.Parse()
+
+	tablesConfigPath := strings.TrimSpace(*tablesConfigFlag)
+	if tablesConfigPath == "" {
+		tablesConfigPath = strings.TrimSpace(os.Getenv("FLOW_TABLES_CONFIG"))
+	}
+	if tablesConfigPath != "" {
+		tblCfg, err := flow.LoadTableConfigFile(tablesConfigPath)
+		if err != nil {
+			log.Fatalf("Error loading -tables-config %q: %v", tablesConfigPath, err)
+		}
+		if err := applyFlowTableConfig(tblCfg); err != nil {
+			log.Fatalf("Invalid table configuration: %v", err)
+		}
+	}
+	if strings.TrimSpace(*printDDLFlag) != "" {
+		ddl, err := activeTableConfig.RenderDDL(*printDDLFlag)
+		if err != nil {
+			log.Fatalf("Error generating DDL for %q: %v", *printDDLFlag, err)
+		}
+		fmt.Print(ddl)
+		return
+	}
 
 	cliSetFlags := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) {

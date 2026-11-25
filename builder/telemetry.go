@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/etl-madness/flow"
 )
 
 const (
@@ -17,8 +19,8 @@ const (
 )
 
 var (
-	activePipelineRunsTable   = TablePipelineRuns
-	activePipelineEventsTable = TablePipelineEvents
+	activePipelineRunsTable   = flow.DefaultTableConfig().PipelineRuns
+	activePipelineEventsTable = flow.DefaultTableConfig().PipelineEvents
 	telemetryMu               sync.RWMutex
 
 	ErrTableNotFound = errors.New("telemetry table not found in database")
@@ -155,6 +157,30 @@ func parseTimeString(s string) *time.Time {
 }
 
 // QueryPipelineRuns retrieves pipeline execution runs from the selected database.
+// resolveBuilderTableName preserves explicit schema prefixes (e.g. "etl.pipeline_runs"),
+// qualifies unqualified names on SQL Server using flow.DefaultTableConfig().SchemaPrefix(),
+// and strips schema prefixes on SQLite.
+func resolveBuilderTableName(driver, table string) string {
+	d := strings.ToLower(strings.TrimSpace(driver))
+	t := strings.TrimSpace(table)
+	switch d {
+	case "sqlite", "sqlite3":
+		return flow.BaseTableName(t)
+	case "mysql", "mariadb":
+		if strings.HasPrefix(strings.ToLower(t), "dbo.") {
+			return t[4:]
+		}
+		return t
+	case "sqlserver", "mssql", "azuresql":
+		if !strings.Contains(t, ".") {
+			return flow.DefaultTableConfig().SchemaPrefix() + t
+		}
+		return t
+	default:
+		return t
+	}
+}
+
 func QueryPipelineRuns(ctx context.Context, db *sql.DB, driver string, runsTable string, search string, status string, limit int) ([]PipelineRunRecord, error) {
 	if limit <= 0 || limit > 500 {
 		limit = 200
@@ -163,10 +189,7 @@ func QueryPipelineRuns(ctx context.Context, db *sql.DB, driver string, runsTable
 		runsTable = TablePipelineRuns
 	}
 
-	targetTable := runsTable
-	if driver == "sqlserver" && !strings.Contains(targetTable, ".") {
-		targetTable = "dbo." + targetTable
-	}
+	targetTable := resolveBuilderTableName(driver, runsTable)
 
 	whereParts := []string{"1=1"}
 	var args []any
@@ -450,10 +473,7 @@ func QueryPipelineEvents(ctx context.Context, db *sql.DB, driver string, eventsT
 		eventsTable = TablePipelineEvents
 	}
 
-	targetTable := eventsTable
-	if driver == "sqlserver" && !strings.Contains(targetTable, ".") {
-		targetTable = "dbo." + targetTable
-	}
+	targetTable := resolveBuilderTableName(driver, eventsTable)
 
 	placeholder := "?"
 	switch driver {

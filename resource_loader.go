@@ -20,6 +20,7 @@ import (
 	_ "github.com/sijms/go-ora/v2"
 	_ "modernc.org/sqlite"
 
+	"github.com/etl-madness/flow"
 	"github.com/etl-madness/flow/flowcrypto"
 )
 
@@ -261,12 +262,13 @@ func sanitizeSQLResourceTable(raw string) (string, string, error) {
 }
 
 func defaultSQLResourceColumn(baseTable string) string {
-	switch strings.ToLower(baseTable) {
-	case "flow_pipeline_content":
+	lower := strings.ToLower(strings.TrimSpace(baseTable))
+	switch {
+	case lower == "flow_pipeline_content" || lower == strings.ToLower(flow.BaseTableName(activeTableConfig.PipelineContent)):
 		return "PipelineXML"
-	case "flow_options_content":
+	case lower == "flow_options_content" || lower == strings.ToLower(flow.BaseTableName(activeTableConfig.OptionsContent)):
 		return "OptionsXML"
-	case "flow_config_content":
+	case lower == "flow_config_content" || lower == strings.ToLower(flow.BaseTableName(activeTableConfig.ConfigContent)):
 		return "ConfigXML"
 	default:
 		return ""
