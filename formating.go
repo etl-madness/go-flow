@@ -288,10 +288,7 @@ func (s *DatabaseSink) detectColumns(ctx context.Context) {
 		return
 	}
 
-	table := pipeline_events
-	if s.Driver == "sqlserver" && !strings.Contains(table, ".") {
-		table = "dbo." + table
-	}
+	table := resolveCLITableName(s.Driver, pipeline_events)
 
 	rows, err := s.DB.QueryContext(ctx, fmt.Sprintf("SELECT * FROM %s WHERE 1=0", table))
 	if err == nil {
@@ -900,9 +897,7 @@ func redactNodeOutput(output string) string {
 }
 
 func buildUpdateNodeFinishedOutputQuery(driverType, table string) string {
-	if driverType == "sqlserver" && !strings.Contains(table, ".") {
-		table = "dbo." + table
-	}
+	table = resolveCLITableName(driverType, table)
 	switch driverType {
 	case "postgres":
 		return fmt.Sprintf("UPDATE %s SET node_output = $1 WHERE run_id = $2 AND execution_id = $3 AND event_type = 'node.finished'", table)
@@ -1262,10 +1257,7 @@ func LogRunSummaryToDB(ctx context.Context, db *sql.DB, driverType string, rec R
 	rec.ConfigPath = maskSensitiveSourceForDB(rec.ConfigPath, debug)
 	rec.OptionsPath = maskSensitiveSourceForDB(rec.OptionsPath, debug)
 
-	table := pipeline_runs
-	if driverType == "sqlserver" && !strings.Contains(table, ".") {
-		table = "dbo." + table
-	}
+	table := resolveCLITableName(driverType, pipeline_runs)
 
 	cols := defaultRunCols
 	rows, err := db.QueryContext(ctx, fmt.Sprintf("SELECT * FROM %s WHERE 1=0", table))
@@ -1381,11 +1373,33 @@ func detectDriverType(db *sql.DB) string {
 	}
 }
 
+func resolveCLITableName(driverType, table string) string {
+	d := strings.ToLower(strings.TrimSpace(driverType))
+	t := strings.TrimSpace(table)
+	switch d {
+	case "sqlite", "sqlite3":
+		return flow.BaseTableName(t)
+	case "mysql", "mariadb":
+		if strings.HasPrefix(strings.ToLower(t), "dbo.") {
+			return t[4:]
+		}
+		return t
+	case "sqlserver", "mssql", "azuresql":
+		if !strings.Contains(t, ".") {
+			return activeTableConfig.SchemaPrefix() + t
+		}
+		return t
+	default:
+		if !strings.Contains(t, ".") && activeTableConfig.Schema != "" && !strings.EqualFold(activeTableConfig.Schema, "dbo") {
+			return activeTableConfig.SchemaPrefix() + t
+		}
+		return t
+	}
+}
+
 func buildInsertQuery(driverType, table string, columns []string) string {
 	var placeholders []string
-	if driverType == "sqlserver" && !strings.Contains(table, ".") {
-		table = "dbo." + table
-	}
+	table = resolveCLITableName(driverType, table)
 	for i := 1; i <= len(columns); i++ {
 		switch driverType {
 		case "postgres":

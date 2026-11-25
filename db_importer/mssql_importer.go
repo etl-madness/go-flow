@@ -12,18 +12,21 @@ import (
 	"time"
 	"unicode/utf16"
 
+	"github.com/etl-madness/flow"
 	"github.com/etl-madness/flow/flowcrypto"
 	_ "github.com/microsoft/go-mssqldb"
 )
 
+var activeImporterTables = flow.DefaultTableConfig()
+
 func resolveImportTarget(table string) (string, string, error) {
 	switch strings.ToLower(strings.TrimSpace(table)) {
 	case "options":
-		return "dbo.flow_options_content", "OptionsXML", nil
+		return activeImporterTables.Resolve("sqlserver", activeImporterTables.OptionsContent), "OptionsXML", nil
 	case "config":
-		return "dbo.flow_config_content", "ConfigXML", nil
+		return activeImporterTables.Resolve("sqlserver", activeImporterTables.ConfigContent), "ConfigXML", nil
 	case "pipeline", "":
-		return "dbo.flow_pipeline_content", "PipelineXML", nil
+		return activeImporterTables.Resolve("sqlserver", activeImporterTables.PipelineContent), "PipelineXML", nil
 	default:
 		return "", "", fmt.Errorf("unsupported import table %q: expected pipeline, options, or config", table)
 	}
@@ -81,7 +84,20 @@ func main() {
 	encrypted := flag.Bool("encrypted", false, "Encrypt content before importing, or decrypt content after exporting")
 	secureKey := flag.String("secure-key", "", "Encryption/decryption key (falls back to FLOW_SECURE_KEY or SECURE_KEY env var)")
 	keyFile := flag.String("key-file", "", "Path to file containing encryption key/passphrase (avoids exposing key in process listings)")
+	tablesConfig := flag.String("tables-config", "", "Optional path to JSON/YAML database schema & table name mapping file (or FLOW_TABLES_CONFIG)")
 	flag.Parse()
+
+	cfgPath := strings.TrimSpace(*tablesConfig)
+	if cfgPath == "" {
+		cfgPath = strings.TrimSpace(os.Getenv("FLOW_TABLES_CONFIG"))
+	}
+	if cfgPath != "" {
+		loaded, err := flow.LoadTableConfigFile(cfgPath)
+		if err != nil {
+			log.Fatalf("Failed loading -tables-config %q: %v", cfgPath, err)
+		}
+		activeImporterTables = loaded
+	}
 
 	actionValue := strings.ToLower(strings.TrimSpace(*action))
 	if actionValue != "import" && actionValue != "export" {
