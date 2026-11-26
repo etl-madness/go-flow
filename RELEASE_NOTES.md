@@ -4,7 +4,7 @@
 
 ### Overview
 
-Version `1.2.4` upgrades `go-flow` (CLI, Visual Builder, and `db_importer`) to **`github.com/etl-madness/flow v1.4.5`**, adding build-time and runtime database schema/table name overrides, dynamic DDL generation, and built-in Unix Kerberos SQL Server integrated authentication:
+Version `1.2.4` upgrades `go-flow` (CLI, Visual Builder, and `db_importer`) to **`github.com/etl-madness/flow v1.4.6`**, adding build-time and runtime database schema/table name overrides, dynamic DDL generation, and built-in Unix Kerberos SQL Server integrated authentication:
 
 1. **Configurable Database Schema & Table Names (`main.go`, `formating.go`, `resource_loader.go`, `builder/telemetry.go`, `db_importer/mssql_importer.go`)**:
    - Added `-tables-config <path>` CLI flag and `FLOW_TABLES_CONFIG` environment variable support across `go-flow` and `db_importer` to override the database schema and/or any shared artifact (`pipeline_content`, `options_content`, `config_content`) and telemetry (`pipeline_runs`, `pipeline_events`) table names using a JSON or YAML mapping file.

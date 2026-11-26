@@ -340,6 +340,11 @@ sqlserver://db.example.com:1433?database=EXAMPLE_DB&integrated+security=true&aut
 
 *(For unattended jobs without `kinit`, set `KRB5_KTNAME="/etc/go-flow/flow.keytab"` and `AD_USER="SVC_FLOW"` instead of `KRB5CCNAME`.)*
 
+> **How SQL Server authentication mode is selected on Unix:**
+> - **SQL Server Authentication (`sqlserver://user:password@host:1433?...`)**: Bare `user:password` credentials without `authenticator=krb5` automatically use standard SQL Server Authentication—even when `/etc/krb5.conf` or `KRB5CCNAME` is present on the host.
+> - **NTLM (`sqlserver://DOMAIN\user:password@host:1433?...`)**: `DOMAIN\user` + password without `authenticator=krb5` uses NTLM.
+> - **Kerberos (`integrated+security=true` / `authenticator=krb5` / keytab)**: Connections with no username/password, username + `krb5-keytabfile` (no password), or an explicit `authenticator=krb5` parameter use Kerberos (`krb5`). Include `authenticator=krb5` in Kerberos DSNs so Kerberos errors surface clearly instead of falling back.
+
 #### Example 7: Multi-Subnet Failover (Always On Availability Groups)
 In SQL Server Always On Availability Group (AG) architectures spanning multiple subnets or disaster recovery data centers, an AG listener registers multiple IP addresses in DNS. Setting `MultiSubnetFailover=true` instructs the driver to attempt parallel TCP connections to all resolved IP addresses simultaneously. Whichever replica answers first (the currently active primary or secondary node) wins the connection immediately—slashing failover discovery time from standard 20–30 second TCP timeout delays to milliseconds.
 
