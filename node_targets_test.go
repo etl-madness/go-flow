@@ -67,7 +67,7 @@ func TestDatabaseSinkResolvesRegisteredDatabase(t *testing.T) {
 	if err != nil || cached != identity {
 		t.Fatalf("cached identity = %+v, %v", cached, err)
 	}
-	spid, _, app, _ := sink.resolveEventIdentity(context.Background(), flow.ExecutionEvent{NodeID: "step"})
+	spid, _, app, _, _ := sink.resolveEventIdentity(context.Background(), flow.ExecutionEvent{NodeID: "step"})
 	if spid != identity.SPID || app != identity.ApplicationName {
 		t.Fatalf("event identity = %v, %q; want %+v", spid, app, identity)
 	}

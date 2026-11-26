@@ -807,9 +807,10 @@ func main() {
 				}
 				userName, hostname := runtimeIdentity()
 				var dbSPID int64
-				var dbUser, appName string
+				var dbUser, appName, dbServer string
 				if dbSink != nil {
 					dbSPID, dbUser, appName = dbSink.SessionIdentity()
+					dbServer = dbSink.DBServer()
 				}
 				summary := RunSummaryRecord{
 					RunID:            runID,
@@ -824,6 +825,7 @@ func main() {
 					OSUserName:       userName,
 					DatabaseUserName: dbUser,
 					DBUserName:       dbUser,
+					DBServer:         dbServer,
 					SPID:             dbSPID,
 					ApplicationName:  appName,
 					Hostname:         hostname,
@@ -924,9 +926,10 @@ func main() {
 				}
 			}
 			var dbSPID int64
-			var dbUser, appName string
+			var dbUser, appName, dbServer string
 			if dbSink != nil {
 				dbSPID, dbUser, appName = dbSink.SessionIdentity()
+				dbServer = dbSink.DBServer()
 			}
 			summary := RunSummaryRecord{
 				RunID:            runID,
@@ -941,6 +944,7 @@ func main() {
 				OSUserName:       results.UserName,
 				DatabaseUserName: dbUser,
 				DBUserName:       dbUser,
+				DBServer:         dbServer,
 				SPID:             dbSPID,
 				ApplicationName:  appName,
 				Hostname:         results.Hostname,
@@ -999,9 +1003,10 @@ func main() {
 			userName, hostname := runtimeIdentity()
 
 			var dbSPID int64
-			var dbUser, appName string
+			var dbUser, appName, dbServer string
 			if dbSink != nil {
 				dbSPID, dbUser, appName = dbSink.SessionIdentity()
+				dbServer = dbSink.DBServer()
 			}
 			summary := RunSummaryRecord{
 				RunID:            runID,
@@ -1016,6 +1021,7 @@ func main() {
 				OSUserName:       userName,
 				DatabaseUserName: dbUser,
 				DBUserName:       dbUser,
+				DBServer:         dbServer,
 				SPID:             dbSPID,
 				ApplicationName:  appName,
 				Hostname:         hostname,

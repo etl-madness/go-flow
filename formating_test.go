@@ -1018,7 +1018,7 @@ func TestDatabaseSink_NumericSPIDFallback(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	spid, srcSPIDInt, appName, dbUser := sink.resolveEventIdentity(ctx, flow.ExecutionEvent{
+	spid, srcSPIDInt, appName, dbUser, _ := sink.resolveEventIdentity(ctx, flow.ExecutionEvent{
 		NodeKind: "sql_bulk",
 		NodeID:   "cross_db_bulk",
 	})

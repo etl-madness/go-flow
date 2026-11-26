@@ -1,5 +1,18 @@
 # Release Notes
 
+## Release Notes (v1.2.6) - Database Server Telemetry & Cross-DB `sql_bulk` Tracking
+
+### Overview
+
+Version `1.2.6` upgrades `go-flow` to **`github.com/etl-madness/flow v1.4.7`** and adds database server/catalog capture (`db_server`) to `pipeline_runs` and `pipeline_events` telemetry:
+
+1. **Database Server Identity Capture (`formating.go`, `main.go`)**:
+   - Added `FetchDatabaseSessionIdentityWithServer` across all 5 supported engines (`SERVERPROPERTY('ServerName')` + `DB_NAME()` on SQL Server/Azure SQL, `inet_server_addr` + `current_database()` on PostgreSQL, `@@hostname` + `DATABASE()` on MySQL/MariaDB, `SERVER_HOST` + `DB_NAME` on Oracle, and `PRAGMA database_list` on SQLite).
+   - Populates `db_server` on `pipeline_runs` (recording the logging database server) and per-step `pipeline_events` (recording the active node's database server, or `source->target` for cross-database `<sql_bulk>` transfers alongside `source->target` SPIDs).
+   - Fully backwards-compatible with existing databases that do not yet have a `db_server` column.
+
+---
+
 ## Release Notes (v1.2.4) - Configurable Database Schema & Table Names, DDL Generator & Unix Kerberos (`authenticator=krb5`)
 
 ### Overview
