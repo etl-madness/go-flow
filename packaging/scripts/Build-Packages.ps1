@@ -87,13 +87,17 @@ function Build-GoBinaries {
         $env:GOOS = $GoOS
         $env:GOARCH = $GoArch
 
-        go build -trimpath -ldflags="-s -w" -o (Join-Path $OutDir "flow") .
+        $ldflags = "-s -w"
+        if (-not [string]::IsNullOrWhiteSpace($env:FLOW_EXTRA_LDFLAGS)) {
+            $ldflags = "$ldflags $($env:FLOW_EXTRA_LDFLAGS)"
+        }
+        go build -trimpath -ldflags="$ldflags" -o (Join-Path $OutDir "flow") .
         if ($LASTEXITCODE -ne 0) { throw "go build failed for flow ($GoOS/$GoArch)" }
 
-        go build -trimpath -ldflags="-s -w" -o (Join-Path $OutDir "crypto_tool") ./crypto_tool
+        go build -trimpath -ldflags="$ldflags" -o (Join-Path $OutDir "crypto_tool") ./crypto_tool
         if ($LASTEXITCODE -ne 0) { throw "go build failed for crypto_tool ($GoOS/$GoArch)" }
 
-        go build -trimpath -ldflags="-s -w" -o (Join-Path $OutDir "db_importer") ./db_importer
+        go build -trimpath -ldflags="$ldflags" -o (Join-Path $OutDir "db_importer") ./db_importer
         if ($LASTEXITCODE -ne 0) { throw "go build failed for db_importer ($GoOS/$GoArch)" }
     } finally {
         Remove-Item Env:\CGO_ENABLED -ErrorAction SilentlyContinue

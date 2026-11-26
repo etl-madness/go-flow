@@ -67,11 +67,11 @@ compile_flow_binaries() {
     (
         cd "$REPO_ROOT"
         CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" \
-            go build -trimpath -ldflags="-s -w" -o "${out_bin_dir}/flow" .
+            go build -trimpath -ldflags="-s -w ${FLOW_EXTRA_LDFLAGS:-}" -o "${out_bin_dir}/flow" .
         CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" \
-            go build -trimpath -ldflags="-s -w" -o "${out_bin_dir}/crypto_tool" ./crypto_tool
+            go build -trimpath -ldflags="-s -w ${FLOW_EXTRA_LDFLAGS:-}" -o "${out_bin_dir}/crypto_tool" ./crypto_tool
         CGO_ENABLED=0 GOOS="$target_os" GOARCH="$target_arch" \
-            go build -trimpath -ldflags="-s -w" -o "${out_bin_dir}/db_importer" ./db_importer
+            go build -trimpath -ldflags="-s -w ${FLOW_EXTRA_LDFLAGS:-}" -o "${out_bin_dir}/db_importer" ./db_importer
     )
 
     chmod 0755 \

@@ -146,13 +146,17 @@ function Stage-WindowsPayload {
         $env:GOOS = "windows"
         $env:GOARCH = $GoArch
 
-        go build -trimpath -ldflags="-s -w" -o (Join-Path $binDir "flow.exe") .
+        $ldflags = "-s -w"
+        if (-not [string]::IsNullOrWhiteSpace($env:FLOW_EXTRA_LDFLAGS)) {
+            $ldflags = "$ldflags $($env:FLOW_EXTRA_LDFLAGS)"
+        }
+        go build -trimpath -ldflags="$ldflags" -o (Join-Path $binDir "flow.exe") .
         if ($LASTEXITCODE -ne 0) { throw "go build failed for flow.exe (windows/$GoArch)" }
 
-        go build -trimpath -ldflags="-s -w" -o (Join-Path $binDir "crypto_tool.exe") ./crypto_tool
+        go build -trimpath -ldflags="$ldflags" -o (Join-Path $binDir "crypto_tool.exe") ./crypto_tool
         if ($LASTEXITCODE -ne 0) { throw "go build failed for crypto_tool.exe (windows/$GoArch)" }
 
-        go build -trimpath -ldflags="-s -w" -o (Join-Path $binDir "db_importer.exe") ./db_importer
+        go build -trimpath -ldflags="$ldflags" -o (Join-Path $binDir "db_importer.exe") ./db_importer
         if ($LASTEXITCODE -ne 0) { throw "go build failed for db_importer.exe (windows/$GoArch)" }
     } finally {
         Remove-Item Env:\CGO_ENABLED -ErrorAction SilentlyContinue

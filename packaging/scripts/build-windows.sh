@@ -92,11 +92,11 @@ log_info "Cross-compiling flow.exe, crypto_tool.exe, and db_importer.exe for win
 (
     cd "$REPO_ROOT"
     CGO_ENABLED=0 GOOS="windows" GOARCH="$GOARCH_TARGET" \
-        go build -trimpath -ldflags="-s -w" -o "${STAGE_DIR}/bin/flow.exe" .
+        go build -trimpath -ldflags="-s -w ${FLOW_EXTRA_LDFLAGS:-}" -o "${STAGE_DIR}/bin/flow.exe" .
     CGO_ENABLED=0 GOOS="windows" GOARCH="$GOARCH_TARGET" \
-        go build -trimpath -ldflags="-s -w" -o "${STAGE_DIR}/bin/crypto_tool.exe" ./crypto_tool
+        go build -trimpath -ldflags="-s -w ${FLOW_EXTRA_LDFLAGS:-}" -o "${STAGE_DIR}/bin/crypto_tool.exe" ./crypto_tool
     CGO_ENABLED=0 GOOS="windows" GOARCH="$GOARCH_TARGET" \
-        go build -trimpath -ldflags="-s -w" -o "${STAGE_DIR}/bin/db_importer.exe" ./db_importer
+        go build -trimpath -ldflags="-s -w ${FLOW_EXTRA_LDFLAGS:-}" -o "${STAGE_DIR}/bin/db_importer.exe" ./db_importer
 )
 
 cp "$(resolve_guide_doc COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md)" "${STAGE_DIR}/docs/COMPLETE_CLI_OPTIONS_AND_ARGUMENTS.md"
