@@ -1,5 +1,28 @@
 # Release Notes
 
+## Release Notes (v1.2.4) - Configurable Database Schema & Table Names, DDL Generator & Unix Kerberos (`authenticator=krb5`)
+
+### Overview
+
+Version `1.2.4` upgrades `go-flow` (CLI, Visual Builder, and `db_importer`) to **`github.com/etl-madness/flow v1.4.5`**, adding build-time and runtime database schema/table name overrides, dynamic DDL generation, and built-in Unix Kerberos SQL Server integrated authentication:
+
+1. **Configurable Database Schema & Table Names (`main.go`, `formating.go`, `resource_loader.go`, `builder/telemetry.go`, `db_importer/mssql_importer.go`)**:
+   - Added `-tables-config <path>` CLI flag and `FLOW_TABLES_CONFIG` environment variable support across `go-flow` and `db_importer` to override the database schema and/or any shared artifact (`pipeline_content`, `options_content`, `config_content`) and telemetry (`pipeline_runs`, `pipeline_events`) table names using a JSON or YAML mapping file.
+   - Added build-time override support via Go linker flags (`-ldflags="-X github.com/etl-madness/flow.DefaultSchema=..."`) across `go-flow`, `builder`, and `db_importer` without editing source files.
+   - Replaced hardcoded `dbo.` table prefixes in `main.go`, `formating.go`, `builder/telemetry.go`, and `db_importer/mssql_importer.go` with dialect-aware `flow.TableConfig` resolution, and updated `defaultSQLResourceColumn` in `resource_loader.go` to recognize custom-named artifact tables.
+
+2. **Dynamic DDL Generation (`-print-ddl <dialect>`)**:
+   - Added `-print-ddl <dialect>` (`sqlserver`, `postgres`, `mysql`, `sqlite`, `oracle`) to `go-flow` to render ready-to-run `CREATE SCHEMA` / `CREATE TABLE` / `CREATE INDEX` SQL matching the active build-time or `-tables-config` schema and table names.
+
+3. **Built-In Unix Kerberos SQL Server Integrated Authentication (`authenticator=krb5`)**:
+   - Inherits automatic Unix Kerberos (`krb5`) registration and normalization from `github.com/etl-madness/flow v1.4.5` (`ConfigureUnixKerberosSQLServerAuth`), enabling `sqlserver://...?integrated+security=true&authenticator=krb5` across Linux, FreeBSD, OpenBSD, and macOS for pipeline `<database>` connections, `log_db` telemetry, `-import-file`/`-export`, and `db_importer`.
+   - Automatically strips MIT Kerberos `FILE:` prefixes from `KRB5CCNAME` / `KRB5_KTNAME` and qualifies unqualified `MSSQLSvc` SPNs using `AD_REALM` or `/etc/krb5.conf`.
+
+4. **Documentation (`docs/database_connection_strings.md`)**:
+   - Documented `authenticator=krb5`, `krb5-credcachefile`, `krb5-keytabfile`, `krb5-configfile`, `krb5-realm`, and `ServerSPN` parameters along with end-to-end Linux/FreeBSD/OpenBSD/macOS `kinit`, XML `<database>`, CLI, and `db_importer` examples.
+
+---
+
 ## Release Notes (v1.2.2) - Parameterized SQL Resource URIs, Multi-Platform Packaging & Quality Hardening
 
 ### Overview
